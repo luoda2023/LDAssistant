@@ -11,14 +11,14 @@ jobs:
         python-version: "3.10"
         architecture: "x64"
     - name: Install deps
-      run: pip install pyinstaller PyQt5 Pillow rapidocr-onnxtruntime
+      run: pip install pyinstaller PyQt5 Pillow rapidocr-onnxruntime
     - name: Decompress database
       shell: bash
       run: gunzip -f standards.db.gz
     - name: Encrypt database
       run: python encrypt_db.py
     - name: Build EXE
-      run: pyinstaller standard_checker.spec --nonconfirm
+      run: pyinstaller standard_checker.spec --noconfirm
     - name: Package
       run: Compress-Archive -Path dist/standard_checker/* -DestinationPath LDAssistant.zip
     - name: Upload artifact
