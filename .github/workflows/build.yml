@@ -13,8 +13,8 @@ jobs:
     - name: Install deps
       run: |
         pip install pyinstaller PyQt5 Pillow rapidocr-onnxruntime
-    - name: Decompress database
-      run: python -c "import gzip; data=gzip.decompress(open('standards.db.gz','rb').read()); open('standards.db','wb').write(data)"
+    - name: Scrape full database
+      run: python scraper.py
     - name: Encrypt database
       run: python encrypt_db.py
     - name: Build
