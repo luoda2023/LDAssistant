@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+!standard_checker.spec
+*.zip
+.DS_Store
