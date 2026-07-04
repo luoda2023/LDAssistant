@@ -1,0 +1,11 @@
+; WinRAR SFX 配置 - 规范标准助手 v10 安装包
+; 工程助手 LDAssistant v10（新数据库版）
+
+Title=规范标准助手 v10 安装程序
+Text=欢迎使用规范标准助手 v10！\n\n本工具支持：\n- OCR识别工程规范\n- 标准规范状态检查\n- Word报告导出\n- 30万+标准数据库\n\n点击「安装」开始安装。
+Setup=工程助手.exe
+TempMode
+Silent=2
+Overwrite=1
+Path=%USERPROFILE%\Desktop\规范标准助手_v10
+Shortcut=D,"工程助手.exe",,"工程助手_v10"

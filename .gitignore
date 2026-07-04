@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.spec
+!standard_checker.spec
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# WorkBuddy
+.workbuddy/
+
+# Database files - too large for git, handled in CI
+standards_new.db
+standards.db
+standards.db-shm
+standards.db-wal
+standards.dll
+
+# JSON data files
+all_standards_merged*.json
+all_standards_merged*.csv
+
+# OCR engine - large binary, downloaded separately in CI
+ocr/
+
+# Build artifacts
+*.zip
+工程助手_v10_安装程序.exe
+工程助手_v10_便携版.zip
+工程助手_v10_完整便携版.zip
+
+# System
+.DS_Store
+Thumbs.db

@@ -1,0 +1,146 @@
+name: 构建工程助手 v10
+
+on:
+  push:
+    branches:
+      - main
+      - v10-build
+      - 'v10.*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: 'x64'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyinstaller pillow pymupdf python-docx
+
+      - name: Prepare database
+        shell: bash
+        run: |
+          # ── 策略 ──
+          # 1) 先检查当前工作区是否有 DB
+          # 2) 找不到则通过 gh CLI 从 main 分支下载
+
+          if [ -f standards_new.db ]; then
+            echo "✅ Found standards_new.db in workspace"
+            ls -lh standards_new.db
+            exit 0
+          fi
+
+          if [ -f standards.db ]; then
+            echo "✅ Found standards.db — copying to standards_new.db"
+            cp standards.db standards_new.db
+            ls -lh standards_new.db
+            exit 0
+          fi
+
+          # ── 从 main 分支获取 ──
+          echo "No DB in workspace — downloading from main branch..."
+
+          # 尝试 standards_new.db
+          if gh api repos/${{ github.repository }}/contents/standards_new.db?ref=main \
+               -H "Accept: application/vnd.github.v3.raw" \
+               > standards_new.db 2>/dev/null; then
+            if [ -s standards_new.db ]; then
+              echo "✅ Downloaded standards_new.db from main branch"
+              ls -lh standards_new.db
+              exit 0
+            fi
+          fi
+
+          # 尝试 standards.db.gz
+          if gh api repos/${{ github.repository }}/contents/standards.db.gz?ref=main \
+               -H "Accept: application/vnd.github.v3.raw" \
+               > standards.db.gz 2>/dev/null; then
+            if [ -s standards.db.gz ]; then
+              echo "✅ Downloaded standards.db.gz from main — decompressing..."
+              gunzip -f standards.db.gz
+              cp standards.db standards_new.db
+              ls -lh standards_new.db
+              exit 0
+            fi
+          fi
+
+          # 尝试 standards.db
+          if gh api repos/${{ github.repository }}/contents/standards.db?ref=main \
+               -H "Accept: application/vnd.github.v3.raw" \
+               > standards.db 2>/dev/null; then
+            if [ -s standards.db ]; then
+              echo "✅ Downloaded standards.db from main — copying..."
+              cp standards.db standards_new.db
+              ls -lh standards_new.db
+              exit 0
+            fi
+          fi
+
+          echo "❌ Cannot find any database file — build will fail"
+          exit 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller standard_checker.spec --noconfirm
+        timeout-minutes: 30
+
+      - name: Check build output
+        shell: bash
+        run: |
+          echo "=== Build output ==="
+          if [ -f dist/工程助手.exe ]; then
+            echo "✅ EXE built successfully"
+            ls -lh dist/工程助手.exe
+          else
+            echo "⚠️ EXE not found at expected path"
+          fi
+          if [ -d dist/工程助手_v10 ]; then
+            echo "✅ Folder output found"
+            ls -lh dist/工程助手_v10/
+          else
+            echo "⚠️ Folder output not found"
+          fi
+
+      - name: Package portable ZIP (single-file)
+        shell: powershell
+        run: |
+          if (Test-Path "dist/工程助手.exe") {
+            Compress-Archive -Path "dist/工程助手.exe" -DestinationPath "工程助手_v10_便携版.zip" -Force
+            Write-Host "✅ 便携版 ZIP 已创建"
+          }
+
+      - name: Package full ZIP (folder)
+        shell: powershell
+        run: |
+          if (Test-Path "dist/工程助手_v10") {
+            Compress-Archive -Path "dist/工程助手_v10/*" -DestinationPath "工程助手_v10_完整版.zip" -Force
+            Write-Host "✅ 完整版 ZIP 已创建"
+          }
+
+      - name: Upload portable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: 工程助手_v10_便携版
+          path: 工程助手_v10_便携版.zip
+          if-no-files-found: warn
+
+      - name: Upload full build
+        uses: actions/upload-artifact@v4
+        with:
+          name: 工程助手_v10_完整版
+          path: 工程助手_v10_完整版.zip
+          if-no-files-found: warn
