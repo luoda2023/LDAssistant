@@ -102,7 +102,6 @@ a = Analysis(
         "unittest",
         "email",
         "http",
-        "urllib",
         "xml",
         "pdb",
         "py_compile",
