@@ -666,6 +666,9 @@ class App:
         self._splash.destroy()
         self._splash = None
         self.root.deiconify()
+        # 只在 UI 完全构建后才启动周期性重绘
+        if hasattr(self, 'pdf_canvas') and self.pdf_canvas:
+            self._start_periodic_redraw()
 
     def _get_font_family(self):
         """智能获取系统字体：优先微软雅黑，回退到宋体"""
@@ -1402,17 +1405,20 @@ class App:
 
     def _start_periodic_redraw(self):
         """Start periodic check for canvas resize."""
+        if not hasattr(self, 'pdf_canvas') or not self.pdf_canvas:
+            return  # UI not ready yet
         self._last_canvas_size = (self.pdf_canvas.winfo_width(), self.pdf_canvas.winfo_height())
         self._periodic_redraw()
 
     def _periodic_redraw(self):
         """Periodically check if canvas size changed and redraw."""
-        if hasattr(self, '_current_base_image') and self._current_base_image and self.pdf_images:
-            current_size = (self.pdf_canvas.winfo_width(), self.pdf_canvas.winfo_height())
-            if current_size != getattr(self, '_last_canvas_size', None):
-                self._last_canvas_size = current_size
-                if current_size[0] > 10 and current_size[1] > 10:
-                    self._redraw_current_page()
+        if hasattr(self, 'pdf_canvas') and self.pdf_canvas:
+            if hasattr(self, '_current_base_image') and self._current_base_image and self.pdf_images:
+                current_size = (self.pdf_canvas.winfo_width(), self.pdf_canvas.winfo_height())
+                if current_size != getattr(self, '_last_canvas_size', None):
+                    self._last_canvas_size = current_size
+                    if current_size[0] > 10 and current_size[1] > 10:
+                        self._redraw_current_page()
         self.root.after(200, self._periodic_redraw)
 
     def _redraw_current_page(self, canvas_w=None, canvas_h=None):
@@ -2325,7 +2331,6 @@ class App:
                  relief="flat", padx=20, pady=4).pack(side=tk.BOTTOM, pady=(10, 0))
 
     def run(self):
-        self._start_periodic_redraw()
         self.root.mainloop()
 
 
