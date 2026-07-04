@@ -8,6 +8,10 @@ on:
       - 'v10.*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   build:
     runs-on: windows-latest
@@ -168,19 +172,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # 仅在推送到 main 或 v10-build 时创建 Release，手动触发也创建
           TAG="v10-build-$(date +'%Y%m%d-%H%M%S')"
           echo "Creating release tag: $TAG"
 
-          # 获取便携版和完整版 ZIP 路径
+          # 构建附件参数
+          ASSETS=""
           PORTABLE_ZIP="${{ github.workspace }}/工程助手_v10_便携版.zip"
           FULL_ZIP="${{ github.workspace }}/工程助手_v10_完整版.zip"
 
-          # 创建 Release
+          if [ -f "$PORTABLE_ZIP" ]; then
+            ASSETS="$ASSETS \"$PORTABLE_ZIP\""
+          fi
+          if [ -f "$FULL_ZIP" ]; then
+            ASSETS="$ASSETS \"$FULL_ZIP\""
+          fi
+
+          # 创建 Release（注意 bash -e 模式下用 || true 避免中断）
           gh release create "$TAG" \
             --title "工程助手 v10 构建版 ($(date +'%Y-%m-%d %H:%M'))" \
             --notes "自动构建发布" \
             --target "${{ github.sha }}" \
-            $([ -f "$PORTABLE_ZIP" ] && echo "\"$PORTABLE_ZIP\"") \
-            $([ -f "$FULL_ZIP" ] && echo "\"$FULL_ZIP\"") \
-            || echo "⚠️ Release 创建失败（可能已存在同名标签）"
+            $ASSETS || echo "⚠️ Release 创建失败"
