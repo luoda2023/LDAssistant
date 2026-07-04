@@ -155,16 +155,10 @@ jobs:
           # 确认创建
           Get-ChildItem (Join-Path $root "工程助手_v10_*.zip") | Select-Object Name, Length
 
-      - name: Upload portable build
-        uses: actions/upload-artifact@v4
-        with:
-          name: 工程助手_v10_便携版
-          path: ${{ github.workspace }}/工程助手_v10_便携版.zip
-          if-no-files-found: warn
-
-      - name: Upload full build
+      - name: Upload full folder as artifact
         uses: actions/upload-artifact@v4
         with:
           name: 工程助手_v10_完整版
-          path: ${{ github.workspace }}/工程助手_v10_完整版.zip
+          path: |
+            dist/工程助手_v10/
           if-no-files-found: warn
