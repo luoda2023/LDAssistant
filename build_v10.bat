@@ -2,9 +2,9 @@
 chcp 65001 >nul
 
 :: ── 从 VERSION.py 读取版本号 ──
-for /f "tokens=*" %%i in ('powershell -Command "exec(open('J:\WorkBuddy-work\csres-standards\VERSION.py').read()); print(str(VERSION[0])+'.'+str(VERSION[1])+'.'+str(VERSION[2]))"') do set FULL_VER=%%i
-for /f "tokens=*" %%i in ('powershell -Command "exec(open('J:\WorkBuddy-work\csres-standards\VERSION.py').read()); print('v'+str(VERSION[0]))"') do set DISPLAY_VER=%%i
-for /f "tokens=*" %%i in ('powershell -Command "exec(open('J:\WorkBuddy-work\csres-standards\VERSION.py').read()); print(str(VERSION[0])+'.'+str(VERSION[1]))"') do set APP_VER=%%i
+for /f "tokens=*" %%i in ('powershell -Command "exec(open('J:\WorkBuddy-work\csres-standards\VERSION.py', encoding='utf-8').read()); print(str(VERSION[0])+'.'+str(VERSION[1])+'.'+str(VERSION[2]))"') do set FULL_VER=%%i
+for /f "tokens=*" %%i in ('powershell -Command "exec(open('J:\WorkBuddy-work\csres-standards\VERSION.py', encoding='utf-8').read()); print('v'+str(VERSION[0]))"') do set DISPLAY_VER=%%i
+for /f "tokens=*" %%i in ('powershell -Command "exec(open('J:\WorkBuddy-work\csres-standards\VERSION.py', encoding='utf-8').read()); print(str(VERSION[0])+'.'+str(VERSION[1]))"') do set APP_VER=%%i
 
 echo VERSION: %FULL_VER% / %DISPLAY_VER% / %APP_VER%
 

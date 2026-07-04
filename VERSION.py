@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-工程助手 LDAssistant — 版本号统一管理
-每次构建/提交前运行 bump_version.bat 自动更新补丁号
+LDAssistant - Version management
+Run bump_version.bat before each build to auto-increment patch number.
 """
 import os
 

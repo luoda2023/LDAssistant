@@ -37,10 +37,10 @@ jobs:
         id: version
         shell: bash
         run: |
-          # 从 VERSION.py 提取版本号
-          MAJOR=$(python -c "exec(open('VERSION.py').read()); print(VERSION[0])")
-          MINOR=$(python -c "exec(open('VERSION.py').read()); print(VERSION[1])")
-          PATCH=$(python -c "exec(open('VERSION.py').read()); print(VERSION[2])")
+          # 从 VERSION.py 提取版本号（显式 UTF-8 编码避免 Windows cp1252 问题）
+          MAJOR=$(python -c "exec(open('VERSION.py', encoding='utf-8').read()); print(VERSION[0])")
+          MINOR=$(python -c "exec(open('VERSION.py', encoding='utf-8').read()); print(VERSION[1])")
+          PATCH=$(python -c "exec(open('VERSION.py', encoding='utf-8').read()); print(VERSION[2])")
           echo "VERSION_STR=$MAJOR.$MINOR.$PATCH" >> $GITHUB_OUTPUT
           echo "VERSION_DISPLAY=v$MAJOR" >> $GITHUB_OUTPUT
           echo "VERSION_APP=$MAJOR.$MINOR" >> $GITHUB_OUTPUT
@@ -286,10 +286,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # 从 VERSION.py 读取版本号
-          MAJOR=$(python -c "exec(open('VERSION.py').read()); print(VERSION[0])")
-          MINOR=$(python -c "exec(open('VERSION.py').read()); print(VERSION[1])")
-          PATCH=$(python -c "exec(open('VERSION.py').read()); print(VERSION[2])")
+          # 从 VERSION.py 读取版本号（显式 UTF-8 编码）
+          MAJOR=$(python -c "exec(open('VERSION.py', encoding='utf-8').read()); print(VERSION[0])")
+          MINOR=$(python -c "exec(open('VERSION.py', encoding='utf-8').read()); print(VERSION[1])")
+          PATCH=$(python -c "exec(open('VERSION.py', encoding='utf-8').read()); print(VERSION[2])")
           VERSION_DISPLAY="v${MAJOR}"
           VERSION_APP="${MAJOR}.${MINOR}"
           NOW=$(date +'%Y%m%d-%H%M%S')
