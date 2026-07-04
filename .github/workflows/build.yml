@@ -158,10 +158,10 @@ jobs:
           ls -lh "$OUTDIR/" 2>/dev/null || echo "(empty)"
           
           # ── 创建便携版 ZIP（仅单 EXE）──
+          # 注意：使用英文文件名避免 gh CLI 在 Windows 上截断中文
           echo "--- Creating portable ZIP ---"
-          PORTABLE_ZIP="$ROOT/工程助手_v10_便携版.zip"
+          PORTABLE_ZIP="$ROOT/ldassistant-portable.zip"
           if [ -f "$OUTDIR/工程助手.exe" ]; then
-            # 用 7z（Windows runner 自带）或 zip 命令
             if command -v 7z &>/dev/null; then
               (cd "$OUTDIR" && 7z a -mx=9 "$PORTABLE_ZIP" "工程助手.exe" >/dev/null)
             else
@@ -174,7 +174,7 @@ jobs:
           
           # ── 创建完整版 ZIP（整个目录）──
           echo "--- Creating full ZIP ---"
-          FULL_ZIP="$ROOT/工程助手_v10_完整版.zip"
+          FULL_ZIP="$ROOT/ldassistant-full.zip"
           if [ -d "$OUTDIR" ] && [ "$(ls -A "$OUTDIR")" ]; then
             if command -v 7z &>/dev/null; then
               7z a -mx=9 "$FULL_ZIP" "$ROOT/$OUTDIR/" >/dev/null
@@ -237,8 +237,8 @@ jobs:
 
           # 再逐个上传附件
           ASSETS=()
-          PORTABLE_ZIP="${{ github.workspace }}/工程助手_v10_便携版.zip"
-          FULL_ZIP="${{ github.workspace }}/工程助手_v10_完整版.zip"
+          PORTABLE_ZIP="${{ github.workspace }}/ldassistant-portable.zip"
+          FULL_ZIP="${{ github.workspace }}/ldassistant-full.zip"
           
           for f in "$PORTABLE_ZIP" "$FULL_ZIP"; do
             if [ -f "$f" ]; then
