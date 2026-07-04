@@ -17,6 +17,8 @@ import re
 import subprocess
 import tempfile
 import threading
+import glob
+import shutil
 from pathlib import Path
 from datetime import datetime
 
@@ -123,6 +125,30 @@ def normalize_for_matching(text):
     result = re.sub(r'CJJJ', 'CJJ', result, flags=re.IGNORECASE)
     # DGJ -> DG/TJ (OCR漏识别了斜杠和T)
     result = re.sub(r'DGJ(?=\d)', 'DG/TJ', result, flags=re.IGNORECASE)
+    return result
+
+
+def preprocess_ocr_text(text):
+    """OCR 文本预处理：全角字母数字→半角、常见OCR误识修正、符号统一
+    此函数用于显示前预处理，不影响 normalize_for_matching 的独立逻辑。"""
+    if not text:
+        return text
+
+    # 1. 全角英文字母/数字 → 半角（已有的函数能处理全角符号，但全角字母也需要）
+    # fullwidth_to_halfwidth 已经处理了 FF01-FF5E（含全角字母数字）
+
+    # 2. 常见 OCR 数字/字母混淆修正（只在明显语境下修正）
+    # 注意：这些修正只针对明显错误的上下文，避免过度修正
+    # 字母 O → 数字 0 （在编号语境中）
+    result = re.sub(r'(?<=[A-Z]{1,3})O(?=\d)', '0', text, flags=re.IGNORECASE)
+    # 字母 I → 数字 1 （在编号语境中）
+    result = re.sub(r'(?<=[A-Z]{1,3})I(?=\d)', '1', result, flags=re.IGNORECASE)
+    # 数字 0 → 字母 O （在字母后、数字前 且 0 后跟字母）
+    result = re.sub(r'(?<=[A-Z])0(?=[A-Z])', 'O', result, flags=re.IGNORECASE)
+
+    # 3. 中文逗号/句号/分号混用修正（显示时保留中文字符可读性，不影响匹配）
+    # normalize_for_matching 会处理符号转换，这里不做额外处理
+
     return result
 
 
@@ -526,7 +552,7 @@ class App:
         self.checker = None
         self.pdf_paths = []
         self.current_path = None
-        self.file_type = None  # 'pdf', 'docx', 'txt', 'dxf'
+        self.file_type = None  # 'pdf', 'docx', 'txt', 'dwg'
         self.pdf_images = []
         self.pdf_images_meta = []  # 文件元信息（用于 DXF 等非 PDF 文件）
         self.ocr_results = []
@@ -1123,12 +1149,12 @@ class App:
 
     def open_file(self):
         paths = filedialog.askopenfilenames(
-            title="选择文件（PDF/WORD/TXT/DXF）",
+            title="选择文件（PDF/WORD/DWG/TXT）",
             filetypes=[
                 ("PDF files", "*.pdf"),
                 ("Word files", "*.docx"),
+                ("DWG files", "*.dwg"),
                 ("Text files", "*.txt"),
-                ("DXF files", "*.dxf"),
                 ("All files", "*.*")
             ]
         )
@@ -1143,8 +1169,6 @@ class App:
             self.file_type = 'docx'
         elif ext == '.txt':
             self.file_type = 'txt'
-        elif ext == '.dxf':
-            self.file_type = 'dxf'
         elif ext == '.dwg':
             self.file_type = 'dwg'
         else:
@@ -1157,11 +1181,8 @@ class App:
         self.root.update_idletasks()
         if self.file_type == 'pdf':
             self.convert_pdf_to_images()
-        elif self.file_type == 'dxf':
-            self._render_dxf_to_image()
         elif self.file_type == 'dwg':
-            self.status_var.set("⚠️ DWG 文件需在 AutoCAD 中另存为 DXF 或 PDF 后打开")
-            messagebox.showinfo("提示", "DWG 文件暂不支持直接预览。\n请先在 AutoCAD 中另存为 DXF 或 PDF 格式再打开。")
+            self._render_dwg_to_image()
         else:
             self.extract_text_file()
 
@@ -1247,77 +1268,154 @@ class App:
             messagebox.showerror("错误", f"读取文件失败: {e}")
             self.status_var.set("读取文件失败")
 
-    def _render_dxf_to_image(self):
-        """将 DXF 文件渲染为图像，在左侧预览"""
-        if not self.current_path or self.file_type != 'dxf':
+    def _render_dwg_to_image(self):
+        """将 DWG 文件转换为 PDF 后预览（使用 ODA File Converter 免费引擎）"""
+        if not self.current_path or self.file_type != 'dwg':
             return
-        self.status_var.set("正在渲染 DXF...")
+        self.status_var.set("正在转换 DWG → PDF...")
         self.progress_var.set(0)
         self.pdf_images = []
         self.ocr_results = []
 
-        try:
-            import ezdxf
-            from ezdxf.addons.drawing import RenderContext, Frontend
-            from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
-            import matplotlib
-            matplotlib.use('Agg')
-            import matplotlib.pyplot as plt
+        # 查找 ODA File Converter
+        oda_exe = None
+        # 扫描版本化目录
+        for base in [r"C:\Program Files\ODA", r"C:\Program Files (x86)\ODA"]:
+            for d in sorted(glob.glob(os.path.join(base, "ODAFileConverter*")), reverse=True):
+                p = os.path.join(d, "ODAFileConverter.exe")
+                if os.path.exists(p):
+                    oda_exe = p
+                    break
+            if oda_exe:
+                break
 
-            doc = ezdxf.readfile(self.current_path)
-            msp = doc.modelspace()
+        if not oda_exe:
+            # 检查标准路径
+            oda_candidates = [
+                r"C:\Program Files\ODA\ODAFileConverter\ODAFileConverter.exe",
+                r"C:\Program Files (x86)\ODA\ODAFileConverter\ODAFileConverter.exe",
+            ]
+            for p in oda_candidates:
+                if os.path.exists(p):
+                    oda_exe = p
+                    break
 
-            # 创建 matplotlib 图形
-            fig, ax = plt.subplots(figsize=(16, 12), dpi=150)
-            ax.set_aspect('equal')
-            ax.axis('off')
+        if not oda_exe:
+            # 检查 PATH
+            oda_exe = shutil.which("ODAFileConverter.exe")
 
-            # 使用 ezdxf 渲染后端
-            ctx = RenderContext(doc)
-            backend = MatplotlibBackend(ax)
-            Frontend(ctx, backend).draw(msp)
-
-            # 自动适配边界
-            if msp:
-                bounds = msp.audit() or True
-                try:
-                    extents = msp.extents()
-                    if extents and extents[0] and extents[1]:
-                        xmin, ymin = extents[0]
-                        xmax, ymax = extents[1]
-                        if xmax > xmin and ymax > ymin:
-                            margin = max((xmax - xmin), (ymax - ymin)) * 0.05
-                            ax.set_xlim(xmin - margin, xmax + margin)
-                            ax.set_ylim(ymin - margin, ymax + margin)
-                except Exception:
-                    pass
-
-            # 渲染到临时 PNG
-            img_path = tempfile.mktemp(suffix='.png')
-            fig.savefig(img_path, bbox_inches='tight', pad_inches=0.1,
-                       facecolor='white', dpi=150)
-            plt.close(fig)
-
-            self.pdf_images.append(img_path)
-            self.pdf_images_meta = [{'type': 'dxf', 'path': self.current_path}]
-            self.status_var.set(f"DXF 已渲染: {Path(self.current_path).name}")
-
-        except ImportError:
-            messagebox.showerror("缺少依赖", "需要安装 ezdxf 和 matplotlib 才能预览 DXF。\n请运行: pip install ezdxf matplotlib")
-            self.status_var.set("渲染 DXF 失败：缺少依赖库")
+        if not oda_exe:
+            msg = (
+                "打开 DWG 文件需要 ODA File Converter（免费）。\n\n"
+                "请下载安装：\n"
+                "https://www.opendesign.com/guestfiles/oda_file_converter\n\n"
+                "安装后重启本程序即可自动识别。\n"
+                "ODA 引擎兼容所有 AutoCAD 版本（R12~2024），\n"
+                "内置常用 SHX 字体映射，文字显示完整。"
+            )
+            messagebox.showinfo("需要 ODA File Converter", msg)
+            self.status_var.set("请安装 ODA File Converter 后重试")
             return
+
+        try:
+            # 创建临时目录，只放入当前 DWG 文件（避免 ODA 处理整个文件夹）
+            import uuid
+            temp_dir = tempfile.mkdtemp(prefix="dwg_")
+            # 复制 DWG 到临时目录
+            dwg_name = Path(self.current_path).name
+            temp_dwg = os.path.join(temp_dir, dwg_name)
+            shutil.copy2(self.current_path, temp_dwg)
+
+            input_dir = temp_dir
+            output_dir = temp_dir  # ODA 输出到同一目录，但扩展名不同
+
+            # ODAFileConverter 命令行：
+            # ODAFileConverter.exe <input_dir> <output_dir> <input_ver> <output_ver> <output_type> [Recursive] [Audit]
+            cmd = [
+                oda_exe,
+                input_dir,
+                output_dir,
+                "ACAD2024",         # 输入版本
+                "PDF",              # 输出格式
+                "0",                # 0=不递归子目录
+                "1",                # 审计修复
+            ]
+
+            self.status_var.set("ODA 转换中，请稍候...")
+            self.root.update_idletasks()
+
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=120,
+                cwd=os.path.dirname(oda_exe),
+            )
+
+            # ODA 输出的 PDF 文件名与 DWG 同名
+            dwg_stem = Path(self.current_path).stem
+            expected_pdf = os.path.join(output_dir, f"{dwg_stem}.pdf")
+
+            if os.path.exists(expected_pdf):
+                self.current_path = expected_pdf
+                self.file_type = 'pdf'
+                self.pdf_images_meta = [{'type': 'dwg', 'source': self.current_path}]
+                self.convert_pdf_to_images()
+                self.status_var.set(f"DWG 已转换: {dwg_stem}.pdf → {len(self.pdf_images)} 页")
+            else:
+                # 检查是否生成了其他 PDF
+                pdf_files = list(Path(output_dir).glob("*.pdf"))
+                if pdf_files:
+                    self.current_path = str(pdf_files[0])
+                    self.file_type = 'pdf'
+                    self.pdf_images_meta = [{'type': 'dwg', 'source': self.current_path}]
+                    self.convert_pdf_to_images()
+                else:
+                    stderr = (proc.stderr or "")[:500]
+                    stdout = (proc.stdout or "")[:500]
+                    print(f"ODA 转换失败。stdout: {stdout}\nstderr: {stderr}")
+                    messagebox.showerror("DWG 转换失败",
+                        f"ODA File Converter 未能生成 PDF。\n\n"
+                        f"请确认 DWG 文件不是加密或损坏的。\n"
+                        f"日志: {stdout[-100:]}")
+                    self.status_var.set("DWG 转换失败")
+
+        except subprocess.TimeoutExpired:
+            messagebox.showerror("超时", "DWG 转换超时（超过 120 秒），请检查文件大小。")
+            self.status_var.set("DWG 转换超时")
         except Exception as e:
             import traceback
             traceback.print_exc()
-            messagebox.showerror("DXF 错误", f"无法渲染 DXF 文件:\n{e}")
-            self.status_var.set(f"渲染 DXF 失败: {e}")
-            return
+            messagebox.showerror("DWG 错误", f"无法渲染 DWG 文件:\n{e}")
+            self.status_var.set(f"渲染 DWG 失败: {e}")
 
-        if self.pdf_images:
-            self.show_page(0)
+    def _preprocess_ocr_text(self, text):
+        """OCR 文本预处理：全角→半角、符号统一、常见 OCR 误识修正"""
+        if not text:
+            return text
+        result = fullwidth_to_halfwidth(text)
+        # 全角符号→半角（补充 normalize_for_matching 未覆盖的符号）
+        extra_punct = {
+            '\u3000': ' ',   # 全角空格
+            '\u00B7': '.',   # 中间点 ·
+            '\u2022': '.',   # 项目符号 •
+            '\u25CB': '0',   # ○ → 0
+            '\u25CF': '.',   # ● → .（常用作分段标记）
+            '\u3010': '[',   # 【
+            '\u3011': ']',   # 】
+            '\u3008': '<',   # 〈
+            '\u3009': '>',   # 〉
+            '\u300A': '<',   # 《
+            '\u300B': '>',   # 》
+        }
+        for cn, en in extra_punct.items():
+            result = result.replace(cn, en)
+        return result
 
     def _extract_codes_from_text(self, text):
         """Extract standard codes and names from text and populate list."""
+        # ── OCR 文本预处理：全角字母数字→半角 + 符号统一 ──
+        text = self._preprocess_ocr_text(text)
         raw_codes = CODE_PATTERN.findall(text)
         raw_names = NAME_PATTERN.findall(text)
         name_map = {}
@@ -1410,7 +1508,7 @@ class App:
         self._draw_code_markers_for_page(idx, scale)
 
     def _prev_page(self):
-        if self.file_type not in ('pdf', 'dxf') or not self.pdf_images:
+        if self.file_type != 'pdf' or not self.pdf_images:
             return
         idx = getattr(self, 'current_display_index', 0) - 1
         if idx < 0:
@@ -1418,7 +1516,7 @@ class App:
         self.show_page(idx)
 
     def _next_page(self):
-        if self.file_type not in ('pdf', 'dxf') or not self.pdf_images:
+        if self.file_type != 'pdf' or not self.pdf_images:
             return
         idx = getattr(self, 'current_display_index', 0) + 1
         if idx >= len(self.pdf_images):
