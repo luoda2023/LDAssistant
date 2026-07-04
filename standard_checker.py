@@ -571,6 +571,9 @@ class App:
         # ── Deferred initialization via after() ──
         self.root.after(50, self._init_step1)
 
+        # ── Watchdog guard: 25 秒后强制显示主窗口 ──
+        self._watchdog_id = self.root.after(25000, self._init_watchdog)
+
     # ──────────────────────────────
     #  Splash screen
     # ──────────────────────────────
@@ -591,14 +594,19 @@ class App:
         # Prevent splash from being closed
         splash.protocol("WM_DELETE_WINDOW", lambda: None)
 
-        # Get available font
+        # Get available font — 直接测试候选字体，避免 font.families() 全量枚举（可卡死）
         from tkinter import font as _tkfont
-        _available_fonts = [f.lower() for f in _tkfont.families(splash)]
         _splash_ff = "TkDefaultFont"
-        for pref in ('microsoft yahei', '微软雅黑', 'microsoft yahei ui', 'simsun'):
-            if pref in _available_fonts:
-                _splash_ff = 'Microsoft YaHei' if 'microsoft' in pref else 'SimSun'
-                break
+        for _candidate in ('Microsoft YaHei', '微软雅黑', 'Microsoft YaHei UI', 'SimSun'):
+            try:
+                _tf = _tkfont.Font(family=_candidate, size=10)
+                _actual = _tf.actual()
+                _tf.destroy()
+                if _candidate.lower() in _actual['family'].lower():
+                    _splash_ff = _candidate
+                    break
+            except Exception:
+                continue
 
         # Title
         title_lbl = tk.Label(splash, text="工程助手 LDAssistant",
@@ -656,31 +664,67 @@ class App:
 
     def _init_step2(self):
         """Phase 2: Build UI"""
-        self._update_splash("正在初始化界面...", 100)
-        self._setup_style()
-        self.setup_ui()
-        self.root.after(20, self._init_done)
+        try:
+            self._update_splash("正在初始化界面...", 100)
+            self._setup_style()
+            self.setup_ui()
+            self.root.after(20, self._init_done)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._update_splash(f"初始化界面失败: {e}. 正在尝试继续...", 100)
+            self.root.after(20, self._init_done)
 
     def _init_done(self):
         """Final: close splash, show main window"""
-        self._splash.destroy()
+        # 取消看门狗
+        if hasattr(self, '_watchdog_id') and self._watchdog_id:
+            try:
+                self.root.after_cancel(self._watchdog_id)
+            except Exception:
+                pass
+            self._watchdog_id = None
+        if self._splash:
+            try:
+                self._splash.destroy()
+            except Exception:
+                pass
         self._splash = None
         self.root.deiconify()
         # 只在 UI 完全构建后才启动周期性重绘
         if hasattr(self, 'pdf_canvas') and self.pdf_canvas:
             self._start_periodic_redraw()
 
+    def _init_watchdog(self):
+        """看门狗：_init_done 超时时强制关闭 splash 显示主窗口"""
+        self._watchdog_id = None
+        if self._splash:
+            try:
+                self._splash.destroy()
+            except Exception:
+                pass
+            self._splash = None
+        self.root.deiconify()
+        if hasattr(self, 'pdf_canvas') and self.pdf_canvas:
+            self._start_periodic_redraw()
+
     def _get_font_family(self):
-        """智能获取系统字体：优先微软雅黑，回退到宋体"""
+        """智能获取系统字体：直接测试候选字体，避免枚举全部字体（可导致卡死）"""
         try:
             from tkinter import font
-            available = [f.lower() for f in font.families(self.root)]
-            for preferred in ('microsoft yahei', '微软雅黑', 'microsoft yahei ui'):
-                if preferred in available:
-                    return 'Microsoft YaHei'
-            return 'SimSun'
+            # 直接测试各候选字体，不枚举 font.families()（某些系统枚举全部字体会卡死）
+            for candidate in ('Microsoft YaHei', '微软雅黑', 'Microsoft YaHei UI', 'SimSun'):
+                try:
+                    f = font.Font(family=candidate, size=10)
+                    actual = f.actual()
+                    f.destroy()
+                    if candidate.lower() in actual['family'].lower():
+                        return candidate
+                except Exception:
+                    continue
         except Exception:
-            return 'SimSun'
+            pass
+        return 'SimSun'
 
     def _setup_style(self):
         style = ttk.Style()
