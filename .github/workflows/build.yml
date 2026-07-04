@@ -1,4 +1,4 @@
-name: 构建工程助手 v10
+name: 构建工程助手
 
 on:
   push:
@@ -31,7 +31,20 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pyinstaller pillow pymupdf python-docx
+          pip install pyinstaller pillow pymupdf python-docx ezdxf matplotlib
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          # 从 VERSION.py 提取版本号
+          MAJOR=$(python -c "exec(open('VERSION.py').read()); print(VERSION[0])")
+          MINOR=$(python -c "exec(open('VERSION.py').read()); print(VERSION[1])")
+          PATCH=$(python -c "exec(open('VERSION.py').read()); print(VERSION[2])")
+          echo "VERSION_STR=$MAJOR.$MINOR.$PATCH" >> $GITHUB_OUTPUT
+          echo "VERSION_DISPLAY=v$MAJOR" >> $GITHUB_OUTPUT
+          echo "VERSION_APP=$MAJOR.$MINOR" >> $GITHUB_OUTPUT
+          echo "version=$MAJOR.$MINOR.$PATCH ($MAJOR.$MINOR)"
 
       - name: Prepare database
         shell: bash
@@ -273,18 +286,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v10-build-$(date +'%Y%m%d-%H%M%S')"
+          # 从 VERSION.py 读取版本号
+          MAJOR=$(python -c "exec(open('VERSION.py').read()); print(VERSION[0])")
+          MINOR=$(python -c "exec(open('VERSION.py').read()); print(VERSION[1])")
+          PATCH=$(python -c "exec(open('VERSION.py').read()); print(VERSION[2])")
+          VERSION_DISPLAY="v${MAJOR}"
+          VERSION_APP="${MAJOR}.${MINOR}"
+          NOW=$(date +'%Y%m%d-%H%M%S')
+          TAG="${VERSION_DISPLAY}-build-${NOW}"
           echo "Creating release tag: $TAG"
 
           # 先创建 Release（不含附件）
           gh release create "$TAG" \
-            --title "工程助手 v10 构建版 ($(date +'%Y-%m-%d %H:%M'))" \
-            --notes "自动构建发布" \
+            --title "工程助手 ${VERSION_DISPLAY} 构建版 ($(date +'%Y-%m-%d %H:%M'))" \
+            --notes "版本 ${VERSION_APP}.${PATCH} — 自动构建发布" \
             --target "${{ github.sha }}" || {
             echo "❌ Release creation failed"
             exit 0
           }
-          echo "✅ Release $TAG created"
+          echo "✅ Release $TAG created (v${MAJOR}.${MINOR}.${PATCH})"
 
           # 睡眠 2 秒确保 Release 就绪
           sleep 2

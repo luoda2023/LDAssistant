@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-	工程助手 LDAssistant v10（新数据库版）
+	工程助手 LDAssistant（新数据库版）
 功能：
 1. 上传PDF/WORD/TXT文件（支持多文件）
 2. 选择识别区域（拖拽矩形，后续页面按同一区域识别）
@@ -19,6 +19,8 @@ import tempfile
 import threading
 from pathlib import Path
 from datetime import datetime
+
+from VERSION import VERSION_STR, VERSION_DISPLAY, VERSION_APP
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -475,7 +477,7 @@ def mask_seals_pil(image_path, out_path=None):
         max_side = 1600
         if max(w, h) > max_side:
             scale = max_side / max(w, h)
-            img_small = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+            img_small = img.resize((int(w * scale), int(h * scale)), Image.Resampling.BOX)
         else:
             img_small = img
             scale = 1.0
@@ -524,8 +526,9 @@ class App:
         self.checker = None
         self.pdf_paths = []
         self.current_path = None
-        self.file_type = None  # 'pdf', 'docx', 'txt'
+        self.file_type = None  # 'pdf', 'docx', 'txt', 'dxf'
         self.pdf_images = []
+        self.pdf_images_meta = []  # 文件元信息（用于 DXF 等非 PDF 文件）
         self.ocr_results = []
         self.extracted_codes = []
         self.extracted_code_info = {}  # code -> {name, original}
@@ -626,7 +629,7 @@ class App:
         progress.start(15)
 
         # Version
-        ver_lbl = tk.Label(splash, text="v10 · 新数据库版",
+        ver_lbl = tk.Label(splash, text=f"{VERSION_DISPLAY} · 新数据库版",
                            fg="#708090", bg="#1E3A5F",
                            font=(_splash_ff, 8))
         ver_lbl.pack()
@@ -659,7 +662,14 @@ class App:
             pct = int(curr / max(total, 1) * 100)
             self._update_splash(msg, pct)
 
-        self.checker = StandardChecker(progress_callback=progress_cb)
+        try:
+            self.checker = StandardChecker(progress_callback=progress_cb)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._update_splash(f"⚠️ 数据库加载失败: {e}", 100)
+            self.checker = None  # 标记为不可用
+
         self.root.after(20, self._init_step2)
 
     def _init_step2(self):
@@ -875,7 +885,7 @@ class App:
                     header_img_height = 36
                     ratio = header_img_height / max(logo_img.height, 1)
                     new_size = (max(1, int(logo_img.width * ratio)), max(1, int(logo_img.height * ratio)))
-                    logo_img = logo_img.resize(new_size, Image.Resampling.LANCZOS)
+                    logo_img = logo_img.resize(new_size, Image.Resampling.BOX)
                     self._logo_photo = ImageTk.PhotoImage(logo_img)
                     logo_lbl = tk.Label(logotext_frame, image=self._logo_photo, bg="#FFFFFF", cursor="hand2")
                     logo_lbl.pack(side=tk.LEFT, padx=(0, 10))
@@ -887,7 +897,7 @@ class App:
         title_lbl = tk.Label(logotext_frame, text="规范标准助手", font=(self._font_family, 18, "bold"),
                              fg="#1E3A5F", bg="#FFFFFF")
         title_lbl.pack(side=tk.LEFT)
-        ver_badge = tk.Label(logotext_frame, text="v10", font=(self._font_family, 9, "bold"),
+        ver_badge = tk.Label(logotext_frame, text=VERSION_DISPLAY, font=(self._font_family, 9, "bold"),
                              fg="#FFFFFF", bg="#2B6CB0", padx=5, pady=1)
         ver_badge.pack(side=tk.LEFT, padx=(6, 0))
 
@@ -1090,6 +1100,9 @@ class App:
         # Selection helper
         self.selector = RegionSelector(self.pdf_canvas, None, self._on_region_selected)
 
+        # 初始化左侧面板显示（默认显示文本输入模式）
+        self._on_left_mode_changed()
+
     def _on_left_mode_changed(self):
         mode = self._left_mode_var.get()
         if mode == 'text':
@@ -1110,11 +1123,12 @@ class App:
 
     def open_file(self):
         paths = filedialog.askopenfilenames(
-            title="选择文件（PDF/WORD/TXT）",
+            title="选择文件（PDF/WORD/TXT/DXF）",
             filetypes=[
                 ("PDF files", "*.pdf"),
                 ("Word files", "*.docx"),
                 ("Text files", "*.txt"),
+                ("DXF files", "*.dxf"),
                 ("All files", "*.*")
             ]
         )
@@ -1129,14 +1143,25 @@ class App:
             self.file_type = 'docx'
         elif ext == '.txt':
             self.file_type = 'txt'
+        elif ext == '.dxf':
+            self.file_type = 'dxf'
+        elif ext == '.dwg':
+            self.file_type = 'dwg'
         else:
             self.file_type = 'unknown'
 
         self.status_var.set(f"已打开 {len(self.pdf_paths)} 个文件，当前: {Path(self.current_path).name}")
         self._left_mode_var.set('file')
         self._on_left_mode_changed()
+        # 强制更新布局，确保 canvas 拿到真实尺寸
+        self.root.update_idletasks()
         if self.file_type == 'pdf':
             self.convert_pdf_to_images()
+        elif self.file_type == 'dxf':
+            self._render_dxf_to_image()
+        elif self.file_type == 'dwg':
+            self.status_var.set("⚠️ DWG 文件需在 AutoCAD 中另存为 DXF 或 PDF 后打开")
+            messagebox.showinfo("提示", "DWG 文件暂不支持直接预览。\n请先在 AutoCAD 中另存为 DXF 或 PDF 格式再打开。")
         else:
             self.extract_text_file()
 
@@ -1159,9 +1184,17 @@ class App:
                 self.pdf_images.append(img_path)
                 self.progress_var.set((page_num + 1) / total * 100)
                 self.root.update_idletasks()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.pdf_images = []
+            self.status_var.set(f"❌ PDF 打开失败: {e}")
+            messagebox.showerror("PDF 错误", f"无法打开 PDF 文件:\n{e}\n\n请确认文件不是加密或损坏的。")
+            return
         finally:
             if doc is not None:
                 doc.close()
+
         self.status_var.set(f"PDF 已转换: {len(self.pdf_images)} 页")
         self.page_var.set(f"第 1 / {len(self.pdf_images)} 页")
         self.progress_var.set(0)
@@ -1213,6 +1246,75 @@ class App:
         except Exception as e:
             messagebox.showerror("错误", f"读取文件失败: {e}")
             self.status_var.set("读取文件失败")
+
+    def _render_dxf_to_image(self):
+        """将 DXF 文件渲染为图像，在左侧预览"""
+        if not self.current_path or self.file_type != 'dxf':
+            return
+        self.status_var.set("正在渲染 DXF...")
+        self.progress_var.set(0)
+        self.pdf_images = []
+        self.ocr_results = []
+
+        try:
+            import ezdxf
+            from ezdxf.addons.drawing import RenderContext, Frontend
+            from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+
+            doc = ezdxf.readfile(self.current_path)
+            msp = doc.modelspace()
+
+            # 创建 matplotlib 图形
+            fig, ax = plt.subplots(figsize=(16, 12), dpi=150)
+            ax.set_aspect('equal')
+            ax.axis('off')
+
+            # 使用 ezdxf 渲染后端
+            ctx = RenderContext(doc)
+            backend = MatplotlibBackend(ax)
+            Frontend(ctx, backend).draw(msp)
+
+            # 自动适配边界
+            if msp:
+                bounds = msp.audit() or True
+                try:
+                    extents = msp.extents()
+                    if extents and extents[0] and extents[1]:
+                        xmin, ymin = extents[0]
+                        xmax, ymax = extents[1]
+                        if xmax > xmin and ymax > ymin:
+                            margin = max((xmax - xmin), (ymax - ymin)) * 0.05
+                            ax.set_xlim(xmin - margin, xmax + margin)
+                            ax.set_ylim(ymin - margin, ymax + margin)
+                except Exception:
+                    pass
+
+            # 渲染到临时 PNG
+            img_path = tempfile.mktemp(suffix='.png')
+            fig.savefig(img_path, bbox_inches='tight', pad_inches=0.1,
+                       facecolor='white', dpi=150)
+            plt.close(fig)
+
+            self.pdf_images.append(img_path)
+            self.pdf_images_meta = [{'type': 'dxf', 'path': self.current_path}]
+            self.status_var.set(f"DXF 已渲染: {Path(self.current_path).name}")
+
+        except ImportError:
+            messagebox.showerror("缺少依赖", "需要安装 ezdxf 和 matplotlib 才能预览 DXF。\n请运行: pip install ezdxf matplotlib")
+            self.status_var.set("渲染 DXF 失败：缺少依赖库")
+            return
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("DXF 错误", f"无法渲染 DXF 文件:\n{e}")
+            self.status_var.set(f"渲染 DXF 失败: {e}")
+            return
+
+        if self.pdf_images:
+            self.show_page(0)
 
     def _extract_codes_from_text(self, text):
         """Extract standard codes and names from text and populate list."""
@@ -1270,6 +1372,14 @@ class App:
     def show_page(self, idx):
         if idx < 0 or idx >= len(self.pdf_images):
             return
+
+        # 检查 canvas 是否已就绪（布局完成），否则延迟重试
+        canvas_w = self.pdf_canvas.winfo_width() or 0
+        canvas_h = self.pdf_canvas.winfo_height() or 0
+        if canvas_w < 50 or canvas_h < 50:
+            self.root.after(100, lambda: self.show_page(idx))
+            return
+
         self.pdf_canvas.delete('all')
         img_path = self.pdf_images[idx]
         pil, _ = _get_pil()
@@ -1277,12 +1387,10 @@ class App:
         ImageTk = pil['ImageTk']
         img = Image.open(img_path)
         self._current_base_image = img
-        canvas_w = self.pdf_canvas.winfo_width() or 400
-        canvas_h = self.pdf_canvas.winfo_height() or 600
         img_w, img_h = img.size
         scale = min(canvas_w / img_w, canvas_h / img_h)
         new_w, new_h = int(img_w * scale), int(img_h * scale)
-        img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        img_resized = img.resize((new_w, new_h), Image.Resampling.BOX)
         self.current_img = ImageTk.PhotoImage(img_resized)
         center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
         center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
@@ -1302,7 +1410,7 @@ class App:
         self._draw_code_markers_for_page(idx, scale)
 
     def _prev_page(self):
-        if self.file_type != 'pdf' or not self.pdf_images:
+        if self.file_type not in ('pdf', 'dxf') or not self.pdf_images:
             return
         idx = getattr(self, 'current_display_index', 0) - 1
         if idx < 0:
@@ -1310,7 +1418,7 @@ class App:
         self.show_page(idx)
 
     def _next_page(self):
-        if self.file_type != 'pdf' or not self.pdf_images:
+        if self.file_type not in ('pdf', 'dxf') or not self.pdf_images:
             return
         idx = getattr(self, 'current_display_index', 0) + 1
         if idx >= len(self.pdf_images):
@@ -1318,29 +1426,73 @@ class App:
         self.show_page(idx)
 
     def _zoom_in(self):
-        """Zoom in on PDF preview."""
+        """Zoom in on PDF preview (debounced)."""
         if not hasattr(self, '_zoom_level'):
             self._zoom_level = 1.0
         self._zoom_level = min(self._zoom_level * 1.2, 5.0)
-        self._redraw_current_page()
+        self._schedule_zoom_update()
 
     def _zoom_out(self):
-        """Zoom out on PDF preview."""
+        """Zoom out on PDF preview (debounced)."""
         if not hasattr(self, '_zoom_level'):
             self._zoom_level = 1.0
         self._zoom_level = max(self._zoom_level / 1.2, 0.2)
-        self._redraw_current_page()
+        self._schedule_zoom_update()
 
     def _on_mouse_wheel(self, event):
-        """Handle mouse wheel zoom."""
+        """Handle mouse wheel zoom (debounced)."""
         if not hasattr(self, '_zoom_level'):
             self._zoom_level = 1.0
         if event.delta > 0:
             self._zoom_level = min(self._zoom_level * 1.1, 5.0)
         else:
             self._zoom_level = max(self._zoom_level / 1.1, 0.2)
-        self._redraw_current_page()
+        self._schedule_zoom_update()
 
+    def _schedule_zoom_update(self):
+        """Debounce zoom: 合并连续缩放事件，80ms 内只做一次重渲染"""
+        if hasattr(self, '_zoom_timer') and self._zoom_timer:
+            try:
+                self.root.after_cancel(self._zoom_timer)
+            except Exception:
+                pass
+        self._zoom_timer = self.root.after(80, self._apply_zoom)
+
+    def _apply_zoom(self):
+        """实际执行缩放后的重渲染（使用快速滤波）"""
+        self._zoom_timer = None
+        if not hasattr(self, '_current_base_image') or not self._current_base_image:
+            return
+        if not self.pdf_images:
+            return
+        pil, _ = _get_pil()
+        Image = pil['Image']
+        ImageTk = pil['ImageTk']
+        img = self._current_base_image
+        img_w, img_h = img.size
+        canvas_w = self.pdf_canvas.winfo_width() or 400
+        canvas_h = self.pdf_canvas.winfo_height() or 600
+
+        base_scale = min(canvas_w / img_w, canvas_h / img_h)
+        scale = base_scale * getattr(self, '_zoom_level', 1.0)
+
+        new_w, new_h = int(img_w * scale), int(img_h * scale)
+        # 交互中使用 BOX 滤波（比 LANCZOS 快 5x），最终画质差异肉眼不可见
+        img_resized = img.resize((new_w, new_h), Image.Resampling.BOX)
+        self.pdf_canvas.delete('all')
+        self.current_img = ImageTk.PhotoImage(img_resized)
+        center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
+        center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
+        self.current_image_item = self.pdf_canvas.create_image(
+            center_x, center_y, image=self.current_img
+        )
+
+        # Redraw overlays
+        if self.ocr_region:
+            self._draw_region_overlay(self.ocr_region, scale)
+        if hasattr(self, 'current_display_index'):
+            self._draw_code_markers_for_page(self.current_display_index, scale)
+        self._highlight_rect_id = None
 
     def _reset_zoom(self):
         """Reset zoom to default."""
@@ -1350,23 +1502,45 @@ class App:
         self._redraw_current_page()
 
     def _on_pan_start(self, event):
-        """Start panning the preview image with middle mouse button."""
+        """Start panning the preview — 使用 canvas.move 避免重渲染"""
         self._panning = True
         self._pan_start_x = event.x
         self._pan_start_y = event.y
         self.pdf_canvas.config(cursor="fleur")
 
     def _on_pan_drag(self, event):
-        """Pan the preview image while dragging."""
+        """Pan by moving canvas items directly — 零重渲染，即时响应"""
         if not self._panning:
             return
         dx = event.x - self._pan_start_x
         dy = event.y - self._pan_start_y
-        self._pan_image_x += dx
-        self._pan_image_y += dy
         self._pan_start_x = event.x
         self._pan_start_y = event.y
-        self._redraw_current_page()
+        self._pan_image_x += dx
+        self._pan_image_y += dy
+
+        # 只移动已有画布项，不重渲染
+        if hasattr(self, 'current_image_item') and self.current_image_item:
+            try:
+                self.pdf_canvas.move(self.current_image_item, dx, dy)
+            except Exception:
+                pass
+        if hasattr(self, '_code_marker_ids'):
+            for mid in list(self._code_marker_ids):
+                try:
+                    self.pdf_canvas.move(mid, dx, dy)
+                except Exception:
+                    pass
+        if hasattr(self, '_region_overlay_id') and self._region_overlay_id:
+            try:
+                self.pdf_canvas.move(self._region_overlay_id, dx, dy)
+            except Exception:
+                pass
+        if hasattr(self, '_highlight_rect_id') and self._highlight_rect_id:
+            try:
+                self.pdf_canvas.move(self._highlight_rect_id, dx, dy)
+            except Exception:
+                pass
 
     def _on_pan_end(self, event):
         """End panning."""
@@ -1443,9 +1617,21 @@ class App:
         )
 
     def _on_canvas_resize(self, event):
-        """Redraw current PDF page when canvas is resized."""
-        if hasattr(self, '_current_base_image') and self._current_base_image and self.pdf_images:
-            self._redraw_current_page()
+        """Redraw current PDF page when canvas is resized (debounced)."""
+        if not hasattr(self, '_current_base_image') or not self._current_base_image or not self.pdf_images:
+            return
+        # 去抖：resize 事件频繁触发，合并到下一个帧
+        if hasattr(self, '_resize_timer') and self._resize_timer:
+            try:
+                self.root.after_cancel(self._resize_timer)
+            except Exception:
+                pass
+        self._resize_timer = self.root.after(150, self._do_deferred_resize)
+
+    def _do_deferred_resize(self):
+        """实际执行 resize 重绘"""
+        self._resize_timer = None
+        self._redraw_current_page()
 
     def _start_periodic_redraw(self):
         """Start periodic check for canvas resize."""
@@ -1485,7 +1671,7 @@ class App:
         scale = base_scale * getattr(self, '_zoom_level', 1.0)
         
         new_w, new_h = int(img_w * scale), int(img_h * scale)
-        img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        img_resized = img.resize((new_w, new_h), Image.Resampling.BOX)
         
         self.pdf_canvas.delete('all')
         self.current_img = ImageTk.PhotoImage(img_resized)
@@ -1647,7 +1833,7 @@ class App:
             # Downscale for fast analysis
             analysis_w = 120
             analysis_h = max(1, int(h * analysis_w / w))
-            analysis_img = img.resize((analysis_w, analysis_h), Image.Resampling.LANCZOS)
+            analysis_img = img.resize((analysis_w, analysis_h), Image.Resampling.BOX)
             # Threshold: text pixels are dark
             binary = analysis_img.point(lambda p: 255 if p > 150 else 0)
 
@@ -1972,6 +2158,9 @@ class App:
     def check_standards(self):
         if not self.extracted_codes:
             messagebox.showwarning("提示", "请先进行 OCR 识别并提取规范编号")
+            return
+        if not self.checker:
+            messagebox.showerror("错误", "规范数据库未加载，无法进行检查。\n请重新启动程序。")
             return
         self.status_var.set("检查规范中...")
         self.progress_var.set(0)
@@ -2354,7 +2543,7 @@ class App:
 
         tk.Label(card, text="规范标准助手", font=(self._font_family, 18, "bold"),
                  fg="#1E3A5F", bg="#FFFFFF").pack()
-        tk.Label(card, text=f"版本 10.0", font=(self._font_family, 11),
+        tk.Label(card, text=f"版本 {VERSION_APP}", font=(self._font_family, 11),
                  fg="#2B6CB0", bg="#FFFFFF").pack(pady=(2, 8))
 
         info_text = (
