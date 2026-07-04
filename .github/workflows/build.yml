@@ -162,3 +162,25 @@ jobs:
           path: |
             dist/工程助手_v10/
           if-no-files-found: warn
+
+      - name: Create Release and upload assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 仅在推送到 main 或 v10-build 时创建 Release，手动触发也创建
+          TAG="v10-build-$(date +'%Y%m%d-%H%M%S')"
+          echo "Creating release tag: $TAG"
+
+          # 获取便携版和完整版 ZIP 路径
+          PORTABLE_ZIP="${{ github.workspace }}/工程助手_v10_便携版.zip"
+          FULL_ZIP="${{ github.workspace }}/工程助手_v10_完整版.zip"
+
+          # 创建 Release
+          gh release create "$TAG" \
+            --title "工程助手 v10 构建版 ($(date +'%Y-%m-%d %H:%M'))" \
+            --notes "自动构建发布" \
+            --target "${{ github.sha }}" \
+            $([ -f "$PORTABLE_ZIP" ] && echo "\"$PORTABLE_ZIP\"") \
+            $([ -f "$FULL_ZIP" ] && echo "\"$FULL_ZIP\"") \
+            || echo "⚠️ Release 创建失败（可能已存在同名标签）"
