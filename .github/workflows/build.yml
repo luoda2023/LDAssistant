@@ -147,6 +147,32 @@ jobs:
             echo "⚠️ Folder output not found"
           fi
 
+      - name: Smoke test EXE startup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $outDir = Join-Path $env:GITHUB_WORKSPACE "dist\工程助手_v10"
+          $exe = Join-Path $outDir "工程助手.exe"
+          $db = Join-Path $outDir "_internal\data\standards_new.db"
+          $ocr = Join-Path $outDir "_internal\ocr\PaddleOCR-json.exe"
+
+          Write-Host "=== Smoke test files ==="
+          if (!(Test-Path $exe)) { throw "EXE not found: $exe" }
+          if (!(Test-Path $db)) { throw "Database not found: $db" }
+          if (!(Test-Path $ocr)) { throw "OCR engine not found: $ocr" }
+          Get-Item $exe, $db, $ocr | Format-Table FullName, Length
+
+          Write-Host "=== Starting EXE for smoke test ==="
+          $p = Start-Process -FilePath $exe -WorkingDirectory $outDir -PassThru -WindowStyle Minimized
+          Start-Sleep -Seconds 12
+
+          if ($p.HasExited) {
+            throw "EXE exited during smoke test. ExitCode=$($p.ExitCode). This usually means startup crashed."
+          }
+
+          Write-Host "✅ EXE stayed alive for 12 seconds; startup smoke test passed."
+          Stop-Process -Id $p.Id -Force
+
       - name: Package artifacts
         shell: bash
         run: |
