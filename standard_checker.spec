@@ -33,7 +33,7 @@ if PADDLE_OCR_EXE.exists():
     print(f"Using portable OCR: {OCR_ROOT}")
 else:
     OCR_ROOT = None
-    print("OCR engine not found — will be excluded from build (download separately)")
+    print("OCR engine not found — build will exclude OCR (CI should download it via setup step)")
 
 print(f"Main script: {MAIN_SCRIPT}")
 print(f"Database: {DB_FILE} (exists: {DB_FILE is not None})")

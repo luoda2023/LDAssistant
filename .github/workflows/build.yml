@@ -97,6 +97,34 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Setup OCR engine
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 下载 OCR 引擎（从专用的 ocr-engine-v1 Release）
+          if [ -d ocr ]; then
+            echo "✅ ocr/ already exists in workspace"
+            ls -lh ocr/PaddleOCR-json.exe
+            exit 0
+          fi
+
+          echo "Downloading OCR engine from ocr-engine-v1 release..."
+          gh release download ocr-engine-v1 \
+            --repo ${{ github.repository }} \
+            --pattern "ocr-engine.tar.gz" \
+            --dir ./
+
+          if [ -f ocr-engine.tar.gz ]; then
+            echo "✅ Downloaded OCR engine ($(ls -lh ocr-engine.tar.gz | awk '{print $5}'))"
+            tar xzf ocr-engine.tar.gz
+            rm -f ocr-engine.tar.gz
+            echo "✅ Extracted ocr/ directory"
+            ls -lh ocr/PaddleOCR-json.exe
+          else
+            echo "⚠️ Failed to download OCR engine — build will continue WITHOUT OCR"
+          fi
+
       - name: Build with PyInstaller
         run: |
           pyinstaller standard_checker.spec --noconfirm
