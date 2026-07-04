@@ -4,7 +4,6 @@
 LDAssistant - Version management
 Run bump_version.bat before each build to auto-increment patch number.
 """
-import os
 
 # 主版本号 (major, minor, patch)
 VERSION = (10, 1, 0)
@@ -12,22 +11,6 @@ VERSION = (10, 1, 0)
 # 派生版本字符串
 VERSION_STR = f"{VERSION[0]}.{VERSION[1]}.{VERSION[2]}"
 VERSION_TAG = f"v{VERSION[0]}_{VERSION[1]}_{VERSION[2]}"
-VERSION_DISPLAY = f"v{VERSION[0]}"  # 界面短显示
-VERSION_APP = f"{VERSION[0]}.{VERSION[1]}"  # AppVersion 用
+VERSION_DISPLAY = f"v{VERSION[0]}"
+VERSION_APP = f"{VERSION[0]}.{VERSION[1]}"
 
-# 内部版本号（CI 构建时基于日期，展示用）
-BUILD_META = ""
-
-
-def get_build_tag():
-    """获取 CI 构建用的完整 tag 名"""
-    import datetime
-    return f"v{VERSION[0]}-build-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
-
-
-if __name__ == '__main__':
-    print(f"VERSION = {VERSION}")
-    print(f"VERSION_STR = {VERSION_STR}")
-    print(f"VERSION_TAG = {VERSION_TAG}")
-    print(f"VERSION_DISPLAY = {VERSION_DISPLAY}")
-    print(f"VERSION_APP = {VERSION_APP}")
