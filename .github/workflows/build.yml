@@ -115,32 +115,56 @@ jobs:
             echo "⚠️ Folder output not found"
           fi
 
-      - name: Package portable ZIP (single-file)
+      - name: Package artifacts
         shell: powershell
         run: |
-          if (Test-Path "dist/工程助手.exe") {
-            Compress-Archive -Path "dist/工程助手.exe" -DestinationPath "工程助手_v10_便携版.zip" -Force
-            Write-Host "✅ 便携版 ZIP 已创建"
+          # 切换到工作目录以确保路径正确
+          $root = "${{ github.workspace }}"
+          Set-Location $root
+          
+          # 便携版 — 仅打包单 EXE（前提是 onedir 模式输出 EXE 在子目录）
+          $exePath = Join-Path $root "dist\工程助手_v10\工程助手.exe"
+          if (Test-Path $exePath) {
+            Compress-Archive -Path $exePath -DestinationPath (Join-Path $root "工程助手_v10_便携版.zip") -Force
+            Write-Host "✅ 便携版 ZIP 已创建 ($exePath)"
+          } else {
+            Write-Host "⚠️ EXE not found at $exePath"
+            # 回退：尝试 dist/ 根目录
+            $exePath2 = Join-Path $root "dist\工程助手.exe"
+            if (Test-Path $exePath2) {
+              Compress-Archive -Path $exePath2 -DestinationPath (Join-Path $root "工程助手_v10_便携版.zip") -Force
+              Write-Host "✅ 便携版 ZIP 已创建 (fallback: $exePath2)"
+            }
           }
-
-      - name: Package full ZIP (folder)
-        shell: powershell
-        run: |
-          if (Test-Path "dist/工程助手_v10") {
-            Compress-Archive -Path "dist/工程助手_v10/*" -DestinationPath "工程助手_v10_完整版.zip" -Force
-            Write-Host "✅ 完整版 ZIP 已创建"
+          
+          # 完整版 — 打包整个文件夹
+          $folderPath = Join-Path $root "dist\工程助手_v10"
+          if (Test-Path $folderPath) {
+            Compress-Archive -Path (Join-Path $folderPath "*") -DestinationPath (Join-Path $root "工程助手_v10_完整版.zip") -Force
+            Write-Host "✅ 完整版 ZIP 已创建 ($folderPath)"
+          } else {
+            Write-Host "⚠️ Folder not found at $folderPath"
+            # 回退
+            $folderPath2 = Join-Path $root "dist"
+            if (Test-Path $folderPath2) {
+              Compress-Archive -Path (Join-Path $folderPath2 "*") -DestinationPath (Join-Path $root "工程助手_v10_完整版.zip") -Force
+              Write-Host "✅ 完整版 ZIP 已创建 (fallback: $folderPath2)"
+            }
           }
+          
+          # 确认创建
+          Get-ChildItem (Join-Path $root "工程助手_v10_*.zip") | Select-Object Name, Length
 
       - name: Upload portable build
         uses: actions/upload-artifact@v4
         with:
           name: 工程助手_v10_便携版
-          path: 工程助手_v10_便携版.zip
+          path: ${{ github.workspace }}/工程助手_v10_便携版.zip
           if-no-files-found: warn
 
       - name: Upload full build
         uses: actions/upload-artifact@v4
         with:
           name: 工程助手_v10_完整版
-          path: 工程助手_v10_完整版.zip
+          path: ${{ github.workspace }}/工程助手_v10_完整版.zip
           if-no-files-found: warn
