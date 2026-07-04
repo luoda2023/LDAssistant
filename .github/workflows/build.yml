@@ -120,44 +120,76 @@ jobs:
           fi
 
       - name: Package artifacts
-        shell: powershell
+        shell: bash
         run: |
-          # 切换到工作目录以确保路径正确
-          $root = "${{ github.workspace }}"
-          Set-Location $root
+          set -e
+          ROOT="${{ github.workspace }}"
+          cd "$ROOT"
           
-          # 便携版 — 仅打包单 EXE（前提是 onedir 模式输出 EXE 在子目录）
-          $exePath = Join-Path $root "dist\工程助手_v10\工程助手.exe"
-          if (Test-Path $exePath) {
-            Compress-Archive -Path $exePath -DestinationPath (Join-Path $root "工程助手_v10_便携版.zip") -Force
-            Write-Host "✅ 便携版 ZIP 已创建 ($exePath)"
-          } else {
-            Write-Host "⚠️ EXE not found at $exePath"
-            # 回退：尝试 dist/ 根目录
-            $exePath2 = Join-Path $root "dist\工程助手.exe"
-            if (Test-Path $exePath2) {
-              Compress-Archive -Path $exePath2 -DestinationPath (Join-Path $root "工程助手_v10_便携版.zip") -Force
-              Write-Host "✅ 便携版 ZIP 已创建 (fallback: $exePath2)"
-            }
-          }
+          echo "=== Checking build output structure ==="
+          ls -la dist/ 2>/dev/null || echo "dist/ not found"
           
-          # 完整版 — 打包整个文件夹
-          $folderPath = Join-Path $root "dist\工程助手_v10"
-          if (Test-Path $folderPath) {
-            Compress-Archive -Path (Join-Path $folderPath "*") -DestinationPath (Join-Path $root "工程助手_v10_完整版.zip") -Force
-            Write-Host "✅ 完整版 ZIP 已创建 ($folderPath)"
-          } else {
-            Write-Host "⚠️ Folder not found at $folderPath"
-            # 回退
-            $folderPath2 = Join-Path $root "dist"
-            if (Test-Path $folderPath2) {
-              Compress-Archive -Path (Join-Path $folderPath2 "*") -DestinationPath (Join-Path $root "工程助手_v10_完整版.zip") -Force
-              Write-Host "✅ 完整版 ZIP 已创建 (fallback: $folderPath2)"
-            }
-          }
+          # 确定输出文件夹：优先 dist/工程助手_v10/，否则从 dist/ 整理
+          OUTDIR="dist/工程助手_v10"
+          if [ -d "$OUTDIR" ]; then
+            echo "✅ Found $OUTDIR"
+          else
+            echo "⚠️ $OUTDIR not found — creating from dist/"
+            mkdir -p "$OUTDIR"
+            if [ -f dist/工程助手.exe ]; then
+              mv dist/工程助手.exe "$OUTDIR/"
+              echo "✅ Moved 工程助手.exe to $OUTDIR/"
+            fi
+            # 如果有 _internal/ 也移进去
+            if [ -d dist/_internal ]; then
+              mv dist/_internal "$OUTDIR/"
+              echo "✅ Moved _internal/ to $OUTDIR/"
+            fi
+            # 如果有其他数据文件
+            for f in dist/*; do
+              name=$(basename "$f")
+              if [ "$name" != "工程助手_v10" ]; then
+                mv "$f" "$OUTDIR/" 2>/dev/null || true
+              fi
+            done
+          fi
           
-          # 确认创建
-          Get-ChildItem (Join-Path $root "工程助手_v10_*.zip") | Select-Object Name, Length
+          echo "=== Contents of $OUTDIR ==="
+          ls -lh "$OUTDIR/" 2>/dev/null || echo "(empty)"
+          
+          # ── 创建便携版 ZIP（仅单 EXE）──
+          echo "--- Creating portable ZIP ---"
+          PORTABLE_ZIP="$ROOT/工程助手_v10_便携版.zip"
+          if [ -f "$OUTDIR/工程助手.exe" ]; then
+            # 用 7z（Windows runner 自带）或 zip 命令
+            if command -v 7z &>/dev/null; then
+              (cd "$OUTDIR" && 7z a -mx=9 "$PORTABLE_ZIP" "工程助手.exe" >/dev/null)
+            else
+              (cd "$OUTDIR" && zip -9 "$PORTABLE_ZIP" "工程助手.exe")
+            fi
+            echo "✅ Portable ZIP created: $(ls -lh "$PORTABLE_ZIP" | awk '{print $5}')"
+          else
+            echo "⚠️ 工程助手.exe not found, skipping portable ZIP"
+          fi
+          
+          # ── 创建完整版 ZIP（整个目录）──
+          echo "--- Creating full ZIP ---"
+          FULL_ZIP="$ROOT/工程助手_v10_完整版.zip"
+          if [ -d "$OUTDIR" ] && [ "$(ls -A "$OUTDIR")" ]; then
+            if command -v 7z &>/dev/null; then
+              7z a -mx=9 "$FULL_ZIP" "$ROOT/$OUTDIR/" >/dev/null
+            else
+              (cd "$ROOT" && zip -9 -r "$FULL_ZIP" "dist/工程助手_v10/")
+            fi
+            echo "✅ Full ZIP created: $(ls -lh "$FULL_ZIP" | awk '{print $5}')"
+          else
+            echo "⚠️ Output directory is empty, creating ZIP from dist/ fallback"
+            if command -v 7z &>/dev/null; then
+              7z a -mx=9 "$FULL_ZIP" "$ROOT/dist/" >/dev/null
+            else
+              (cd "$ROOT" && zip -9 -r "$FULL_ZIP" "dist/")
+            fi
+          fi
 
       - name: Upload full folder as artifact
         uses: actions/upload-artifact@v4
@@ -175,21 +207,26 @@ jobs:
           TAG="v10-build-$(date +'%Y%m%d-%H%M%S')"
           echo "Creating release tag: $TAG"
 
-          # 构建附件参数
-          ASSETS=""
+          # 收集附件到数组
+          ASSETS=()
           PORTABLE_ZIP="${{ github.workspace }}/工程助手_v10_便携版.zip"
           FULL_ZIP="${{ github.workspace }}/工程助手_v10_完整版.zip"
+          
+          for f in "$PORTABLE_ZIP" "$FULL_ZIP"; do
+            if [ -f "$f" ]; then
+              ASSETS+=("$f")
+              echo "Will attach: $f ($(ls -lh "$f" | awk '{print $5}'))"
+            fi
+          done
 
-          if [ -f "$PORTABLE_ZIP" ]; then
-            ASSETS="$ASSETS \"$PORTABLE_ZIP\""
-          fi
-          if [ -f "$FULL_ZIP" ]; then
-            ASSETS="$ASSETS \"$FULL_ZIP\""
+          if [ ${#ASSETS[@]} -eq 0 ]; then
+            echo "❌ No assets to attach — aborting release"
+            exit 0
           fi
 
-          # 创建 Release（注意 bash -e 模式下用 || true 避免中断）
+          # 创建 Release（使用数组展开确保路径带空格也能正确处理）
           gh release create "$TAG" \
             --title "工程助手 v10 构建版 ($(date +'%Y-%m-%d %H:%M'))" \
             --notes "自动构建发布" \
             --target "${{ github.sha }}" \
-            $ASSETS || echo "⚠️ Release 创建失败"
+            "${ASSETS[@]}"
