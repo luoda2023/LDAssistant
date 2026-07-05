@@ -1414,7 +1414,12 @@ class App:
 
             ctx = RenderContext(doc)
             backend = MatplotlibBackend(ax)
-            Frontend(ctx, backend).draw(msp)
+            frontend = Frontend(ctx, backend)
+            # ezdxf 1.4+ 使用 draw_layout 替代 draw
+            if hasattr(frontend, 'draw_layout'):
+                frontend.draw_layout(msp)
+            else:
+                frontend.draw(msp)
 
             if msp:
                 try:
