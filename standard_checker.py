@@ -389,7 +389,8 @@ class StandardChecker:
             f"-image_path={image_path}",
         ]
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, cwd=str(OCR_DIR))
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, cwd=str(OCR_DIR),
+                                       creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             # Strip ANSI escape codes
             ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
             # Parse JSON from output
@@ -994,6 +995,11 @@ class App:
         self.pdf_canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.pdf_canvas.bind('<Configure>', self._on_canvas_resize)
         self.pdf_canvas.bind('<MouseWheel>', self._on_mouse_wheel)
+        # 鼠标左键拖拽平移预览图
+        self.pdf_canvas.bind('<ButtonPress-1>', self._on_pan_start)
+        self.pdf_canvas.bind('<B1-Motion>', self._on_pan_drag)
+        self.pdf_canvas.bind('<ButtonRelease-1>', self._on_pan_end)
+        # 原中键拖拽保留备用
         self.pdf_canvas.bind('<ButtonPress-2>', self._on_pan_start)
         self.pdf_canvas.bind('<B2-Motion>', self._on_pan_drag)
         self.pdf_canvas.bind('<ButtonRelease-2>', self._on_pan_end)
@@ -1468,6 +1474,7 @@ class App:
             result = subprocess.run(
                 [libredwg_exe, self.current_path, "-o", output_dir, "-f", "ACAD2010"],
                 capture_output=True, text=True, timeout=60,
+                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
             )
 
             # 找到输出的 DXF 文件
@@ -1616,7 +1623,8 @@ class App:
                 oda_exe, temp_dir, temp_dir,
                 "ACAD2024", "PDF", "0", "1",
             ], capture_output=True, text=True, timeout=120,
-               cwd=os.path.dirname(oda_exe))
+               cwd=os.path.dirname(oda_exe),
+               creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
 
             dwg_stem = Path(self.current_path).stem
             expected_pdf = os.path.join(temp_dir, f"{dwg_stem}.pdf")
@@ -3149,19 +3157,17 @@ class App:
             print(f"highlight error: {e}")
     
     def on_check_item_double_click(self, event=None):
-        """Double-click on check result item - if not found, show search dialog."""
+        """Double-click on check result item — always show search dialog.
+
+        双击规范检查结果列表中的任何项，都弹出搜索对话框，
+        方便手动查找规范或替换为正确规范。
+        """
         selected = self.check_tree.selection()
         if not selected:
             return
         item = selected[0]
         values = self.check_tree.item(item, 'values')
         if not values:
-            return
-
-        # 新的列：code, name, status, std_type, action_date
-        # 如果未查询到，action_date字段会包含"❓ 未查询到"
-        action_info = values[4] if len(values) > 4 else ''
-        if '未查询到' not in action_info:
             return
 
         display_code = values[0]
@@ -3172,6 +3178,9 @@ class App:
         if hasattr(self, 'extracted_code_info'):
             info = self.extracted_code_info.get(normalize_for_matching(original_code), {})
             name = info.get('name', '')
+        # 也从检查结果列表的第2列取名称
+        if not name and len(values) > 1:
+            name = values[1]
 
         dialog = StandardSearchDialog(self, self.checker, code=original_code, name=name)
         self.wait_window(dialog)
