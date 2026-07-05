@@ -135,12 +135,42 @@ jobs:
             echo "✅ Extracted ocr/ directory"
             ls -lh ocr/PaddleOCR-json.exe
           else
-            echo "⚠️ OCR engine not available — build will continue WITHOUT OCR"
+              echo "⚠️ OCR engine not available — build will continue WITHOUT OCR"
 
             # 创建空的 ocr 目录防止后续步骤因为缺少目录而报错
             mkdir -p ocr
             # 创建一个占位文件
             echo "OCR engine not available" > ocr/README.txt
+          fi
+
+      - name: Setup ODA engine (DWG → PDF)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 下载 ODA File Converter 便携版（从专用的 oda-engine-v1 Release）
+          if [ -d oda_converter ]; then
+            echo "✅ oda_converter/ already exists in workspace"
+            ls -lh oda_converter/
+            exit 0
+          fi
+
+          echo "Downloading ODA engine..."
+          gh release download oda-engine-v1 \
+            --repo ${{ github.repository }} \
+            --pattern "oda_converter.zip" \
+            --dir ./ || echo "⚠️ oda-engine-v1 release not found — app will auto-download at runtime"
+
+          if [ -f oda_converter.zip ]; then
+            echo "✅ Downloaded ODA engine ($(ls -lh oda_converter.zip | awk '{print $5}'))"
+            unzip -q oda_converter.zip
+            rm -f oda_converter.zip
+            echo "✅ Extracted oda_converter/ directory"
+            ls -lh oda_converter/ODAFileConverter.exe 2>/dev/null || echo "⚠️ ODAFileConverter.exe not found in zip"
+          else
+            echo "⚠️ ODA engine not available — app will auto-download at first DWG open"
+            mkdir -p oda_converter
+            echo "ODA engine not bundled" > oda_converter/README.txt
           fi
 
       - name: Build with PyInstaller

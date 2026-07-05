@@ -552,7 +552,7 @@ class App:
         self.checker = None
         self.pdf_paths = []
         self.current_path = None
-        self.file_type = None  # 'pdf', 'docx', 'txt', 'dwg'
+        self.file_type = None  # 'pdf', 'docx', 'doc', 'txt', 'dwg'
         self.pdf_images = []
         self.pdf_images_meta = []  # 文件元信息（用于 DXF 等非 PDF 文件）
         self.ocr_results = []
@@ -1152,7 +1152,7 @@ class App:
             title="选择文件（PDF/WORD/DWG/TXT）",
             filetypes=[
                 ("PDF files", "*.pdf"),
-                ("Word files", "*.docx"),
+                ("Word files", "*.doc;*.docx"),
                 ("DWG files", "*.dwg"),
                 ("Text files", "*.txt"),
                 ("All files", "*.*")
@@ -1165,8 +1165,8 @@ class App:
         ext = Path(self.current_path).suffix.lower()
         if ext == '.pdf':
             self.file_type = 'pdf'
-        elif ext == '.docx':
-            self.file_type = 'docx'
+        elif ext in ('.docx', '.doc'):
+            self.file_type = ext.lstrip('.')  # 'docx' or 'doc'
         elif ext == '.txt':
             self.file_type = 'txt'
         elif ext == '.dwg':
@@ -1223,8 +1223,106 @@ class App:
         if self.pdf_images:
             self.show_page(0)
 
+    def _read_doc_via_com(self):
+        """使用 Word COM 自动化读取 .doc 文件（兼容所有 Word 格式）"""
+        try:
+            import win32com.client
+            import pythoncom
+            pythoncom.CoInitialize()
+            word = win32com.client.Dispatch('Word.Application')
+            word.Visible = False
+            word.DisplayAlerts = False
+            doc = word.Documents.Open(self.current_path)
+            full_text = doc.Content.Text
+            doc.Close(False)
+            word.Quit()
+            pythoncom.CoUninitialize()
+            return full_text
+        except Exception as e:
+            print(f"Word COM 读取失败: {e}")
+            try:
+                pythoncom.CoUninitialize()
+            except Exception:
+                pass
+            messagebox.showerror("Word 读取失败",
+                f"无法读取 Word 文件。\n请确认已安装 Microsoft Word。\n错误: {e}")
+            return None
+
+    def _auto_install_oda(self):
+        """自动下载安装 ODA File Converter——从 GitHub Release 获取便携版"""
+        oda_target = _resource_path("oda_converter")
+        if (oda_target / "ODAFileConverter.exe").exists():
+            return True
+
+        self.status_var.set("正在下载 ODA 引擎...")
+        self.progress_var.set(0)
+        self.root.update_idletasks()
+
+        temp_dir = tempfile.mkdtemp(prefix="oda_download_")
+        zip_path = os.path.join(temp_dir, "oda_converter.zip")
+
+        try:
+            from urllib.request import urlretrieve
+
+            # 优先从本项目 GitHub Release 下载（CI 自动打包上传）
+            repo = "luoda2023/LDAssistant"
+
+            # 尝试多个可能的下载地址
+            urls = [
+                f"https://github.com/{repo}/releases/download/oda-engine-v1/oda_converter.zip",
+                f"https://github.com/{repo}/releases/download/oda-engine-v1/ODAFileConverter_Portable.zip",
+            ]
+
+            downloaded = False
+            for url in urls:
+                try:
+                    self.status_var.set(f"正在下载 ODA 引擎... (0%)")
+                    self.root.update_idletasks()
+
+                    def report(b, bs, ts):
+                        if ts > 0:
+                            p = min(int(b * bs / ts * 100), 99)
+                            self.status_var.set(f"正在下载 ODA 引擎... {p}%")
+                            self.progress_var.set(p)
+                            self.root.update_idletasks()
+
+                    urlretrieve(url, zip_path, report)
+                    downloaded = True
+                    break
+                except Exception as e:
+                    print(f"下载失败 ({url}): {e}")
+                    continue
+
+            if not downloaded:
+                raise RuntimeError("所有下载地址均不可用")
+
+            self.status_var.set("正在解压 ODA 引擎...")
+            self.progress_var.set(95)
+            self.root.update_idletasks()
+
+            os.makedirs(str(oda_target), exist_ok=True)
+            import zipfile
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                zf.extractall(str(oda_target))
+
+            if (oda_target / "ODAFileConverter.exe").exists():
+                self.progress_var.set(100)
+                self.status_var.set("ODA 引擎已安装 ✅")
+                print(f"ODA 已安装到: {oda_target}")
+                return True
+
+            raise RuntimeError("解压后未找到 ODAFileConverter.exe")
+
+        except Exception as e:
+            print(f"ODA 自动下载失败: {e}")
+            import traceback
+            traceback.print_exc()
+            self.status_var.set("ODA 引擎下载失败")
+            # 不弹窗，让上层处理
+            return False
+
     def extract_text_file(self):
-        """Extract text from DOCX or TXT file."""
+        """Extract text from DOC/DOCX or TXT file."""
         if not self.current_path:
             return
         self.status_var.set("正在提取文本...")
@@ -1239,18 +1337,23 @@ class App:
 
         try:
             if self.file_type == 'docx':
+                # .docx: 用 python-docx
                 doc = _get_docx()['Document'](self.current_path)
                 full_text = '\n'.join([p.text for p in doc.paragraphs])
-                self.ocr_results = [full_text]
+            elif self.file_type == 'doc':
+                # .doc: 用 Word COM 自动化（兼容所有旧版 Word 格式）
+                full_text = self._read_doc_via_com()
+                if full_text is None:
+                    raise RuntimeError("Word COM 读取失败")
             elif self.file_type == 'txt':
                 with open(self.current_path, 'r', encoding='utf-8', errors='ignore') as f:
                     full_text = f.read()
-                self.ocr_results = [full_text]
             else:
                 messagebox.showwarning("提示", "不支持的文件格式")
                 return
 
-            self.page_var.set("文本文件")
+            self.ocr_results = [full_text]
+            self.page_var.set(f"📄 {Path(self.current_path).name}")
             self.progress_var.set(100)
             self.status_var.set("文本提取完成")
 
@@ -1286,17 +1389,17 @@ class App:
         if self._convert_via_autocad():
             return
 
-        # ── Tier 3: 用户指引 ──
-        msg = (
-            "打开 DWG 文件需要 ODA File Converter（免费引擎）。\n\n"
-            "请下载安装：\n"
-            "https://www.opendesign.com/guestfiles/oda_file_converter\n\n"
-            "安装后重启本程序即可。\n"
-            "ODA 引擎兼容所有 AutoCAD 版本（R12~2024），\n"
-            "内置常用 SHX 字体映射，文字显示完整。"
-        )
-        messagebox.showinfo("需要 DWG 转换引擎", msg)
-        self.status_var.set("请安装 ODA File Converter 后重试")
+        # ── Tier 3: 自动下载 ODA 引擎，然后重试 ──
+        if self._auto_install_oda():
+            oda_exe = self._find_oda_converter()
+            if oda_exe and self._convert_via_oda(oda_exe):
+                return
+            # 下载后还是失败，报错
+            messagebox.showerror("DWG 转换失败",
+                "ODA 引擎已安装但仍无法转换此 DWG 文件。\n"
+                "请确认文件不是加密或损坏的。")
+        else:
+            self.status_var.set("ODA 引擎下载失败")
 
     def _find_oda_converter(self):
         """查找 ODA File Converter（内置 → 系统安装 → PATH）"""
