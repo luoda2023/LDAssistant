@@ -15,9 +15,7 @@ LOGO_FILE = SCRIPT_DIR / "LDA.png"
 # 数据库文件 — 依次尝试多个候选路径
 DB_CANDIDATES = [
     SCRIPT_DIR / "standards_new.db",
-    SCRIPT_DIR / "standards.db",
     SCRIPT_DIR / "data" / "standards_new.db",
-    SCRIPT_DIR / "data" / "standards.db",
 ]
 DB_FILE = None
 for _p in DB_CANDIDATES:
