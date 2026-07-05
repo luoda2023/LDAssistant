@@ -137,30 +137,45 @@ jobs:
             echo "OCR engine not available" > ocr/README.txt
           fi
 
-      - name: Setup ODA engine (DWG → PDF, optional)
+      - name: Setup DWG converter (LibreDWG → DXF)
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          # 尝试从专用 Release 下载 ODA 引擎
-          mkdir -p oda_converter
+          # ── LibreDWG：开源 GNU 项目，无需注册，直接下载 ──
+          # 提供 dwg2dxf 命令行工具，将 DWG → DXF，然后用 ezdxf 渲染
+          mkdir -p libredwg
 
-          if gh release download oda-engine-v1 \
-            --repo ${{ github.repository }} \
-            --pattern "oda-converter.tar.gz" \
-            --dir ./ 2>/dev/null; then
-            if [ -f oda-converter.tar.gz ]; then
-              echo "✅ Downloaded ODA engine ($(ls -lh oda-converter.tar.gz | awk '{print $5}'))"
-              tar xzf oda-converter.tar.gz -C oda_converter
-              rm -f oda-converter.tar.gz
-              ls -lh oda_converter/
+          if [ -d libredwg/bin ] && [ -f libredwg/bin/dwg2dxf.exe ]; then
+            echo "✅ LibreDWG already present"
+            ls -lh libredwg/bin/dwg2dxf.exe
+            exit 0
+          fi
+
+          echo "Downloading LibreDWG (open source GNU project)..."
+          curl -sL -o libredwg-win64.zip \
+            "https://github.com/LibreDWG/libredwg/releases/download/0.14/libredwg-0.14-win64.zip" || {
+            echo "⚠️ LibreDWG download failed"
+            echo "LibreDWG not bundled" > libredwg/README.txt
+            exit 0
+          }
+
+          if [ -s libredwg-win64.zip ]; then
+            unzip -qo libredwg-win64.zip -d libredwg_tmp
+            # 将解压后的文件移入 libredwg/
+            mv libredwg_tmp/libredwg-0.14-win64/* libredwg/ 2>/dev/null || \
+            mv libredwg_tmp/* libredwg/ 2>/dev/null || true
+            rm -rf libredwg_tmp libredwg-win64.zip
+
+            if [ -f libredwg/bin/dwg2dxf.exe ]; then
+              echo "✅ LibreDWG installed:"
+              ls -lh libredwg/bin/dwg2dxf.exe
             else
-              echo "⚠️ ODA archive empty — using stub"
-              echo "ODA engine not bundled" > oda_converter/README.txt
+              echo "⚠️ dwg2dxf.exe not found in extracted archive"
+              find libredwg -name "*.exe" -o -name "*.dll" | head -5
+              echo "LibreDWG extracted but incomplete" > libredwg/README.txt
             fi
           else
-            echo "⚠️ ODA engine release not found — using stub"
-            echo "ODA engine not bundled in CI" > oda_converter/README.txt
+            echo "⚠️ LibreDWG archive empty"
+            echo "LibreDWG not bundled" > libredwg/README.txt
           fi
 
       - name: Build with PyInstaller

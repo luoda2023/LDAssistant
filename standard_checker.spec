@@ -35,7 +35,17 @@ else:
     OCR_ROOT = None
     print("OCR engine not found — build will exclude OCR (CI should download it via setup step)")
 
-# ODA File Converter 引擎路径（DWG → PDF 转换，可选）
+# LibreDWG 引擎（DWGFiles → DXF 转换，开源 GNU 项目）
+LIBREDWG_DIR = SCRIPT_DIR / "libredwg"
+LIBREDWG_EXE = LIBREDWG_DIR / "bin" / "dwg2dxf.exe"
+if LIBREDWG_EXE.exists():
+    LIBREDWG_ROOT = LIBREDWG_DIR
+    print(f"Using bundled LibreDWG: {LIBREDWG_ROOT} ({LIBREDWG_EXE.stat().st_size / 1024 / 1024:.0f} MB)")
+else:
+    LIBREDWG_ROOT = None
+    print("LibreDWG not bundled — DWG files will need manual conversion to DXF")
+
+# Legacy ODA File Converter (保留向后兼容)
 ODA_DIR = SCRIPT_DIR / "oda_converter"
 ODA_EXE = ODA_DIR / "ODAFileConverter.exe"
 if ODA_EXE.exists():
@@ -43,7 +53,16 @@ if ODA_EXE.exists():
     print(f"Using bundled ODA converter: {ODA_ROOT} ({ODA_EXE.stat().st_size / 1024 / 1024:.0f} MB)")
 else:
     ODA_ROOT = None
-    print("ODA converter not bundled — DWG preview fallback to DXF rendering + AutoCAD COM")
+    print("ODA converter not bundled")
+
+# Include LibreDWG binaries (DWG→DXF 转换)
+if LIBREDWG_ROOT and LIBREDWG_ROOT.exists():
+    for item in LIBREDWG_ROOT.rglob("*"):
+        if item.is_file():
+            rel = item.relative_to(LIBREDWG_ROOT)
+            dest = f"libredwg/{rel.parent}" if rel.parent != Path('.') else "libredwg"
+            binaries.append((str(item), dest))
+    print(f"Included LibreDWG: {LIBREDWG_ROOT}")
 
 print(f"Main script: {MAIN_SCRIPT}")
 print(f"Database: {DB_FILE} (exists: {DB_FILE is not None})")

@@ -1358,7 +1358,7 @@ class App:
             self.status_var.set("读取文件失败")
 
     def _render_dwg_to_image(self):
-        """DWG 预览：1)内置ODA 2)AutoCAD COM 3)提示转存DXF/PDF"""
+        """DWG 预览：1)LibreDWG(内置) 2)ODA 3)AutoCAD COM 4)引导提示"""
         if not self.current_path or self.file_type != 'dwg':
             return
         self.status_var.set("正在转换 DWG...")
@@ -1366,27 +1366,100 @@ class App:
         self.pdf_images = []
         self.ocr_results = []
 
-        # ── Tier 1: ODA File Converter ──
+        # ── Tier 1: LibreDWG (开源 GNU，内置，dwg2dxf → DXF → ezdxf 渲染) ──
+        if self._convert_via_libredwg():
+            return
+
+        # ── Tier 2: ODA File Converter ──
         oda_exe = self._find_oda_converter()
         if oda_exe and self._convert_via_oda(oda_exe):
             return
 
-        # ── Tier 2: AutoCAD COM ──
+        # ── Tier 3: AutoCAD COM ──
         if self._convert_via_autocad():
             return
 
-        # ── Tier 3: 引导用户 ──
+        # ── Tier 4: 引导用户 ──
         msg = (
-            "本程序内置 DXF 直接预览功能，但不支持直接打开 DWG。\n\n"
-            "您可以用以下方式打开此文件：\n"
-            "1. 在 AutoCAD 中打开 → 另存为 DXF 格式\n"
-            "2. 在 AutoCAD 中打开 → 打印为 PDF\n"
-            "3. 安装 ODA File Converter（免费）：\n"
-            "   https://www.opendesign.com/guestfiles/oda_file_converter\n\n"
-            "完成后直接用本软件打开转换后的文件即可。"
+            "本程序无法直接打开 DWG 文件。\n\n"
+            "您可以将 DWG 另存为 DXF 或 PDF 后重新打开：\n"
+            "1. 在 AutoCAD / 其他 CAD 软件中打开\n"
+            "2. 另存为 DXF 格式（推荐）或打印为 PDF\n"
+            "3. 用本程序打开转换后的文件即可"
         )
         messagebox.showinfo("DWG 预览指引", msg)
         self.status_var.set("DWG 需转为 DXF 或 PDF 格式")
+
+    def _convert_via_libredwg(self):
+        """通过内置 LibreDWG 将 DWG → DXF，再用 ezdxf 渲染"""
+        try:
+            import subprocess, tempfile
+
+            # 查找内置的 LibreDWG dwg2dxf.exe
+            libredwg_exe = None
+            if getattr(sys, 'frozen', False):
+                base = Path(sys._MEIPASS)
+            else:
+                base = Path(__file__).parent.resolve()
+
+            candidates = [
+                base / "libredwg" / "bin" / "dwg2dxf.exe",
+                base / "libredwg" / "dwg2dxf.exe",
+                base.parent / "libredwg" / "bin" / "dwg2dxf.exe",
+            ]
+            for c in candidates:
+                if c.exists():
+                    libredwg_exe = str(c)
+                    break
+
+            if not libredwg_exe:
+                return False
+
+            self.status_var.set("LibreDWG: DWG → DXF 转换中...")
+            self.root.update_idletasks()
+
+            # 转换 DWG → DXF
+            temp_dir = tempfile.mkdtemp(prefix="dwg_libredwg_")
+            output_dir = str(Path(temp_dir))
+            result = subprocess.run(
+                [libredwg_exe, self.current_path, "-o", output_dir, "-f", "ACAD2010"],
+                capture_output=True, text=True, timeout=60,
+            )
+
+            # 找到输出的 DXF 文件
+            dwg_stem = Path(self.current_path).stem
+            dxf_path = os.path.join(output_dir, f"{dwg_stem}.dxf")
+            if not os.path.exists(dxf_path):
+                # 尝试小写扩展名
+                dxf_path = os.path.join(output_dir, f"{dwg_stem}.DXF")
+            if not os.path.exists(dxf_path):
+                # 尝试在输出目录中查找任何 .dxf 文件
+                for f in os.listdir(output_dir):
+                    if f.lower().endswith('.dxf'):
+                        dxf_path = os.path.join(output_dir, f)
+                        break
+
+            if not os.path.exists(dxf_path):
+                print(f"LibreDWG 转换失败: {result.stderr[:300] if result.stderr else '无输出'}")
+                return False
+
+            print(f"LibreDWG 成功: {dxf_path} ({os.path.getsize(dxf_path) / 1024:.0f} KB)")
+
+            # 用 ezdxf 渲染转换后的 DXF
+            self.current_path = dxf_path
+            self.file_type = 'dxf'
+            self._render_dxf_to_image()
+            if self.pdf_images:
+                self.status_var.set(f"DWG → DXF (LibreDWG): {dwg_stem} 共 {len(self.pdf_images)} 张图")
+                return True
+
+            return False
+        except subprocess.TimeoutExpired:
+            print("LibreDWG 转换超时")
+            return False
+        except Exception as e:
+            print(f"LibreDWG 错误: {e}")
+            return False
 
     def _render_dxf_to_image(self):
         """将 DXF 文件渲染为图像预览（内置 ezdxf + matplotlib，无需任何额外安装）"""
