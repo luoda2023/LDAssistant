@@ -56,6 +56,14 @@ else:
     ODA_ROOT = None
     print("ODA converter not bundled")
 
+print(f"Main script: {MAIN_SCRIPT}")
+print(f"Database: {DB_FILE} (exists: {DB_FILE is not None})")
+print(f"Icon: {ICON_FILE} (exists: {ICON_FILE.exists()})")
+
+# Collect data files
+datas = []
+binaries = []
+
 # Include LibreDWG binaries (DWG→DXF 转换)
 if LIBREDWG_ROOT and LIBREDWG_ROOT.exists():
     for item in LIBREDWG_ROOT.rglob("*"):
@@ -64,14 +72,6 @@ if LIBREDWG_ROOT and LIBREDWG_ROOT.exists():
             dest = f"libredwg/{rel.parent}" if rel.parent != Path('.') else "libredwg"
             binaries.append((str(item), dest))
     print(f"Included LibreDWG: {LIBREDWG_ROOT}")
-
-print(f"Main script: {MAIN_SCRIPT}")
-print(f"Database: {DB_FILE} (exists: {DB_FILE is not None})")
-print(f"Icon: {ICON_FILE} (exists: {ICON_FILE.exists()})")
-
-# Collect data files
-datas = []
-binaries = []
 
 # Include matplotlib mpl-data (fonts, colormaps — needed for DXF rendering)
 try:
