@@ -561,6 +561,11 @@ class App:
         self.extracted_code_info = {}  # code -> {name, original}
         self.code_locations = []  # list of dicts: page_index, bbox, code
         self._active_highlight_loc = None  # 当前激活的高亮位置（供缩放/重绘后重建）
+        self._highlight_rect_id = None
+        self._highlight_fill_id = None
+        self._highlight_label_id = None
+        self._highlight_flash_count = 0
+        self._zoom_level = 1.0
         self.check_results = []
 
         # Region selection state
@@ -1122,7 +1127,7 @@ class App:
         self.list_tree.configure(yscrollcommand=list_scroll.set)
         list_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.list_tree.pack(fill=tk.BOTH, expand=True)
-        self.list_tree.bind('<Double-Button-1>', self.remove_selected_code)
+        self.list_tree.bind('<Double-Button-1>', self.on_list_item_double_click)
         self.list_tree.bind('<<TreeviewSelect>>', self.on_code_selected)
 
         # Check results tab
@@ -1867,6 +1872,12 @@ class App:
         pil, _ = _get_pil()
         Image = pil['Image']
         ImageTk = pil['ImageTk']
+        # 关闭旧图片资源
+        if hasattr(self, '_current_base_image') and self._current_base_image:
+            try:
+                self._current_base_image.close()
+            except Exception:
+                pass
         img = Image.open(img_path)
         self._current_base_image = img
         img_w, img_h = img.size
@@ -2274,6 +2285,21 @@ class App:
             name = vals[2] if len(vals) > 2 else ''
             self.list_tree.item(item, values=(i, vals[1], name))
         self.status_var.set(f"已移除选中项，剩余 {len(self.extracted_codes)} 个规范")
+
+    def on_list_item_double_click(self, event=None):
+        """双击规范识别列表项（左侧）→ 弹出搜索对话框。"""
+        selected = self.list_tree.selection()
+        if not selected:
+            return
+        item = selected[0]
+        values = self.list_tree.item(item, 'values')
+        if len(values) < 2:
+            return
+        code = values[1]
+        name = values[2] if len(values) > 2 else ''
+
+        dialog = StandardSearchDialog(self, self.checker, code=code, name=name)
+        self.wait_window(dialog)
 
     def on_code_selected(self, event=None):
         """When user selects a code in the list, navigate to its page and highlight.
@@ -2954,15 +2980,12 @@ class App:
         if not self.pdf_images:
             return
 
-        # 保存当前激活的高亮位置（供 _rebuild_highlight 使用）
-        self._active_highlight_loc = loc
-
         # 1. 清除旧高亮（然后立刻恢复 loc，确保 show_page rebuild 时能找到）
         self.pdf_canvas.delete('code_highlight')
         self._highlight_rect_id = None
         self._highlight_fill_id = None
         self._highlight_label_id = None
-        self._active_highlight_loc = loc  # 立刻恢复，因为 show_page 依赖它
+        self._active_highlight_loc = loc  # 立刻设置，因为 show_page 依赖它
 
         # 2. 切换到对应页面
         page_idx = loc.get('page', 0)
@@ -3631,6 +3654,22 @@ class StandardSearchDialog(tk.Toplevel):
 
         btn_bar = tk.Frame(card, bg="#FFFFFF")
         btn_bar.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
+
+        # 剪贴板复制函数
+        def copy_code():
+            self.clipboard_clear()
+            self.clipboard_append(code)
+            copy_win.destroy()
+
+        def copy_name():
+            self.clipboard_clear()
+            self.clipboard_append(name)
+            copy_win.destroy()
+
+        def copy_all():
+            self.clipboard_clear()
+            self.clipboard_append(f"{code} {name} 状态:{status}")
+            copy_win.destroy()
 
         for txt, cmd in [("📋 复制编号", copy_code), ("📝 复制名称", copy_name), ("📄 复制全部", copy_all)]:
             tk.Button(btn_bar, text=txt, command=cmd, cursor="hand2",
