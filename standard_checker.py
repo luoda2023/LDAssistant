@@ -1269,125 +1269,166 @@ class App:
             self.status_var.set("读取文件失败")
 
     def _render_dwg_to_image(self):
-        """将 DWG 文件转换为 PDF 后预览（使用 ODA File Converter 免费引擎）"""
+        """三层 DWG 转换引擎：1)内置ODA 2)AutoCAD COM 3)用户指引"""
         if not self.current_path or self.file_type != 'dwg':
             return
-        self.status_var.set("正在转换 DWG → PDF...")
+        self.status_var.set("正在转换 DWG...")
         self.progress_var.set(0)
         self.pdf_images = []
         self.ocr_results = []
 
-        # 查找 ODA File Converter
-        oda_exe = None
-        # 扫描版本化目录
+        # ── Tier 1: ODA File Converter ──
+        oda_exe = self._find_oda_converter()
+        if oda_exe and self._convert_via_oda(oda_exe):
+            return
+
+        # ── Tier 2: AutoCAD COM 自动化 ──
+        if self._convert_via_autocad():
+            return
+
+        # ── Tier 3: 用户指引 ──
+        msg = (
+            "打开 DWG 文件需要 ODA File Converter（免费引擎）。\n\n"
+            "请下载安装：\n"
+            "https://www.opendesign.com/guestfiles/oda_file_converter\n\n"
+            "安装后重启本程序即可。\n"
+            "ODA 引擎兼容所有 AutoCAD 版本（R12~2024），\n"
+            "内置常用 SHX 字体映射，文字显示完整。"
+        )
+        messagebox.showinfo("需要 DWG 转换引擎", msg)
+        self.status_var.set("请安装 ODA File Converter 后重试")
+
+    def _find_oda_converter(self):
+        """查找 ODA File Converter（内置 → 系统安装 → PATH）"""
+        # 1. 内置
+        bundled = _resource_path("oda_converter") / "ODAFileConverter.exe"
+        if bundled.exists():
+            return str(bundled)
+        # 2. 开发目录
+        dev = Path(__file__).parent / "oda_converter" / "ODAFileConverter.exe"
+        if dev.exists():
+            return str(dev)
+        # 3. 系统安装
         for base in [r"C:\Program Files\ODA", r"C:\Program Files (x86)\ODA"]:
             for d in sorted(glob.glob(os.path.join(base, "ODAFileConverter*")), reverse=True):
                 p = os.path.join(d, "ODAFileConverter.exe")
                 if os.path.exists(p):
-                    oda_exe = p
-                    break
-            if oda_exe:
-                break
+                    return p
+        # 4. 标准路径
+        for p in [
+            r"C:\Program Files\ODA\ODAFileConverter\ODAFileConverter.exe",
+            r"C:\Program Files (x86)\ODA\ODAFileConverter\ODAFileConverter.exe",
+        ]:
+            if os.path.exists(p):
+                return p
+        # 5. PATH
+        oda = shutil.which("ODAFileConverter.exe")
+        if oda:
+            return oda
+        return None
 
-        if not oda_exe:
-            # 检查标准路径
-            oda_candidates = [
-                r"C:\Program Files\ODA\ODAFileConverter\ODAFileConverter.exe",
-                r"C:\Program Files (x86)\ODA\ODAFileConverter\ODAFileConverter.exe",
-            ]
-            for p in oda_candidates:
-                if os.path.exists(p):
-                    oda_exe = p
-                    break
-
-        if not oda_exe:
-            # 检查 PATH
-            oda_exe = shutil.which("ODAFileConverter.exe")
-
-        if not oda_exe:
-            msg = (
-                "打开 DWG 文件需要 ODA File Converter（免费）。\n\n"
-                "请下载安装：\n"
-                "https://www.opendesign.com/guestfiles/oda_file_converter\n\n"
-                "安装后重启本程序即可自动识别。\n"
-                "ODA 引擎兼容所有 AutoCAD 版本（R12~2024），\n"
-                "内置常用 SHX 字体映射，文字显示完整。"
-            )
-            messagebox.showinfo("需要 ODA File Converter", msg)
-            self.status_var.set("请安装 ODA File Converter 后重试")
-            return
-
+    def _convert_via_oda(self, oda_exe):
+        """通过 ODA File Converter 将 DWG → PDF"""
         try:
-            # 创建临时目录，只放入当前 DWG 文件（避免 ODA 处理整个文件夹）
-            import uuid
             temp_dir = tempfile.mkdtemp(prefix="dwg_")
-            # 复制 DWG 到临时目录
-            dwg_name = Path(self.current_path).name
-            temp_dwg = os.path.join(temp_dir, dwg_name)
-            shutil.copy2(self.current_path, temp_dwg)
-
-            input_dir = temp_dir
-            output_dir = temp_dir  # ODA 输出到同一目录，但扩展名不同
-
-            # ODAFileConverter 命令行：
-            # ODAFileConverter.exe <input_dir> <output_dir> <input_ver> <output_ver> <output_type> [Recursive] [Audit]
-            cmd = [
-                oda_exe,
-                input_dir,
-                output_dir,
-                "ACAD2024",         # 输入版本
-                "PDF",              # 输出格式
-                "0",                # 0=不递归子目录
-                "1",                # 审计修复
-            ]
+            shutil.copy2(self.current_path, os.path.join(temp_dir, Path(self.current_path).name))
 
             self.status_var.set("ODA 转换中，请稍候...")
             self.root.update_idletasks()
 
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=120,
-                cwd=os.path.dirname(oda_exe),
-            )
+            proc = subprocess.run([
+                oda_exe, temp_dir, temp_dir,
+                "ACAD2024", "PDF", "0", "1",
+            ], capture_output=True, text=True, timeout=120,
+               cwd=os.path.dirname(oda_exe))
 
-            # ODA 输出的 PDF 文件名与 DWG 同名
             dwg_stem = Path(self.current_path).stem
-            expected_pdf = os.path.join(output_dir, f"{dwg_stem}.pdf")
+            expected_pdf = os.path.join(temp_dir, f"{dwg_stem}.pdf")
 
             if os.path.exists(expected_pdf):
                 self.current_path = expected_pdf
                 self.file_type = 'pdf'
-                self.pdf_images_meta = [{'type': 'dwg', 'source': self.current_path}]
+                self.pdf_images_meta = [{'type': 'dwg'}]
                 self.convert_pdf_to_images()
-                self.status_var.set(f"DWG 已转换: {dwg_stem}.pdf → {len(self.pdf_images)} 页")
-            else:
-                # 检查是否生成了其他 PDF
-                pdf_files = list(Path(output_dir).glob("*.pdf"))
-                if pdf_files:
-                    self.current_path = str(pdf_files[0])
-                    self.file_type = 'pdf'
-                    self.pdf_images_meta = [{'type': 'dwg', 'source': self.current_path}]
-                    self.convert_pdf_to_images()
-                else:
-                    stderr = (proc.stderr or "")[:500]
-                    stdout = (proc.stdout or "")[:500]
-                    print(f"ODA 转换失败。stdout: {stdout}\nstderr: {stderr}")
-                    messagebox.showerror("DWG 转换失败",
-                        f"ODA File Converter 未能生成 PDF。\n\n"
-                        f"请确认 DWG 文件不是加密或损坏的。\n"
-                        f"日志: {stdout[-100:]}")
-                    self.status_var.set("DWG 转换失败")
+                self.status_var.set(f"DWG→PDF: {dwg_stem}.pdf 共 {len(self.pdf_images)} 页")
+                return True
 
+            pdf_files = list(Path(temp_dir).glob("*.pdf"))
+            if pdf_files:
+                self.current_path = str(pdf_files[0])
+                self.file_type = 'pdf'
+                self.pdf_images_meta = [{'type': 'dwg'}]
+                self.convert_pdf_to_images()
+                return True
+
+            print(f"ODA 失败: {proc.stderr[:300] if proc.stderr else '无输出'}")
+            return False
         except subprocess.TimeoutExpired:
-            messagebox.showerror("超时", "DWG 转换超时（超过 120 秒），请检查文件大小。")
-            self.status_var.set("DWG 转换超时")
+            print("ODA 超时")
+            return False
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            messagebox.showerror("DWG 错误", f"无法渲染 DWG 文件:\n{e}")
-            self.status_var.set(f"渲染 DWG 失败: {e}")
+            print(f"ODA 错误: {e}")
+            return False
+
+    def _convert_via_autocad(self):
+        """通过 AutoCAD COM 自动化将 DWG → PDF"""
+        try:
+            import win32com.client
+            import pythoncom
+            pythoncom.CoInitialize()
+
+            try:
+                acad = win32com.client.GetActiveObject('AutoCAD.Application')
+            except Exception:
+                try:
+                    acad = win32com.client.Dispatch('AutoCAD.Application')
+                    acad.Visible = False
+                except Exception:
+                    return False
+
+            self.status_var.set("AutoCAD 转换中...")
+            self.root.update_idletasks()
+
+            doc = acad.Documents.Open(self.current_path)
+            dwg_stem = Path(self.current_path).stem
+            temp_dir = tempfile.mkdtemp(prefix="dwg_acad_")
+
+            try:
+                # 方法1: 导出为 PDF
+                pdf_path = os.path.join(temp_dir, f"{dwg_stem}.pdf")
+                doc.Export(pdf_path, "PDF", doc.ActiveLayout)
+            except Exception:
+                try:
+                    # 方法2: Plot 到 PDF
+                    layout = doc.ActiveLayout
+                    layout.RefreshPlotDeviceInfo()
+                    pdf_path = os.path.join(temp_dir, f"{dwg_stem}_plot.pdf")
+                    doc.Plot.PlotToFile(pdf_path)
+                except Exception:
+                    doc.Close(False)
+                    pythoncom.CoUninitialize()
+                    return False
+
+            doc.Close(False)
+            pythoncom.CoUninitialize()
+
+            if os.path.exists(pdf_path):
+                self.current_path = pdf_path
+                self.file_type = 'pdf'
+                self.pdf_images_meta = [{'type': 'dwg', 'via': 'autocad'}]
+                self.convert_pdf_to_images()
+                self.status_var.set(f"DWG→PDF (AutoCAD): {dwg_stem}.pdf 共 {len(self.pdf_images)} 页")
+                return True
+            return False
+        except ImportError:
+            return False
+        except Exception as e:
+            print(f"AutoCAD COM 错误: {e}")
+            try:
+                pythoncom.CoUninitialize()
+            except Exception:
+                pass
+            return False
 
     def _preprocess_ocr_text(self, text):
         """OCR 文本预处理：全角→半角、符号统一、常见 OCR 误识修正"""

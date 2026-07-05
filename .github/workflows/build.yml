@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pyinstaller pillow pymupdf python-docx ezdxf matplotlib
+          pip install pyinstaller pillow pymupdf python-docx
 
       - name: Read version
         id: version

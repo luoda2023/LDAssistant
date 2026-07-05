@@ -35,6 +35,16 @@ else:
     OCR_ROOT = None
     print("OCR engine not found — build will exclude OCR (CI should download it via setup step)")
 
+# ODA File Converter 引擎路径（DWG → PDF 转换）
+ODA_DIR = SCRIPT_DIR / "oda_converter"
+ODA_EXE = ODA_DIR / "ODAFileConverter.exe"
+if ODA_EXE.exists():
+    ODA_ROOT = ODA_DIR
+    print(f"Using bundled ODA converter: {ODA_ROOT} ({ODA_EXE.stat().st_size / 1024 / 1024:.0f} MB)")
+else:
+    ODA_ROOT = None
+    print("ODA converter not found — DWG preview will fallback to AutoCAD COM or user guidance")
+
 print(f"Main script: {MAIN_SCRIPT}")
 print(f"Database: {DB_FILE} (exists: {DB_FILE is not None})")
 print(f"Icon: {ICON_FILE} (exists: {ICON_FILE.exists()})")
@@ -53,6 +63,17 @@ if OCR_ROOT and OCR_ROOT.exists():
     print(f"Included OCR directory: {OCR_ROOT}")
 else:
     print("OCR excluded — not found at build time")
+
+# Include ODA File Converter directory (DWG → PDF conversion engine)
+if ODA_ROOT and ODA_ROOT.exists():
+    for item in ODA_ROOT.rglob("*"):
+        if item.is_file():
+            rel = item.relative_to(ODA_ROOT)
+            dest = f"oda_converter/{rel.parent}" if rel.parent != Path('.') else "oda_converter"
+            binaries.append((str(item), dest))
+    print(f"Included ODA converter: {ODA_ROOT}")
+else:
+    print("ODA converter excluded — not bundled")
 
 # Include database
 if DB_FILE is not None:
@@ -93,6 +114,10 @@ a = Analysis(
         "pymupdf",
         # Database module
         "standard_db",
+        # CAD / COM automation
+        "win32com",
+        "win32com.client",
+        "pythoncom",
     ],
     hookspath=[],
     hooksconfig={},
