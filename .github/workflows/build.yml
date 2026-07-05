@@ -101,35 +101,35 @@ jobs:
             exit 0
           fi
 
-	          echo "❌ Cannot find any database file — build will fail"
-	          exit 1
+          echo "❌ Cannot find any database file — build will fail"
+          exit 1
 
-	      - name: Optimize database (drop unused indexes)
-	        shell: bash
-	        run: |
-	          # 代码用 Python 内存字典查询，SQLite 索引完全不需要
-	          # 删除它们可以节省 ~39MB Release 体积
-	          if [ -f standards_new.db ]; then
-	            echo "Optimizing standards_new.db..."
-	            python3 -c "
-	import sqlite3, os
-	db = 'standards_new.db'
-	orig = os.path.getsize(db)
-	conn = sqlite3.connect(db)
-	conn.execute('PRAGMA journal_mode=OFF')
-	conn.execute('PRAGMA synchronous=OFF')
-	for idx in ['idx_dedup_key','idx_std_type','idx_source','idx_is_eng','idx_status','idx_publish_date','idx_code']:
-	    try:
-	        conn.execute(f'DROP INDEX IF EXISTS {idx}')
-	        print(f'  Dropped index: {idx}')
-	    except: pass
-	conn.execute('VACUUM')
-	conn.close()
-	newsz = os.path.getsize(db)
-	print(f'  DB size: {orig/1048576:.0f}MB → {newsz/1048576:.0f}MB (saved {(orig-newsz)/1048576:.0f}MB)')
-	"
-	            ls -lh standards_new.db
-	          fi
+      - name: Optimize database (drop unused indexes)
+        shell: bash
+        run: |
+          # 代码用 Python 内存字典查询，SQLite 索引完全不需要
+          # 删除它们可以节省 ~39MB Release 体积
+          if [ -f standards_new.db ]; then
+            echo "Optimizing standards_new.db..."
+            python -c "import sqlite3, os
+db = 'standards_new.db'
+orig = os.path.getsize(db)
+conn = sqlite3.connect(db)
+conn.execute('PRAGMA journal_mode=OFF')
+conn.execute('PRAGMA synchronous=OFF')
+for idx in ['idx_dedup_key','idx_std_type','idx_source','idx_is_eng','idx_status','idx_publish_date','idx_code']:
+    try:
+        conn.execute('DROP INDEX IF EXISTS ' + idx)
+        print('  Dropped index:', idx)
+    except:
+        pass
+conn.execute('VACUUM')
+conn.close()
+newsz = os.path.getsize(db)
+print('  DB size: %.0fMB -> %.0fMB (saved %.0fMB)' % (orig/1048576, newsz/1048576, (orig-newsz)/1048576))
+"
+            ls -lh standards_new.db
+          fi
 
       - name: Setup OCR engine
         shell: bash
