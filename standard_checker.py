@@ -2178,9 +2178,9 @@ class App:
         # Redraw code markers for current page
         if hasattr(self, 'current_display_index'):
             self._draw_code_markers_for_page(self.current_display_index, scale)
-        
-        # Highlight was cleared by delete('all')
-        self._highlight_rect_id = None
+
+        # 重建高亮框（delete('all') 已清除）
+        self._rebuild_highlight()
 
     def start_selection(self):
         if not self.pdf_images:
@@ -2276,9 +2276,6 @@ class App:
         if hasattr(self, '_preview_name_var'):
             self._preview_name_var.set(preview_name)
 
-        # 清除旧高亮
-        self._clear_highlight()
-
         # ── 图片型文件（PDF / DWG / DXF）：切页 + 高亮 ──
         if self.pdf_images:
             code_norm = normalize_for_matching(code)
@@ -2290,18 +2287,19 @@ class App:
                     break
 
             if target_loc:
-                page_idx = target_loc.get('page', 0)
-                if page_idx != getattr(self, 'current_display_index', -1):
-                    self.show_page(page_idx)
-                    self.root.update_idletasks()
-
-                # 有 OCR bbox → 精准高亮（show_page 会 rebuild，这里再显式画一次）
+                # 有 OCR bbox → 精准高亮（内部自动处理切页）
                 bbox = target_loc.get('bbox', (0, 0, 0, 0))
                 if not all(v == 0 for v in bbox):
                     self._highlight_code_location(target_loc)
                 else:
+                    # bbox 为空 → 先切页再用 fitz 搜索
+                    page_idx = target_loc.get('page', 0)
+                    if page_idx != getattr(self, 'current_display_index', -1):
+                        self.show_page(page_idx)
+                        self.root.update_idletasks()
                     self._highlight_standard_on_preview(code, name)
             else:
+                # OCR 结果里没有，用 fitz 搜索当前页
                 self._highlight_standard_on_preview(code, name)
 
         # ── 文本型文件（docx / xlsx / pptx / txt）：在文字控件中跳转 ──
@@ -2893,9 +2891,6 @@ class App:
         # Extract original code from display (may contain " → " or " [相似:")
         code_norm = normalize_for_matching(original_code)
 
-        # 清除旧高亮
-        self._clear_highlight()
-
         # ── 图片型文件：切页 + 高亮 ──
         if self.pdf_images:
             target_loc = None
@@ -2905,15 +2900,14 @@ class App:
                     break
 
             if target_loc:
-                page_idx = target_loc.get('page', 0)
-                if page_idx != getattr(self, 'current_display_index', -1):
-                    self.show_page(page_idx)
-                    self.root.update_idletasks()
-
                 bbox = target_loc.get('bbox', (0, 0, 0, 0))
                 if not all(v == 0 for v in bbox):
                     self._highlight_code_location(target_loc)
                 else:
+                    page_idx = target_loc.get('page', 0)
+                    if page_idx != getattr(self, 'current_display_index', -1):
+                        self.show_page(page_idx)
+                        self.root.update_idletasks()
                     self._highlight_standard_on_preview(original_code, name)
             else:
                 self._highlight_standard_on_preview(original_code, name)
@@ -2945,9 +2939,12 @@ class App:
         # 保存当前激活的高亮位置（供 _rebuild_highlight 使用）
         self._active_highlight_loc = loc
 
-        # 1. 清除旧高亮（必须在 show_page 之前，因为 show_page 会 rebuild）
-        self._clear_highlight()
-        self._active_highlight_loc = loc  # 再次设置，因为 clear 清除了
+        # 1. 清除旧高亮（然后立刻恢复 loc，确保 show_page rebuild 时能找到）
+        self.pdf_canvas.delete('code_highlight')
+        self._highlight_rect_id = None
+        self._highlight_fill_id = None
+        self._highlight_label_id = None
+        self._active_highlight_loc = loc  # 立刻恢复，因为 show_page 依赖它
 
         # 2. 切换到对应页面
         page_idx = loc.get('page', 0)
