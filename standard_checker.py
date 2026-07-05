@@ -1405,7 +1405,9 @@ class App:
             candidates = [
                 base / "libredwg" / "bin" / "dwg2dxf.exe",
                 base / "libredwg" / "dwg2dxf.exe",
+                base / "libredwg" / "dwg2dxf",
                 base.parent / "libredwg" / "bin" / "dwg2dxf.exe",
+                base.parent / "libredwg" / "dwg2dxf.exe",
             ]
             for c in candidates:
                 if c.exists():

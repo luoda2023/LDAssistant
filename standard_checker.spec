@@ -37,7 +37,8 @@ else:
 
 # LibreDWG 引擎（DWGFiles → DXF 转换，开源 GNU 项目）
 LIBREDWG_DIR = SCRIPT_DIR / "libredwg"
-LIBREDWG_EXE = LIBREDWG_DIR / "bin" / "dwg2dxf.exe"
+# dwg2dxf.exe 可能在 libredwg/bin/ 或 libredwg/ 根目录
+LIBREDWG_EXE = LIBREDWG_DIR / "dwg2dxf.exe"
 if LIBREDWG_EXE.exists():
     LIBREDWG_ROOT = LIBREDWG_DIR
     print(f"Using bundled LibreDWG: {LIBREDWG_ROOT} ({LIBREDWG_EXE.stat().st_size / 1024 / 1024:.0f} MB)")

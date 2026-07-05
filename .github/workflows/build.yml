@@ -144,14 +144,14 @@ jobs:
           # 提供 dwg2dxf 命令行工具，将 DWG → DXF，然后用 ezdxf 渲染
           mkdir -p libredwg
 
-          if [ -d libredwg/bin ] && [ -f libredwg/bin/dwg2dxf.exe ]; then
+          if [ -f libredwg/dwg2dxf.exe ] || [ -f libredwg/bin/dwg2dxf.exe ]; then
             echo "✅ LibreDWG already present"
-            ls -lh libredwg/bin/dwg2dxf.exe
+            ls -lh libredwg/dwg2dxf.exe libredwg/bin/dwg2dxf.exe 2>/dev/null
             exit 0
           fi
 
           echo "Downloading LibreDWG (open source GNU project)..."
-          curl -sL -o libredwg-win64.zip \
+          curl -sL --max-time 120 -o libredwg-win64.zip \
             "https://github.com/LibreDWG/libredwg/releases/download/0.14/libredwg-0.14-win64.zip" || {
             echo "⚠️ LibreDWG download failed"
             echo "LibreDWG not bundled" > libredwg/README.txt
@@ -160,17 +160,31 @@ jobs:
 
           if [ -s libredwg-win64.zip ]; then
             unzip -qo libredwg-win64.zip -d libredwg_tmp
-            # 将解压后的文件移入 libredwg/
-            mv libredwg_tmp/libredwg-0.14-win64/* libredwg/ 2>/dev/null || \
-            mv libredwg_tmp/* libredwg/ 2>/dev/null || true
+            # 解压后文件在 libredwg-0.14-win64/ 子目录中
+            if [ -d "libredwg_tmp/libredwg-0.14-win64" ]; then
+              mv libredwg_tmp/libredwg-0.14-win64/* libredwg/ 2>/dev/null || true
+            else
+              mv libredwg_tmp/* libredwg/ 2>/dev/null || true
+            fi
             rm -rf libredwg_tmp libredwg-win64.zip
 
-            if [ -f libredwg/bin/dwg2dxf.exe ]; then
+            # 确保 bin/ 目录结构
+            if [ -f libredwg/dwg2dxf.exe ] && [ ! -d libredwg/bin ]; then
+              mkdir -p libredwg/bin
+              # 把所有 .exe 和 .dll 复制到 bin/
+              for f in libredwg/*.exe libredwg/*.dll; do
+                [ -f "$f" ] && cp "$f" libredwg/bin/
+              done
+            fi
+
+            if [ -f libredwg/dwg2dxf.exe ] || [ -f libredwg/bin/dwg2dxf.exe ]; then
               echo "✅ LibreDWG installed:"
-              ls -lh libredwg/bin/dwg2dxf.exe
+              ls -lh libredwg/dwg2dxf.exe libredwg/bin/dwg2dxf.exe 2>/dev/null
+              # 列出所有工具
+              ls libredwg/*.exe libredwg/bin/*.exe 2>/dev/null
             else
               echo "⚠️ dwg2dxf.exe not found in extracted archive"
-              find libredwg -name "*.exe" -o -name "*.dll" | head -5
+              find libredwg -name "*.exe" -o -name "*.dll" | head -10
               echo "LibreDWG extracted but incomplete" > libredwg/README.txt
             fi
           else
