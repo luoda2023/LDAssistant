@@ -6,7 +6,7 @@ Run bump_version.bat before each build to auto-increment patch number.
 """
 
 # 主版本号 (major, minor, patch)
-VERSION = (10, 1, 1)
+VERSION = (10, 1, 2)
 
 # 派生版本字符串
 VERSION_STR = f"{VERSION[0]}.{VERSION[1]}.{VERSION[2]}"

@@ -53,6 +53,28 @@ print(f"Icon: {ICON_FILE} (exists: {ICON_FILE.exists()})")
 datas = []
 binaries = []
 
+# Include matplotlib mpl-data (fonts, colormaps — needed for DXF rendering)
+try:
+    import matplotlib as _mpl
+    _mpl_data = Path(_mpl.__file__).parent / "mpl-data"
+    if _mpl_data.exists():
+        datas.append((str(_mpl_data), "matplotlib/mpl-data"))
+        print(f"Included matplotlib/mpl-data: {sum(f.stat().st_size for f in _mpl_data.rglob('*') if f.is_file()) / 1048576:.1f} MB")
+except ImportError:
+    print("matplotlib not available — DXF rendering may fail")
+
+# Include ezdxf data files (DXF templates, fonts, etc.)
+try:
+    import ezdxf as _ezdxf
+    _ezdxf_data = Path(_ezdxf.__file__).parent
+    # Collect .pyd files (compiled C extensions)
+    for _pyd in _ezdxf_data.rglob("*.pyd"):
+        _rel = _pyd.relative_to(_ezdxf_data.parent)
+        binaries.append((str(_pyd), str(_rel.parent)))
+    print(f"Included ezdxf extensions")
+except ImportError:
+    print("ezdxf not available — DXF support disabled")
+
 # Include OCR directory structure (if available)
 if OCR_ROOT and OCR_ROOT.exists():
     for item in OCR_ROOT.rglob("*"):

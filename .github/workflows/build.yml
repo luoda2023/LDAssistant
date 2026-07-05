@@ -139,10 +139,29 @@ jobs:
 
       - name: Setup ODA engine (DWG → PDF, optional)
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "ODA engine setup skipped in CI — DWG preview uses DXF rendering + AutoCAD COM fallback at runtime"
+          # 尝试从专用 Release 下载 ODA 引擎
           mkdir -p oda_converter
-          echo "ODA engine not bundled in CI" > oda_converter/README.txt
+
+          if gh release download oda-engine-v1 \
+            --repo ${{ github.repository }} \
+            --pattern "oda-converter.tar.gz" \
+            --dir ./ 2>/dev/null; then
+            if [ -f oda-converter.tar.gz ]; then
+              echo "✅ Downloaded ODA engine ($(ls -lh oda-converter.tar.gz | awk '{print $5}'))"
+              tar xzf oda-converter.tar.gz -C oda_converter
+              rm -f oda-converter.tar.gz
+              ls -lh oda_converter/
+            else
+              echo "⚠️ ODA archive empty — using stub"
+              echo "ODA engine not bundled" > oda_converter/README.txt
+            fi
+          else
+            echo "⚠️ ODA engine release not found — using stub"
+            echo "ODA engine not bundled in CI" > oda_converter/README.txt
+          fi
 
       - name: Build with PyInstaller
         run: |
