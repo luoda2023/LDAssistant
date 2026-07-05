@@ -48,10 +48,10 @@ jobs:
 
       - name: Prepare database
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # ── 策略 ──
-          # 1) 先检查当前工作区是否有 DB
-          # 2) 找不到则通过 gh CLI 从 main 分支下载
+          # ── 策略: 先检查工作区→编译时从 main 下载——如果都找不到则从 GitHub Release 取 ──
 
           if [ -f standards_new.db ]; then
             echo "✅ Found standards_new.db in workspace"
@@ -66,49 +66,57 @@ jobs:
             exit 0
           fi
 
-          # ── 从 main 分支获取 ──
           echo "No DB in workspace — downloading from main branch..."
 
-          # 尝试 standards_new.db
+          # 1) 尝试 standards_new.db（原版 120MB，main 上可能不存在）
           if gh api repos/${{ github.repository }}/contents/standards_new.db?ref=main \
                -H "Accept: application/vnd.github.v3.raw" \
-               > standards_new.db 2>/dev/null; then
-            if [ -s standards_new.db ]; then
-              echo "✅ Downloaded standards_new.db from main branch"
+               > standards_new.db 2>/dev/null && [ -s standards_new.db ]; then
+            echo "✅ Downloaded standards_new.db from main"
+            ls -lh standards_new.db
+            exit 0
+          fi
+
+          # 2) 尝试 standards_new.db.gz（压缩版 39MB）
+          if gh api repos/${{ github.repository }}/contents/standards_new.db.gz?ref=main \
+               -H "Accept: application/vnd.github.v3.raw" \
+               > standards_new.db.gz 2>/dev/null && [ -s standards_new.db.gz ]; then
+            echo "✅ Downloaded standards_new.db.gz from main — decompressing..."
+            gunzip -f standards_new.db.gz
+            ls -lh standards_new.db
+            exit 0
+          fi
+
+          # 3) 回退: 从最新 Release 下载数据库
+          echo "Trying to download database from latest release..."
+          LATEST_TAG=$(gh release list --repo ${{ github.repository }} --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null)
+          if [ -n "$LATEST_TAG" ]; then
+            gh release download "$LATEST_TAG" \
+              --repo ${{ github.repository }} \
+              --pattern "standards_new.db.gz" \
+              --dir ./ 2>/dev/null || true
+            if [ -f standards_new.db.gz ] && [ -s standards_new.db.gz ]; then
+              echo "✅ Downloaded from release $LATEST_TAG"
+              gunzip -f standards_new.db.gz
               ls -lh standards_new.db
               exit 0
             fi
           fi
 
-          # 尝试 standards.db.gz
+          # 4) 旧版 fallback: standards.db.gz（旧约 22MB，但可能不是最新）
           if gh api repos/${{ github.repository }}/contents/standards.db.gz?ref=main \
                -H "Accept: application/vnd.github.v3.raw" \
-               > standards.db.gz 2>/dev/null; then
-            if [ -s standards.db.gz ]; then
-              echo "✅ Downloaded standards.db.gz from main — decompressing..."
-              gunzip -f standards.db.gz
-              cp standards.db standards_new.db
-              ls -lh standards_new.db
-              exit 0
-            fi
-          fi
-
-          # 尝试 standards.db
-          if gh api repos/${{ github.repository }}/contents/standards.db?ref=main \
-               -H "Accept: application/vnd.github.v3.raw" \
-               > standards.db 2>/dev/null; then
-            if [ -s standards.db ]; then
-              echo "✅ Downloaded standards.db from main — copying..."
-              cp standards.db standards_new.db
-              ls -lh standards_new.db
-              exit 0
-            fi
+               > standards.db.gz 2>/dev/null && [ -s standards.db.gz ]; then
+            echo "⚠️ Downloaded OLD standards.db.gz from main — decompressing..."
+            gunzip -f standards.db.gz
+            cp standards.db standards_new.db
+            ls -lh standards_new.db
+            echo "WARNING: Using old database. Next build will have correct version."
+            exit 0
           fi
 
           echo "❌ Cannot find any database file — build will fail"
           exit 1
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Setup OCR engine
         shell: bash

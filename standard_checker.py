@@ -1053,7 +1053,7 @@ class App:
 
         self.region_var = tk.StringVar(value="识别区域：未设置（全页识别）")
         tk.Label(action_card, textvariable=self.region_var, font=(self._font_family, 9),
-                 fg="#6B7280", bg="#FFFFFF", padx=8, pady=(0, 6)).pack(side=tk.TOP, anchor=tk.W)
+                 fg="#6B7280", bg="#FFFFFF", padx=8, pady=0).pack(side=tk.TOP, anchor=tk.W)
 
         # Progress bar
         self.progress_var = tk.DoubleVar(value=0.0)
@@ -2920,8 +2920,8 @@ class StandardSearchDialog(tk.Toplevel):
                      relief="flat", padx=10, pady=4).pack(side=tk.LEFT, padx=(0, 4))
 
         # 过滤行
-        filter_frame = tk.Frame(search_card, bg=card, padx=10, pady=(0, 10))
-        filter_frame.pack(side=tk.TOP, fill=tk.X)
+        filter_frame = tk.Frame(search_card, bg=card, padx=10, pady=0)
+        filter_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 10))
 
         # 规范类型过滤
         tk.Label(filter_frame, text="类型:", font=(font_family, 9), fg="#374151", bg=card).pack(side=tk.LEFT, padx=(0, 3))
