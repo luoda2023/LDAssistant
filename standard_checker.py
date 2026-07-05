@@ -2039,6 +2039,16 @@ class App:
                 self.pdf_canvas.move(self._highlight_rect_id, dx, dy)
             except Exception:
                 pass
+        if hasattr(self, '_highlight_fill_id') and self._highlight_fill_id:
+            try:
+                self.pdf_canvas.move(self._highlight_fill_id, dx, dy)
+            except Exception:
+                pass
+        if hasattr(self, '_highlight_label_id') and self._highlight_label_id:
+            try:
+                self.pdf_canvas.move(self._highlight_label_id, dx, dy)
+            except Exception:
+                pass
 
     def _on_pan_end(self, event):
         """End panning."""
@@ -3101,7 +3111,7 @@ class App:
             )
     
     def _highlight_standard_on_preview(self, code, name):
-        """Highlight the standard code or name on the PDF preview canvas using fitz text search."""
+        """当 OCR 没有 bbox 时，用 fitz 文本搜索定位高亮（PDF 专用）。"""
         if self.file_type != 'pdf' or not getattr(self, 'current_path', None):
             return
         if not hasattr(self, '_current_base_image') or not self._current_base_image:
@@ -3143,13 +3153,40 @@ class App:
                 x2 = rect.x1 * scale_factor * scale + offset_x
                 y2 = rect.y1 * scale_factor * scale + offset_y
 
-                if hasattr(self, '_highlight_rect_id') and self._highlight_rect_id:
-                    self.pdf_canvas.delete(self._highlight_rect_id)
+                # 清除旧高亮
+                self.pdf_canvas.delete('code_highlight')
 
+                # 保存为 code_locations 格式，供缩放重建使用
+                orig_x1 = rect.x0 * scale_factor
+                orig_y1 = rect.y0 * scale_factor
+                orig_x2 = rect.x1 * scale_factor
+                orig_y2 = rect.y1 * scale_factor
+                self._active_highlight_loc = {
+                    'code': code,
+                    'page': page_idx,
+                    'bbox': (orig_x1, orig_y1, orig_x2, orig_y2),
+                }
+
+                # 绘制统一的高亮框
+                pad = 4
                 self._highlight_rect_id = self.pdf_canvas.create_rectangle(
-                    x1, y1, x2, y2,
-                    outline='red', width=3, dash=()
+                    x1 - pad, y1 - pad, x2 + pad, y2 + pad,
+                    outline='#FF0000', width=3, tags='code_highlight'
                 )
+                self._highlight_fill_id = self.pdf_canvas.create_rectangle(
+                    x1, y1, x2, y2,
+                    outline='', fill='#FFFF00', stipple='gray25', tags='code_highlight'
+                )
+                if code:
+                    self._highlight_label_id = self.pdf_canvas.create_text(
+                        x1 - pad, y1 - pad - 14, text=f"▶ {code}",
+                        fill='#CC0000', anchor='sw',
+                        font=(self._font_family, 10, 'bold'), tags='code_highlight'
+                    )
+
+                # 脉冲动画
+                self._highlight_flash_count = 0
+                self._highlight_flash()
             finally:
                 if doc is not None:
                     doc.close()
