@@ -35,7 +35,7 @@ else:
     OCR_ROOT = None
     print("OCR engine not found — build will exclude OCR (CI should download it via setup step)")
 
-# ODA File Converter 引擎路径（DWG → PDF 转换）
+# ODA File Converter 引擎路径（DWG → PDF 转换，可选）
 ODA_DIR = SCRIPT_DIR / "oda_converter"
 ODA_EXE = ODA_DIR / "ODAFileConverter.exe"
 if ODA_EXE.exists():
@@ -43,7 +43,7 @@ if ODA_EXE.exists():
     print(f"Using bundled ODA converter: {ODA_ROOT} ({ODA_EXE.stat().st_size / 1024 / 1024:.0f} MB)")
 else:
     ODA_ROOT = None
-    print("ODA converter not found — DWG preview will fallback to AutoCAD COM or user guidance")
+    print("ODA converter not bundled — DWG preview fallback to DXF rendering + AutoCAD COM")
 
 print(f"Main script: {MAIN_SCRIPT}")
 print(f"Database: {DB_FILE} (exists: {DB_FILE is not None})")
@@ -118,6 +118,14 @@ a = Analysis(
         "win32com",
         "win32com.client",
         "pythoncom",
+        # DXF rendering + DOC reading
+        "ezdxf",
+        "ezdxf.addons.drawing",
+        "ezdxf.addons.drawing.matplotlib",
+        "matplotlib",
+        "matplotlib.backends",
+        "matplotlib.backends.backend_agg",
+        "olefile",
     ],
     hookspath=[],
     hooksconfig={},

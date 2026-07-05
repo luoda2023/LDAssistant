@@ -552,7 +552,7 @@ class App:
         self.checker = None
         self.pdf_paths = []
         self.current_path = None
-        self.file_type = None  # 'pdf', 'docx', 'doc', 'txt', 'dwg'
+        self.file_type = None  # 'pdf', 'docx', 'doc', 'txt', 'dwg', 'dxf'
         self.pdf_images = []
         self.pdf_images_meta = []  # 文件元信息（用于 DXF 等非 PDF 文件）
         self.ocr_results = []
@@ -1149,11 +1149,12 @@ class App:
 
     def open_file(self):
         paths = filedialog.askopenfilenames(
-            title="选择文件（PDF/WORD/DWG/TXT）",
+            title="选择文件（PDF/WORD/DWG/DXF/TXT）",
             filetypes=[
                 ("PDF files", "*.pdf"),
                 ("Word files", "*.doc;*.docx"),
                 ("DWG files", "*.dwg"),
+                ("DXF files", "*.dxf"),
                 ("Text files", "*.txt"),
                 ("All files", "*.*")
             ]
@@ -1171,6 +1172,8 @@ class App:
             self.file_type = 'txt'
         elif ext == '.dwg':
             self.file_type = 'dwg'
+        elif ext == '.dxf':
+            self.file_type = 'dxf'
         else:
             self.file_type = 'unknown'
 
@@ -1183,6 +1186,8 @@ class App:
             self.convert_pdf_to_images()
         elif self.file_type == 'dwg':
             self._render_dwg_to_image()
+        elif self.file_type == 'dxf':
+            self._render_dxf_to_image()
         else:
             self.extract_text_file()
 
@@ -1248,78 +1253,57 @@ class App:
                 f"无法读取 Word 文件。\n请确认已安装 Microsoft Word。\n错误: {e}")
             return None
 
-    def _auto_install_oda(self):
-        """自动下载安装 ODA File Converter——从 GitHub Release 获取便携版"""
-        oda_target = _resource_path("oda_converter")
-        if (oda_target / "ODAFileConverter.exe").exists():
-            return True
-
-        self.status_var.set("正在下载 ODA 引擎...")
-        self.progress_var.set(0)
-        self.root.update_idletasks()
-
-        temp_dir = tempfile.mkdtemp(prefix="oda_download_")
-        zip_path = os.path.join(temp_dir, "oda_converter.zip")
-
+    def _read_doc_via_olefile(self):
+        """使用 olefile 从旧版 .doc 文件中提取文本（无需 Word）"""
         try:
-            from urllib.request import urlretrieve
+            import olefile
+            ole = olefile.OleFileIO(self.current_path)
+            # .doc 文件中的文本通常在 WordDocument stream 中
+            if ole.exists('WordDocument'):
+                data = ole.openstream('WordDocument').read()
+                # 尝试提取 ASCII/Unicode 文本
+                text = ''
+                # 方法1: 读取 1Table 或 0Table 中的文本
+                for stream_name in ['1Table', '0Table']:
+                    if ole.exists(stream_name):
+                        table_data = ole.openstream(stream_name).read()
+                        # 简单提取可读文本
+                        import struct
+                        try:
+                            # 解析 FIB (File Information Block)
+                            # 从 WordDocument stream 的 0x01A2 处获取文本偏移
+                            if len(data) > 0x01A4:
+                                cb = struct.unpack_from('<H', data, 0x01A2)[0]
+                                fc = struct.unpack_from('<I', data, 0x01A4)[0]
+                                # 从 table stream 读取文本
+                                raw_text = table_data[fc:fc+cb]
+                                text = raw_text.decode('utf-16-le', errors='replace')
+                                if text.strip():
+                                    break
+                        except Exception:
+                            continue
 
-            # 优先从本项目 GitHub Release 下载（CI 自动打包上传）
-            repo = "luoda2023/LDAssistant"
+                if not text.strip():
+                    # 方法2: 直接提取所有可读文本
+                    text = ''
+                    for i in range(0, len(data), 2):
+                        try:
+                            char = data[i:i+2].decode('utf-16-le')
+                            if char.isprintable() or char in '\n\r\t':
+                                text += char
+                        except Exception:
+                            text += ' '
+                    text = ' '.join(text.split())
 
-            # 尝试多个可能的下载地址
-            urls = [
-                f"https://github.com/{repo}/releases/download/oda-engine-v1/oda_converter.zip",
-                f"https://github.com/{repo}/releases/download/oda-engine-v1/ODAFileConverter_Portable.zip",
-            ]
+                ole.close()
+                if text.strip():
+                    return text.strip()
 
-            downloaded = False
-            for url in urls:
-                try:
-                    self.status_var.set(f"正在下载 ODA 引擎... (0%)")
-                    self.root.update_idletasks()
-
-                    def report(b, bs, ts):
-                        if ts > 0:
-                            p = min(int(b * bs / ts * 100), 99)
-                            self.status_var.set(f"正在下载 ODA 引擎... {p}%")
-                            self.progress_var.set(p)
-                            self.root.update_idletasks()
-
-                    urlretrieve(url, zip_path, report)
-                    downloaded = True
-                    break
-                except Exception as e:
-                    print(f"下载失败 ({url}): {e}")
-                    continue
-
-            if not downloaded:
-                raise RuntimeError("所有下载地址均不可用")
-
-            self.status_var.set("正在解压 ODA 引擎...")
-            self.progress_var.set(95)
-            self.root.update_idletasks()
-
-            os.makedirs(str(oda_target), exist_ok=True)
-            import zipfile
-            with zipfile.ZipFile(zip_path, 'r') as zf:
-                zf.extractall(str(oda_target))
-
-            if (oda_target / "ODAFileConverter.exe").exists():
-                self.progress_var.set(100)
-                self.status_var.set("ODA 引擎已安装 ✅")
-                print(f"ODA 已安装到: {oda_target}")
-                return True
-
-            raise RuntimeError("解压后未找到 ODAFileConverter.exe")
-
+            ole.close()
+            return None
         except Exception as e:
-            print(f"ODA 自动下载失败: {e}")
-            import traceback
-            traceback.print_exc()
-            self.status_var.set("ODA 引擎下载失败")
-            # 不弹窗，让上层处理
-            return False
+            print(f"olefile 读取 .doc 失败: {e}")
+            return None
 
     def extract_text_file(self):
         """Extract text from DOC/DOCX or TXT file."""
@@ -1337,14 +1321,16 @@ class App:
 
         try:
             if self.file_type == 'docx':
-                # .docx: 用 python-docx
+                # .docx: 用 python-docx（无需 Office）
                 doc = _get_docx()['Document'](self.current_path)
                 full_text = '\n'.join([p.text for p in doc.paragraphs])
             elif self.file_type == 'doc':
-                # .doc: 用 Word COM 自动化（兼容所有旧版 Word 格式）
-                full_text = self._read_doc_via_com()
-                if full_text is None:
-                    raise RuntimeError("Word COM 读取失败")
+                # .doc: 先用 olefile（无需 Office），失败后用 Word COM
+                full_text = self._read_doc_via_olefile()
+                if not full_text:
+                    full_text = self._read_doc_via_com()
+                if not full_text:
+                    raise RuntimeError("无法读取 .doc 文件，请将文件另存为 .docx 格式")
             elif self.file_type == 'txt':
                 with open(self.current_path, 'r', encoding='utf-8', errors='ignore') as f:
                     full_text = f.read()
@@ -1372,7 +1358,7 @@ class App:
             self.status_var.set("读取文件失败")
 
     def _render_dwg_to_image(self):
-        """三层 DWG 转换引擎：1)内置ODA 2)AutoCAD COM 3)用户指引"""
+        """DWG 预览：1)内置ODA 2)AutoCAD COM 3)提示转存DXF/PDF"""
         if not self.current_path or self.file_type != 'dwg':
             return
         self.status_var.set("正在转换 DWG...")
@@ -1385,21 +1371,86 @@ class App:
         if oda_exe and self._convert_via_oda(oda_exe):
             return
 
-        # ── Tier 2: AutoCAD COM 自动化 ──
+        # ── Tier 2: AutoCAD COM ──
         if self._convert_via_autocad():
             return
 
-        # ── Tier 3: 自动下载 ODA 引擎，然后重试 ──
-        if self._auto_install_oda():
-            oda_exe = self._find_oda_converter()
-            if oda_exe and self._convert_via_oda(oda_exe):
-                return
-            # 下载后还是失败，报错
-            messagebox.showerror("DWG 转换失败",
-                "ODA 引擎已安装但仍无法转换此 DWG 文件。\n"
-                "请确认文件不是加密或损坏的。")
-        else:
-            self.status_var.set("ODA 引擎下载失败")
+        # ── Tier 3: 引导用户 ──
+        msg = (
+            "本程序内置 DXF 直接预览功能，但不支持直接打开 DWG。\n\n"
+            "您可以用以下方式打开此文件：\n"
+            "1. 在 AutoCAD 中打开 → 另存为 DXF 格式\n"
+            "2. 在 AutoCAD 中打开 → 打印为 PDF\n"
+            "3. 安装 ODA File Converter（免费）：\n"
+            "   https://www.opendesign.com/guestfiles/oda_file_converter\n\n"
+            "完成后直接用本软件打开转换后的文件即可。"
+        )
+        messagebox.showinfo("DWG 预览指引", msg)
+        self.status_var.set("DWG 需转为 DXF 或 PDF 格式")
+
+    def _render_dxf_to_image(self):
+        """将 DXF 文件渲染为图像预览（内置 ezdxf + matplotlib，无需任何额外安装）"""
+        if not self.current_path or self.file_type != 'dxf':
+            return
+        self.status_var.set("正在渲染 DXF...")
+        self.progress_var.set(0)
+        self.pdf_images = []
+        self.ocr_results = []
+
+        try:
+            import ezdxf
+            from ezdxf.addons.drawing import RenderContext, Frontend
+            from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+
+            doc = ezdxf.readfile(self.current_path)
+            msp = doc.modelspace()
+
+            fig, ax = plt.subplots(figsize=(16, 12), dpi=150)
+            ax.set_aspect('equal')
+            ax.axis('off')
+
+            ctx = RenderContext(doc)
+            backend = MatplotlibBackend(ax)
+            Frontend(ctx, backend).draw(msp)
+
+            if msp:
+                try:
+                    extents = msp.extents()
+                    if extents and extents[0] and extents[1]:
+                        xmin, ymin = extents[0]
+                        xmax, ymax = extents[1]
+                        if xmax > xmin and ymax > ymin:
+                            margin = max((xmax - xmin), (ymax - ymin)) * 0.05
+                            ax.set_xlim(xmin - margin, xmax + margin)
+                            ax.set_ylim(ymin - margin, ymax + margin)
+                except Exception:
+                    pass
+
+            img_path = tempfile.mktemp(suffix='.png')
+            fig.savefig(img_path, bbox_inches='tight', pad_inches=0.1,
+                       facecolor='white', dpi=150)
+            plt.close(fig)
+
+            self.pdf_images.append(img_path)
+            self.pdf_images_meta = [{'type': 'dxf', 'path': self.current_path}]
+            self.status_var.set(f"DXF 已渲染: {Path(self.current_path).name}")
+
+        except ImportError:
+            messagebox.showerror("缺少依赖", "需要安装 ezdxf 和 matplotlib 才能预览 DXF。\n请运行: pip install ezdxf matplotlib")
+            self.status_var.set("渲染 DXF 失败：缺少依赖库")
+            return
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("DXF 错误", f"无法渲染 DXF 文件:\n{e}")
+            self.status_var.set(f"渲染 DXF 失败: {e}")
+            return
+
+        if self.pdf_images:
+            self.show_page(0)
 
     def _find_oda_converter(self):
         """查找 ODA File Converter（内置 → 系统安装 → PATH）"""
@@ -1652,7 +1703,7 @@ class App:
         self._draw_code_markers_for_page(idx, scale)
 
     def _prev_page(self):
-        if self.file_type != 'pdf' or not self.pdf_images:
+        if not self.pdf_images:
             return
         idx = getattr(self, 'current_display_index', 0) - 1
         if idx < 0:
@@ -1660,7 +1711,7 @@ class App:
         self.show_page(idx)
 
     def _next_page(self):
-        if self.file_type != 'pdf' or not self.pdf_images:
+        if not self.pdf_images:
             return
         idx = getattr(self, 'current_display_index', 0) + 1
         if idx >= len(self.pdf_images):

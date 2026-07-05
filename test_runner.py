@@ -495,21 +495,23 @@ def test_preprocess_ocr():
 
 
 def test_dwg_detection():
-    """测试 DWG 检测和 ODA 查找逻辑（仅代码路径）"""
+    """测试 DWG 检测和代码路径"""
     try:
         with open(os.path.join(PROJECT_DIR, 'standard_checker.py'), 'r', encoding='utf-8') as f:
             src = f.read()
 
         # 检查存在 _render_dwg_to_image 方法
         assert 'def _render_dwg_to_image' in src, "缺少 _render_dwg_to_image 方法"
-        # 检查 ODA File Converter 查找逻辑
-        assert 'ODAFileConverter' in src, "缺少 ODAFileConverter 引用"
+        # 检查存在 _render_dxf_to_image 方法（DXF 渲染已内置）
+        assert 'def _render_dxf_to_image' in src, "缺少 _render_dxf_to_image 方法"
         # 检查 DWG 文件类型处理
         assert "'dwg'" in src, "缺少 dwg 文件类型处理"
-        # 检查不再有 DXF 引用
-        assert "'dxf'" not in src, "仍有 DXF 残留引用"
+        # 检查 DXF 文件类型处理
+        assert "'dxf'" in src, "缺少 dxf 文件类型处理"
+        # 检查 ezdxf 引用
+        assert 'ezdxf' in src, "缺少 ezdxf 引用"
 
-        return True, "DWG 支持代码完整，DXF 引用已删除"
+        return True, "DWG/DXF 支持代码完整"
     except Exception as e:
         return False, str(e)
 
