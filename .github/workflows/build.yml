@@ -51,10 +51,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # ── 策略: 先检查工作区→编译时从 main 下载——如果都找不到则从 GitHub Release 取 ──
+          # ── 策略 ──
+          # 1) 工作区已有 DB
+          # 2) 尝试从当前仓库的 standards_new.db.gz（CI 检出了 v10-build，此文件已在 git 中）
+          # 3) 从 main 分支下载旧版
 
           if [ -f standards_new.db ]; then
             echo "✅ Found standards_new.db in workspace"
+            ls -lh standards_new.db
+            exit 0
+          fi
+
+          # standards_new.db.gz 已经提交到 v10-build 分支了（39MB）
+          if [ -f standards_new.db.gz ]; then
+            echo "✅ Found standards_new.db.gz in workspace — decompressing..."
+            gunzip -f standards_new.db.gz
             ls -lh standards_new.db
             exit 0
           fi
@@ -68,16 +79,7 @@ jobs:
 
           echo "No DB in workspace — downloading from main branch..."
 
-          # 1) 尝试 standards_new.db（原版 120MB，main 上可能不存在）
-          if gh api repos/${{ github.repository }}/contents/standards_new.db?ref=main \
-               -H "Accept: application/vnd.github.v3.raw" \
-               > standards_new.db 2>/dev/null && [ -s standards_new.db ]; then
-            echo "✅ Downloaded standards_new.db from main"
-            ls -lh standards_new.db
-            exit 0
-          fi
-
-          # 2) 尝试 standards_new.db.gz（压缩版 39MB）
+          # 尝试 standards_new.db.gz（最新压缩版）
           if gh api repos/${{ github.repository }}/contents/standards_new.db.gz?ref=main \
                -H "Accept: application/vnd.github.v3.raw" \
                > standards_new.db.gz 2>/dev/null && [ -s standards_new.db.gz ]; then
@@ -87,23 +89,7 @@ jobs:
             exit 0
           fi
 
-          # 3) 回退: 从最新 Release 下载数据库
-          echo "Trying to download database from latest release..."
-          LATEST_TAG=$(gh release list --repo ${{ github.repository }} --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null)
-          if [ -n "$LATEST_TAG" ]; then
-            gh release download "$LATEST_TAG" \
-              --repo ${{ github.repository }} \
-              --pattern "standards_new.db.gz" \
-              --dir ./ 2>/dev/null || true
-            if [ -f standards_new.db.gz ] && [ -s standards_new.db.gz ]; then
-              echo "✅ Downloaded from release $LATEST_TAG"
-              gunzip -f standards_new.db.gz
-              ls -lh standards_new.db
-              exit 0
-            fi
-          fi
-
-          # 4) 旧版 fallback: standards.db.gz（旧约 22MB，但可能不是最新）
+          # 回退: 旧版 standards.db.gz
           if gh api repos/${{ github.repository }}/contents/standards.db.gz?ref=main \
                -H "Accept: application/vnd.github.v3.raw" \
                > standards.db.gz 2>/dev/null && [ -s standards.db.gz ]; then
@@ -111,7 +97,7 @@ jobs:
             gunzip -f standards.db.gz
             cp standards.db standards_new.db
             ls -lh standards_new.db
-            echo "WARNING: Using old database. Next build will have correct version."
+            echo "WARNING: Using old database."
             exit 0
           fi
 
