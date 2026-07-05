@@ -559,6 +559,7 @@ class App:
         self.extracted_codes = []
         self.extracted_code_info = {}  # code -> {name, original}
         self.code_locations = []  # list of dicts: page_index, bbox, code
+        self._active_highlight_loc = None  # 当前激活的高亮位置（供缩放/重绘后重建）
         self.check_results = []
 
         # Region selection state
@@ -1884,6 +1885,9 @@ class App:
         # Draw code location markers for this page
         self._draw_code_markers_for_page(idx, scale)
 
+        # 翻页后重建激活的高亮框
+        self._rebuild_highlight()
+
     def _prev_page(self):
         if not self.pdf_images:
             return
@@ -1976,7 +1980,9 @@ class App:
             self._draw_region_overlay(self.ocr_region, scale)
         if hasattr(self, 'current_display_index'):
             self._draw_code_markers_for_page(self.current_display_index, scale)
-        self._highlight_rect_id = None
+
+        # 重建高亮框（delete('all') 已清除）
+        self._rebuild_highlight()
 
     def _reset_zoom(self):
         """Reset zoom to default."""
@@ -2252,7 +2258,11 @@ class App:
         self.status_var.set(f"已移除选中项，剩余 {len(self.extracted_codes)} 个规范")
 
     def on_code_selected(self, event=None):
-        """When user selects a code in the list, navigate to its page and highlight."""
+        """When user selects a code in the list, navigate to its page and highlight.
+
+        Supports all image-based file types: PDF, DWG→DXF→image, DXF→image.
+        Also supports text files: scrolls to the matching text location.
+        """
         selected = self.list_tree.selection()
         if not selected:
             return
@@ -2260,26 +2270,67 @@ class App:
         values = self.list_tree.item(item, 'values')
         code = values[1]
         name = values[2] if len(values) > 2 else ''
-        
+
         # Update preview name label
         preview_name = f"{code} {name}".strip()
         if hasattr(self, '_preview_name_var'):
             self._preview_name_var.set(preview_name)
-        
-        # Navigate to page only in PDF mode
-        if self.file_type == 'pdf':
+
+        # 清除旧高亮
+        self._clear_highlight()
+
+        # ── 图片型文件（PDF / DWG / DXF）：切页 + 高亮 ──
+        if self.pdf_images:
             code_norm = normalize_for_matching(code)
+            # 优先从 code_locations 找到精确位置（有 bbox）
+            target_loc = None
             for loc in self.code_locations:
                 if normalize_for_matching(loc['code']) == code_norm:
-                    self.show_page(loc['page'])
+                    target_loc = loc
                     break
 
-        # Highlight in text regardless of mode
+            if target_loc:
+                page_idx = target_loc.get('page', 0)
+                if page_idx != getattr(self, 'current_display_index', -1):
+                    self.show_page(page_idx)
+                    self.root.update_idletasks()
+
+                # 有 OCR bbox → 精准高亮（show_page 会 rebuild，这里再显式画一次）
+                bbox = target_loc.get('bbox', (0, 0, 0, 0))
+                if not all(v == 0 for v in bbox):
+                    self._highlight_code_location(target_loc)
+                else:
+                    self._highlight_standard_on_preview(code, name)
+            else:
+                self._highlight_standard_on_preview(code, name)
+
+        # ── 文本型文件（docx / xlsx / pptx / txt）：在文字控件中跳转 ──
         self._highlight_code_in_text(code)
-        
-        # Highlight on preview for PDF
-        if self.file_type == 'pdf':
-            self._highlight_standard_on_preview(code, name)
+
+    def _highlight_code_in_text(self, code):
+        """在 OCR 文本框中高亮指定规范编号，并滚动到第一个匹配位置。"""
+        if not hasattr(self, 'ocr_text'):
+            return
+        self.ocr_text.tag_remove('highlight', '1.0', tk.END)
+        if not code:
+            return
+        first_pos = None
+        start = '1.0'
+        while True:
+            pos = self.ocr_text.search(code, start, stopindex=tk.END, nocase=True)
+            if not pos:
+                break
+            end = f"{pos}+{len(code)}c"
+            self.ocr_text.tag_add('highlight', pos, end)
+            if first_pos is None:
+                first_pos = pos
+            start = end
+        self.ocr_text.tag_config('highlight', background='#FFFF00', foreground='#CC0000',
+                                  font=(self._font_family, 10, 'bold'))
+        # 滚动到第一个匹配位置
+        if first_pos:
+            self.ocr_text.see(first_pos)
+            self.ocr_text.mark_set(tk.INSERT, first_pos)
 
     def _crop_image_to_region(self, image_path, region):
         """按选定区域裁剪图片，返回临时文件路径"""
@@ -2819,7 +2870,10 @@ class App:
         messagebox.showinfo("完成", f"报告已保存到:\n{path}")
 
     def on_check_item_selected(self, event=None):
-        """When user selects a check result item, navigate to its page and highlight if possible."""
+        """当用户在"规范检查结果"列表中选中一项，跳转到对应位置并高亮。
+
+        支持所有文件类型：PDF/DWG/DXF/docx/xlsx/pptx/txt
+        """
         selected = self.check_tree.selection()
         if not selected:
             return
@@ -2829,94 +2883,217 @@ class App:
             return
         display_code = values[0]
         name = values[1] if len(values) > 1 else ''
-        
+
         # Update preview name label
         original_code = display_code.split('[')[0].split('→')[0].strip()
         preview_name = f"{original_code} {name}".strip()
         if hasattr(self, '_preview_name_var'):
             self._preview_name_var.set(preview_name)
-        
+
         # Extract original code from display (may contain " → " or " [相似:")
         code_norm = normalize_for_matching(original_code)
 
-        # Navigate to page only in PDF mode
-        if self.file_type == 'pdf':
+        # 清除旧高亮
+        self._clear_highlight()
+
+        # ── 图片型文件：切页 + 高亮 ──
+        if self.pdf_images:
+            target_loc = None
             for loc in self.code_locations:
                 if normalize_for_matching(loc['code']) == code_norm:
-                    self.show_page(loc['page'])
-                    # Highlight the code location
-                    self._highlight_code_location(loc)
+                    target_loc = loc
                     break
+
+            if target_loc:
+                page_idx = target_loc.get('page', 0)
+                if page_idx != getattr(self, 'current_display_index', -1):
+                    self.show_page(page_idx)
+                    self.root.update_idletasks()
+
+                bbox = target_loc.get('bbox', (0, 0, 0, 0))
+                if not all(v == 0 for v in bbox):
+                    self._highlight_code_location(target_loc)
+                else:
+                    self._highlight_standard_on_preview(original_code, name)
+            else:
+                self._highlight_standard_on_preview(original_code, name)
+
+        # ── 同步选中识别列表中的对应项 ──
         for item in self.list_tree.get_children():
             values = self.list_tree.item(item, 'values')
             if len(values) > 1 and normalize_for_matching(values[1]) == code_norm:
                 self.list_tree.selection_set(item)
                 self.list_tree.see(item)
                 break
-        
-        # Highlight on preview for PDF
-        if self.file_type == 'pdf':
-            self._highlight_standard_on_preview(original_code, name)
+
+        # ── 文本型文件：高亮 ──
+        self._highlight_code_in_text(original_code)
     
     def _highlight_code_location(self, loc):
-        """Highlight a specific code location on the preview."""
+        """在预览图上高亮指定规范的位置。
+
+        1. 自动切到对应页面
+        2. 根据 OCR bbox 绘制醒目高亮框（半透明填充 + 红色边框）
+        3. 闪烁3次动画后保持显示，直到选中下一个规范
+        4. 正确处理缩放和平移偏移
+        """
         if not hasattr(self, '_current_base_image') or not self._current_base_image:
             return
+        if not self.pdf_images:
+            return
+
+        # 保存当前激活的高亮位置（供 _rebuild_highlight 使用）
+        self._active_highlight_loc = loc
+
+        # 1. 清除旧高亮（必须在 show_page 之前，因为 show_page 会 rebuild）
+        self._clear_highlight()
+        self._active_highlight_loc = loc  # 再次设置，因为 clear 清除了
+
+        # 2. 切换到对应页面
         page_idx = loc.get('page', 0)
         if page_idx != getattr(self, 'current_display_index', -1):
             self.show_page(page_idx)
             self.root.update_idletasks()
-        
-        # Draw a prominent red highlight box
-        scale = getattr(self, '_zoom_level', 1.0)
-        if hasattr(self, '_current_base_image') and self._current_base_image:
-            canvas_w = self.pdf_canvas.winfo_width() or 400
-            canvas_h = self.pdf_canvas.winfo_height() or 600
-            img_w, img_h = self._current_base_image.size
-            base_scale = min(canvas_w / img_w, canvas_h / img_h)
-            scale = base_scale * scale
-            offset_x = (canvas_w - int(img_w * scale)) // 2
-            offset_y = (canvas_h - int(img_h * scale)) // 2
-        
+
+        # 3. 计算坐标变换（与 show_page/_apply_zoom 保持一致）
+        canvas_w = self.pdf_canvas.winfo_width() or 400
+        canvas_h = self.pdf_canvas.winfo_height() or 600
+        img_w, img_h = self._current_base_image.size
+        base_scale = min(canvas_w / img_w, canvas_h / img_h)
+        zoom = getattr(self, '_zoom_level', 1.0)
+        scale = base_scale * zoom
+        offset_x = (canvas_w - int(img_w * scale)) // 2 + getattr(self, '_pan_image_x', 0)
+        offset_y = (canvas_h - int(img_h * scale)) // 2 + getattr(self, '_pan_image_y', 0)
+
         x1, y1, x2, y2 = loc.get('bbox', (0, 0, 0, 0))
         if all(v == 0 for v in (x1, y1, x2, y2)):
             return
-        
-        x1, y1, x2, y2 = x1 * scale + offset_x, y1 * scale + offset_y, x2 * scale + offset_x, y2 * scale + offset_y
-        
-        # Remove old highlight
-        if hasattr(self, '_highlight_rect_id') and self._highlight_rect_id:
-            self.pdf_canvas.delete(self._highlight_rect_id)
-        
+
+        # 从图像坐标变换到 canvas 坐标
+        cx1 = x1 * scale + offset_x
+        cy1 = y1 * scale + offset_y
+        cx2 = x2 * scale + offset_x
+        cy2 = y2 * scale + offset_y
+
+        # 4. 绘制高亮框（半透明橙色填充 + 红色边框）
+        pad = 4  # 外扩边距
         self._highlight_rect_id = self.pdf_canvas.create_rectangle(
-            x1 - 2, y1 - 2, x2 + 2, y2 + 2,
-            outline='red', width=3, dash=()
+            cx1 - pad, cy1 - pad, cx2 + pad, cy2 + pad,
+            outline='#FF0000', width=3, dash=(),
+            fill='', stipple='', tags='code_highlight'
         )
-        
-        # Auto remove highlight after 3 seconds
-        self.root.after(3000, self._clear_highlight)
-    
+        # 内部填充半透明效果（用浅黄色模拟）
+        self._highlight_fill_id = self.pdf_canvas.create_rectangle(
+            cx1, cy1, cx2, cy2,
+            outline='', fill='#FFFF00', stipple='gray25', tags='code_highlight'
+        )
+
+        # 标注文字
+        code = loc.get('code', '')
+        if code:
+            self._highlight_label_id = self.pdf_canvas.create_text(
+                cx1 - pad, cy1 - pad - 14, text=f"▶ {code}",
+                fill='#CC0000', anchor='sw',
+                font=(self._font_family, 10, 'bold'), tags='code_highlight'
+            )
+        else:
+            self._highlight_label_id = None
+
+        # 5. 脉冲闪烁动画（3次闪烁后保持）
+        self._highlight_flash_count = 0
+        self._highlight_flash()
+
+    def _highlight_flash(self):
+        """高亮框闪烁动画：3次闪烁后保持显示"""
+        if self._highlight_rect_id is None:
+            return
+        self._highlight_flash_count += 1
+        count = self._highlight_flash_count
+
+        if count > 6:  # 3次完整闪烁(每闪算2次)
+            # 停止闪烁，保持显示（红色边框）
+            try:
+                self.pdf_canvas.itemconfig(self._highlight_rect_id, outline='#FF0000', width=3)
+                if hasattr(self, '_highlight_fill_id') and self._highlight_fill_id:
+                    self.pdf_canvas.itemconfig(self._highlight_fill_id, fill='#FFFF00', stipple='gray25')
+            except Exception:
+                pass
+            return
+
+        # 交替显示/隐藏
+        try:
+            if count % 2 == 1:
+                # 亮：红色边框 + 黄色填充
+                self.pdf_canvas.itemconfig(self._highlight_rect_id, outline='#FF0000', width=3)
+                if hasattr(self, '_highlight_fill_id') and self._highlight_fill_id:
+                    self.pdf_canvas.itemconfig(self._highlight_fill_id, fill='#FFFF00', stipple='gray25')
+            else:
+                # 暗：橙色边框 + 无填充
+                self.pdf_canvas.itemconfig(self._highlight_rect_id, outline='#FF6600', width=2)
+                if hasattr(self, '_highlight_fill_id') and self._highlight_fill_id:
+                    self.pdf_canvas.itemconfig(self._highlight_fill_id, fill='', stipple='')
+        except Exception:
+            return
+
+        self.root.after(200, self._highlight_flash)
+
     def _clear_highlight(self):
-        if hasattr(self, '_highlight_rect_id') and self._highlight_rect_id:
-            self.pdf_canvas.delete(self._highlight_rect_id)
-            self._highlight_rect_id = None
-    
-    def _highlight_code_in_text(self, code):
-        """Highlight the selected standard code in the OCR text widget."""
-        if not hasattr(self, 'ocr_text'):
+        """清除所有高亮标记"""
+        self.pdf_canvas.delete('code_highlight')
+        self._highlight_rect_id = None
+        self._highlight_fill_id = None
+        self._highlight_label_id = None
+        self._active_highlight_loc = None
+
+    def _rebuild_highlight(self, scale=None):
+        """在缩放/重绘后重建高亮框。
+
+        _apply_zoom 和 show_page 会调用 pdf_canvas.delete('all')，
+        本方法根据 _active_highlight_loc 重新绘制。
+        """
+        loc = getattr(self, '_active_highlight_loc', None)
+        if not loc:
             return
-        self.ocr_text.tag_remove('highlight', '1.0', tk.END)
-        if not code:
+        if not hasattr(self, '_current_base_image') or not self._current_base_image:
             return
-        start = '1.0'
-        while True:
-            pos = self.ocr_text.search(code, start, stopindex=tk.END, nocase=True)
-            if not pos:
-                break
-            end = f"{pos}+{len(code)}c"
-            self.ocr_text.tag_add('highlight', pos, end)
-            start = end
-        self.ocr_text.tag_config('highlight', background='yellow', foreground='red')
+
+        # 仅当高亮所属页面是当前显示页面时才绘制
+        if loc.get('page', 0) != getattr(self, 'current_display_index', -1):
+            return
+
+        canvas_w = self.pdf_canvas.winfo_width() or 400
+        canvas_h = self.pdf_canvas.winfo_height() or 600
+        img_w, img_h = self._current_base_image.size
+        base_scale = min(canvas_w / img_w, canvas_h / img_h)
+        zoom = getattr(self, '_zoom_level', 1.0)
+        s = base_scale * zoom
+        offset_x = (canvas_w - int(img_w * s)) // 2 + getattr(self, '_pan_image_x', 0)
+        offset_y = (canvas_h - int(img_h * s)) // 2 + getattr(self, '_pan_image_y', 0)
+
+        bbox = loc.get('bbox', (0, 0, 0, 0))
+        if all(v == 0 for v in bbox):
+            return
+
+        x1 = bbox[0] * s + offset_x
+        y1 = bbox[1] * s + offset_y
+        x2 = bbox[2] * s + offset_x
+        y2 = bbox[3] * s + offset_y
+        pad = 4
+        self._highlight_rect_id = self.pdf_canvas.create_rectangle(
+            x1 - pad, y1 - pad, x2 + pad, y2 + pad,
+            outline='#FF0000', width=3, tags='code_highlight'
+        )
+        self._highlight_fill_id = self.pdf_canvas.create_rectangle(
+            x1, y1, x2, y2,
+            outline='', fill='#FFFF00', stipple='gray25', tags='code_highlight'
+        )
+        code = loc.get('code', '')
+        if code:
+            self._highlight_label_id = self.pdf_canvas.create_text(
+                x1 - pad, y1 - pad - 14, text=f"▶ {code}",
+                fill='#CC0000', anchor='sw',
+                font=(self._font_family, 10, 'bold'), tags='code_highlight'
+            )
     
     def _highlight_standard_on_preview(self, code, name):
         """Highlight the standard code or name on the PDF preview canvas using fitz text search."""
