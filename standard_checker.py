@@ -878,10 +878,10 @@ class App:
 
         # Notebook 样式
         style.configure("TNotebook", background=BG_LIGHT, borderwidth=0)
-        style.configure("TNotebook.Tab", font=default_font, padding=(10, 4), background="#E5E7EB")
+        style.configure("TNotebook.Tab", font=(self._font_family, 9), padding=(14, 5), background="#E5E7EB")
         style.map("TNotebook.Tab",
-                  background=[('selected', CARD_BG)],
-                  foreground=[('selected', PRIMARY)])
+            background=[("selected", "#FFFFFF"), ("active", "#F3F4F6")],
+            foreground=[("selected", "#1E3A5F")])
 
     def setup_ui(self):
         # ==================== 品牌头部 ====================
@@ -934,9 +934,12 @@ class App:
 
         # 右侧：关于按钮
         about_btn = tk.Button(header_inner, text="关于", font=(self._font_family, 9),
-                             bg="#FFFFFF", fg="#2B6CB0", relief="flat", padx=8, cursor="hand2",
+                             bg="#FFFFFF", fg="#2B6CB0", relief="flat",
+                             padx=8, pady=2, cursor="hand2",
                              command=self._show_about)
         about_btn.pack(side=tk.RIGHT)
+        about_btn.bind('<Enter>', lambda e: about_btn.config(bg='#EBF4FF'))
+        about_btn.bind('<Leave>', lambda e: about_btn.config(bg='#FFFFFF'))
 
         # ==================== 主容器 ====================
         main_container = tk.Frame(self.root, bg="#F5F6FA")
@@ -995,6 +998,15 @@ class App:
         self.pdf_canvas.bind('<ButtonRelease-2>', self._on_pan_end)
         self._resize_after_id = None
 
+        # 键盘快捷键
+        self.root.bind('<Left>', lambda e: self._prev_page())
+        self.root.bind('<Right>', lambda e: self._next_page())
+        self.root.bind('<Prior>', lambda e: self._prev_page())  # Page Up
+        self.root.bind('<Next>', lambda e: self._next_page())   # Page Down
+        self.root.bind('<Home>', lambda e: self.show_page(0))   # Home
+        self.root.bind('<End>', lambda e: self.show_page(len(self.pdf_images) - 1) if self.pdf_images else None)
+        self.root.bind('<Escape>', lambda e: self._reset_zoom())  # Esc重置缩放
+
         # 预览底部工具栏
         preview_footer = tk.Frame(self._file_preview_frame, bg="#FFFFFF")
         preview_footer.pack(side=tk.TOP, fill=tk.X, padx=0, pady=(6, 0))
@@ -1013,8 +1025,10 @@ class App:
                             ("重置", self._reset_zoom, 5)]:
             b = tk.Button(btn_frame, text=txt, command=cmd, font=(self._font_family, 9),
                          bg="#FFFFFF", fg="#374151", relief="solid", borderwidth=1,
-                         padx=4, pady=1, width=w, cursor="hand2")
+                         padx=4, pady=2, width=w, cursor="hand2", height=1)
             b.pack(side=tk.RIGHT, padx=(2, 0))
+            b.bind('<Enter>', lambda e, btn=b: btn.config(bg='#E5E7EB'))
+            b.bind('<Leave>', lambda e, btn=b: btn.config(bg='#FFFFFF'))
 
         # ---- 右侧面板：操作 + 标签页 ----
         right_pane = tk.Frame(main_container, bg="#F5F6FA")
@@ -1040,16 +1054,26 @@ class App:
             if style == "Primary":
                 b = tk.Button(action_inner, text=txt, command=cmd, cursor="hand2",
                              font=(self._font_family, 10, "bold"),
-                             bg="#2B6CB0", fg="#FFFFFF", relief="flat", padx=12, pady=6)
+                             bg="#2B6CB0", fg="#FFFFFF", relief="flat",
+                             padx=12, pady=4, height=1)
             elif style == "Danger":
                 b = tk.Button(action_inner, text=txt, command=cmd, cursor="hand2",
                              font=(self._font_family, 10),
-                             bg="#FFFFFF", fg="#C62828", relief="solid", borderwidth=1, padx=10, pady=5)
+                             bg="#FFFFFF", fg="#C62828", relief="solid", borderwidth=1,
+                             padx=10, pady=4, height=1)
             else:
                 b = tk.Button(action_inner, text=txt, command=cmd, cursor="hand2",
                              font=(self._font_family, 10),
-                             bg="#FFFFFF", fg="#374151", relief="solid", borderwidth=1, padx=10, pady=5)
+                             bg="#FFFFFF", fg="#374151", relief="solid", borderwidth=1,
+                             padx=10, pady=4, height=1)
             b.pack(side=tk.LEFT, padx=(0, 6))
+            # hover效果
+            if style == "Primary":
+                b.bind('<Enter>', lambda e, btn=b: btn.config(bg='#3178C6'))
+                b.bind('<Leave>', lambda e, btn=b: btn.config(bg='#2B6CB0'))
+            elif style == "Danger":
+                b.bind('<Enter>', lambda e, btn=b: btn.config(bg='#FEF2F2'))
+                b.bind('<Leave>', lambda e, btn=b: btn.config(bg='#FFFFFF'))
 
         self.region_var = tk.StringVar(value="识别区域：未设置（全页识别）")
         tk.Label(action_card, textvariable=self.region_var, font=(self._font_family, 9),
@@ -1149,10 +1173,12 @@ class App:
 
     def open_file(self):
         paths = filedialog.askopenfilenames(
-            title="选择文件（PDF/WORD/DWG/DXF/TXT）",
+            title="选择文件（PDF/Word/DWG/DXF/Excel/PPT/TXT）",
             filetypes=[
                 ("PDF files", "*.pdf"),
                 ("Word files", "*.doc;*.docx"),
+                ("Excel files", "*.xls;*.xlsx"),
+                ("PPT files", "*.ppt;*.pptx"),
                 ("DWG files", "*.dwg"),
                 ("DXF files", "*.dxf"),
                 ("Text files", "*.txt"),
@@ -1168,6 +1194,10 @@ class App:
             self.file_type = 'pdf'
         elif ext in ('.docx', '.doc'):
             self.file_type = ext.lstrip('.')  # 'docx' or 'doc'
+        elif ext in ('.xlsx', '.xls'):
+            self.file_type = 'xlsx' if ext == '.xlsx' else 'xls'
+        elif ext in ('.pptx', '.ppt'):
+            self.file_type = 'pptx' if ext == '.pptx' else 'ppt'
         elif ext == '.txt':
             self.file_type = 'txt'
         elif ext == '.dwg':
@@ -1188,6 +1218,10 @@ class App:
             self._render_dwg_to_image()
         elif self.file_type == 'dxf':
             self._render_dxf_to_image()
+        elif self.file_type in ('xlsx', 'xls'):
+            self.extract_text_file()
+        elif self.file_type in ('pptx', 'ppt'):
+            self.extract_text_file()
         else:
             self.extract_text_file()
 
@@ -1334,6 +1368,13 @@ class App:
             elif self.file_type == 'txt':
                 with open(self.current_path, 'r', encoding='utf-8', errors='ignore') as f:
                     full_text = f.read()
+            elif self.file_type == 'xlsx':
+                full_text = self._read_xlsx_text()
+            elif self.file_type == 'pptx':
+                full_text = self._read_pptx_text()
+            elif self.file_type in ('xls', 'ppt'):
+                # .xls / .ppt 是二进制 OLE 格式，简单提示
+                full_text = f"[{self.file_type.upper()}] 该格式为旧版二进制格式，请在 Office 中另存为 .xlsx / .pptx 后打开。"
             else:
                 messagebox.showwarning("提示", "不支持的文件格式")
                 return
@@ -1664,6 +1705,65 @@ class App:
                 pass
             return False
 
+    def _read_xlsx_text(self):
+        """纯标准库解析 .xlsx，零第三方依赖"""
+        try:
+            import zipfile, xml.etree.ElementTree as ET
+            texts = []
+            with zipfile.ZipFile(self.current_path, 'r') as z:
+                # 读取共享字符串表
+                shared = []
+                if 'xl/sharedStrings.xml' in z.namelist():
+                    root = ET.fromstring(z.read('xl/sharedStrings.xml'))
+                    ns = {'s': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+                    shared = [si.findtext('.//s:t', '', ns) for si in root.findall('s:si', ns)]
+
+                # 读取所有 sheet
+                for name in z.namelist():
+                    if name.startswith('xl/worksheets/sheet') and name.endswith('.xml'):
+                        root = ET.fromstring(z.read(name))
+                        ns = {'s': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+                        rows = []
+                        for row in root.findall('.//s:row', ns):
+                            cells = []
+                            for c in row.findall('s:c', ns):
+                                v = c.findtext('s:v', '', ns)
+                                t = c.get('t', '')
+                                if t == 's' and v and shared:
+                                    v = shared[int(v)] if int(v) < len(shared) else v
+                                cells.append(v)
+                            rows.append('\t'.join(cells))
+                        texts.append(f'--- Sheet: {name.split("/")[-1]} ---\n' + '\n'.join(rows))
+
+            return '\n\n'.join(texts) if texts else '（空表格或无数据）'
+        except Exception as e:
+            print(f"读取 xlsx 失败: {e}")
+            return f'[错误] 读取 Excel 文件失败: {e}'
+
+    def _read_pptx_text(self):
+        """纯标准库解析 .pptx，零第三方依赖"""
+        try:
+            import zipfile, xml.etree.ElementTree as ET
+            texts = []
+            ns = {'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+                  'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'}
+            with zipfile.ZipFile(self.current_path, 'r') as z:
+                for name in sorted(z.namelist()):
+                    if name.startswith('ppt/slides/slide') and name.endswith('.xml'):
+                        root = ET.fromstring(z.read(name))
+                        # 提取所有 a:t 文本元素
+                        slide_texts = []
+                        for t in root.iter('{http://schemas.openxmlformats.org/drawingml/2006/main}t'):
+                            if t.text:
+                                slide_texts.append(t.text)
+                        slide_num = name.split('/')[-1].replace('slide', '').replace('.xml', '')
+                        texts.append(f'--- 第 {slide_num} 页 ---\n' + '\n'.join(slide_texts))
+
+            return '\n\n'.join(texts) if texts else '（空演示文稿）'
+        except Exception as e:
+            print(f"读取 pptx 失败: {e}")
+            return f'[错误] 读取 PPT 文件失败: {e}'
+
     def _preprocess_ocr_text(self, text):
         """OCR 文本预处理：全角→半角、符号统一、常见 OCR 误识修正"""
         if not text:
@@ -1761,7 +1861,9 @@ class App:
         img = Image.open(img_path)
         self._current_base_image = img
         img_w, img_h = img.size
-        scale = min(canvas_w / img_w, canvas_h / img_h)
+        base_scale = min(canvas_w / img_w, canvas_h / img_h)
+        zoom = getattr(self, '_zoom_level', 1.0)
+        scale = base_scale * zoom
         new_w, new_h = int(img_w * scale), int(img_h * scale)
         img_resized = img.resize((new_w, new_h), Image.Resampling.BOX)
         self.current_img = ImageTk.PhotoImage(img_resized)
@@ -1813,14 +1915,23 @@ class App:
         self._schedule_zoom_update()
 
     def _on_mouse_wheel(self, event):
-        """Handle mouse wheel zoom (debounced)."""
+        """Handle mouse wheel zoom — 更灵敏：ctrl+滚轮=缩放，纯滚轮=上下翻页"""
         if not hasattr(self, '_zoom_level'):
             self._zoom_level = 1.0
-        if event.delta > 0:
-            self._zoom_level = min(self._zoom_level * 1.1, 5.0)
+
+        # Ctrl+滚轮：缩放
+        if event.state & 0x4:  # Ctrl 键
+            if event.delta > 0:
+                self._zoom_level = min(self._zoom_level * 1.2, 8.0)
+            else:
+                self._zoom_level = max(self._zoom_level / 1.2, 0.1)
+            self._schedule_zoom_update()
         else:
-            self._zoom_level = max(self._zoom_level / 1.1, 0.2)
-        self._schedule_zoom_update()
+            # 纯滚轮：上下滚动预览区域，同时翻页
+            if event.delta > 0:
+                self._prev_page()
+            else:
+                self._next_page()
 
     def _schedule_zoom_update(self):
         """Debounce zoom: 合并连续缩放事件，80ms 内只做一次重渲染"""
