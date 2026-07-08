@@ -21,9 +21,7 @@ jobs:
         run: npm install --registry=https://registry.npmmirror.com
 
       - name: 复制 file-viewer 资源到 public
-        run: |
-          mkdir -p public/file-viewer
-          xcopy /E /I /Y node_modules\@file-viewer\web-full\dist\* public\file-viewer\
+        run: node -e "const fs=require('fs'),p=require('path');function c(s,d){if(fs.statSync(s).isDirectory()){fs.mkdirSync(d,{recursive:true});fs.readdirSync(s).forEach(f=>c(p.join(s,f),p.join(d,f)))}else{try{fs.copyFileSync(s,d)}catch(e){console.error('skip',s)}}} c('node_modules/@file-viewer/web-full/dist','public/file-viewer');console.log('复制完成:'+fs.readdirSync('public/file-viewer').length+'项')"
 
       - name: 构建安装包
         run: npx electron-builder --win --x64
