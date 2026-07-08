@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>标准查询 AI 助手</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--primary:#1a73e8;--primary-hover:#1557b0;--text:#1a1a1a;--bg:#f0f2f5;--card-bg:#fff;--border:#e0e0e0}
+
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  background:var(--bg);height:100vh;overflow:hidden;user-select:none;
+}
+
+/* 自定义标题栏 - 可拖动 */
+.titlebar{
+  background:var(--primary);color:#fff;height:36px;
+  display:flex;align-items:center;padding:0 10px;
+  -webkit-app-region:drag;flex-shrink:0;
+}
+.titlebar .title{font-size:13px;font-weight:600;flex:1;display:flex;align-items:center;gap:4px;}
+.titlebar .title .badge{font-size:10px;background:rgba(255,255,255,0.2);padding:0 6px;border-radius:8px;font-weight:400;}
+.titlebar .btns{display:flex;gap:4px;-webkit-app-region:no-drag;}
+.titlebar .btns button{
+  width:24px;height:24px;border:none;background:rgba(255,255,255,0.15);
+  color:#fff;border-radius:4px;cursor:pointer;font-size:12px;
+  display:flex;align-items:center;justify-content:center;
+}
+.titlebar .btns button:hover{background:rgba(255,255,255,0.3);}
+
+/* 快捷按钮行 */
+.quick-row{
+  padding:4px 10px;display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0;
+  border-bottom:1px solid var(--border);background:#fff;
+}
+.quick-btn{
+  font-size:10px;padding:2px 8px;border:1px solid var(--border);
+  border-radius:10px;background:#fff;cursor:pointer;color:#666;white-space:nowrap;
+}
+.quick-btn:hover{border-color:var(--primary);color:var(--primary);background:#f0f6ff;}
+.quick-btn.config-btn{color:var(--primary);border-color:var(--primary);}
+
+/* 消息区域 */
+.msgs{flex:1;overflow-y:auto;padding:10px 12px;background:#f8f9fa;}
+.msg{max-width:92%;margin-bottom:10px;animation:fadeIn .2s;}
+.msg.mine{margin-left:auto;}
+.msg.ai{margin-right:auto;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.msg .bubble{
+  padding:8px 12px;border-radius:10px;line-height:1.6;font-size:13px;word-break:break-word;
+}
+.msg.mine .bubble{background:var(--primary);color:#fff;border-bottom-right-radius:3px;}
+.msg.ai .bubble{background:#fff;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.08);border-bottom-left-radius:3px;}
+.msg .hdr{font-size:10px;margin-bottom:2px;opacity:0.6;display:flex;align-items:center;gap:4px;}
+.msg.mine .hdr{justify-content:flex-end;}
+.msg .ftr{opacity:0;transition:opacity .15s;display:flex;gap:4px;justify-content:flex-end;margin-top:2px;}
+.msg:hover .ftr{opacity:1;}
+.msg .ftr button{background:none;border:none;cursor:pointer;font-size:10px;color:#999;padding:1px 4px;border-radius:3px;}
+.msg .ftr button:hover{background:#eee;color:#333;}
+
+/* 搜索结果卡片 */
+.r-card{
+  border:1px solid var(--border);border-radius:6px;padding:6px 8px;margin:4px 0;
+  background:#fafbfc;cursor:pointer;transition:all .12s;
+}
+.r-card:hover{border-color:var(--primary);box-shadow:0 1px 4px rgba(26,115,232,0.15);}
+.r-card .rc{font-weight:600;color:var(--primary);font-size:12px;}
+.r-card .rn{font-size:12px;color:#333;margin:1px 0;}
+.r-card .rm{font-size:10px;color:#999;display:flex;gap:6px;flex-wrap:wrap;}
+.r-card .rt{display:inline-block;font-size:9px;padding:0 5px;border-radius:3px;background:#e8f0fe;color:var(--primary);}
+
+/* 输入区 */
+.input-area{
+  padding:8px 10px 10px;border-top:1px solid var(--border);
+  background:#fff;display:flex;gap:6px;align-items:flex-end;flex-shrink:0;
+}
+.input-area textarea{
+  flex:1;resize:none;border:1px solid var(--border);border-radius:6px;
+  padding:8px 10px;font-size:13px;font-family:inherit;line-height:1.3;
+  max-height:80px;outline:none;transition:border-color .15s;
+}
+.input-area textarea:focus{border-color:var(--primary);}
+.input-area button{
+  background:var(--primary);color:#fff;
+  border:none;width:34px;height:34px;border-radius:6px;
+  cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.input-area button:hover{background:var(--primary-hover);}
+.input-area button:disabled{background:#ccc;}
+
+/* 打字动画 */
+.dots{display:flex;gap:3px;padding:2px 0;}
+.dots span{width:5px;height:5px;border-radius:50%;background:#999;animation:b 1.2s infinite;}
+.dots span:nth-child(2){animation-delay:.2s;}
+.dots span:nth-child(3){animation-delay:.4s;}
+@keyframes b{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* 详情弹窗 */
+.overlay{display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.ocard{background:#fff;border-radius:8px;width:480px;max-width:92vw;max-height:80vh;overflow-y:auto;padding:18px;animation:pop .15s;box-shadow:0 8px 32px rgba(0,0,0,0.2);}
+@keyframes pop{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+.ocard .ok{float:right;background:none;border:none;font-size:18px;cursor:pointer;color:#999;}
+.ocard h2{font-size:16px;margin-bottom:2px;}
+.ocard .oc{color:var(--primary);font-weight:600;font-size:13px;margin-bottom:12px;}
+.ocard .fl{display:flex;padding:5px 0;border-bottom:1px solid #f0f0f0;}
+.ocard .fl .lb{width:100px;flex-shrink:0;color:#999;font-size:12px;}
+.ocard .fl .vl{flex:1;font-size:12px;}
+.ocard .fl .it{display:inline-block;background:#e8f0fe;color:var(--primary);padding:0 6px;border-radius:3px;font-size:11px;margin-right:3px;}
+
+/* 配置弹窗 */
+.cfg{display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;}
+.cfg.show{display:flex;}
+.ccard{background:#fff;border-radius:8px;width:380px;max-width:90vw;padding:18px;}
+.ccard h3{font-size:15px;margin-bottom:12px;}
+.ccard label{font-size:12px;color:#666;display:block;margin:8px 0 3px;}
+.ccard input,.ccard select{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;outline:none;}
+.ccard input:focus{border-color:var(--primary);}
+.ccard .ca{display:flex;gap:6px;justify-content:flex-end;margin-top:12px;}
+.ccard .ca button{padding:5px 12px;border-radius:5px;border:none;cursor:pointer;font-size:12px;}
+.ccard .btn-s{background:var(--primary);color:#fff;}
+.ccard .btn-c{background:#f0f0f0;color:#666;}
+
+/* 状态栏提示 */
+.toast{
+  position:fixed;bottom:60px;left:50%;transform:translateX(-50%);
+  background:#333;color:#fff;padding:6px 14px;border-radius:6px;
+  font-size:12px;z-index:999;opacity:0;transition:opacity .3s;
+}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="titlebar" id="titlebar">
+  <div class="title">🤖 AI 助手 <span class="badge" id="statBadge">43万+</span></div>
+  <div class="btns">
+    <button onclick="toggleExpand()" id="expandBtn" title="展开/浮动">⛶</button>
+    <button onclick="minWin()" title="最小化到托盘">—</button>
+    <button onclick="closeWin()" title="关闭">✕</button>
+  </div>
+</div>
+
+<script>
+// 如果是被嵌入到 iframe 中（即父窗口在管理拖动），隐藏自带 titlebar
+if (window !== window.top) {
+  document.getElementById('titlebar').style.display = 'none';
+}
+</script>
+
+<div class="quick-row">
+  <button class="quick-btn" onclick="qs('混凝土结构')">🏗️ 混凝土</button>
+  <button class="quick-btn" onclick="qs('建筑防火')">🔥 防火</button>
+  <button class="quick-btn" onclick="qs('GB 50068')">📋 GB 50068</button>
+  <button class="quick-btn" onclick="qs('最新发布')">🆕 最新</button>
+  <button class="quick-btn config-btn" onclick="openCfg()">⚙️</button>
+</div>
+
+<div class="msgs" id="msgs"></div>
+
+<div class="input-area">
+  <textarea id="inp" rows="1" placeholder="标准号/关键词/网址..." oninput="autoH()"></textarea>
+  <button id="sBtn" onclick="send()">➤</button>
+</div>
+
+<!-- 详情弹窗 -->
+<div class="overlay" id="dOverlay">
+  <div class="ocard">
+    <button class="ok" onclick="closeD()">✕</button>
+    <h2 id="dName"></h2>
+    <div class="oc" id="dCode"></div>
+    <div id="dFields"></div>
+  </div>
+</div>
+
+<!-- 配置弹窗 -->
+<div class="cfg" id="cfg">
+  <div class="ccard">
+    <h3>⚙️ API 配置（可选）</h3>
+    <label>API 地址</label>
+    <input id="cUrl" value="https://api.chatnio.net">
+    <label>API Key</label>
+    <input id="cKey" type="password" placeholder="sk-...">
+    <label>模型</label>
+    <select id="cModel">
+      <option value="glm-5.2">GLM 5.2</option>
+      <option value="glm-5.1">GLM 5.1</option>
+      <option value="gpt-4o-mini">GPT-4o-mini</option>
+    </select>
+    <div class="ca">
+      <button class="btn-c" onclick="closeCfg()">取消</button>
+      <button class="btn-s" onclick="saveCfg()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== 状态 =====
+let cfg = { baseUrl:'https://api.chatnio.net', apiKey:'', model:'glm-5.2' };
+let expanded = false;
+let msgs = document.getElementById('msgs');
+let inp = document.getElementById('inp');
+
+try{const s=localStorage.getItem('acfg');if(s)Object.assign(cfg,JSON.parse(s))}catch(e){}
+
+// ===== Electron API =====
+function minWin(){ if(window.electronAPI) electronAPI.minimize(); }
+function closeWin(){ if(window.electronAPI) electronAPI.close(); }
+function toggleExpand(){
+  expanded=!expanded;
+  if(window.electronAPI) electronAPI.expand(expanded);
+  document.getElementById('expandBtn').textContent=expanded?'⛶':'⛶';
+}
+
+// ===== 自动输入框高度 =====
+function autoH(){ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,80)+'px'; }
+
+// ===== 快捷搜索 =====
+function qs(k){ inp.value=k; send(); }
+
+// ===== 发送 =====
+async function send(){
+  const t=inp.value.trim(); if(!t) return;
+  inp.value=''; inp.style.height='auto';
+  addMsg(t,'mine');
+  document.getElementById('sBtn').disabled=true;
+  showDots();
+  try {
+    if(t.startsWith('http://')||t.startsWith('https://')) await baiduSearch(t);
+    else await stdSearch(t);
+  }catch(e){addMsg('⚠️ '+e.message,'ai')}
+  hideDots();
+  document.getElementById('sBtn').disabled=false;
+}
+
+// ===== 添加消息 =====
+function addMsg(c,role,extra){
+  const d=document.createElement('div'); d.className='msg '+(role==='mine'?'mine':'ai');
+  const h=role==='mine'?'<div class="hdr">🧑 你</div>':'<div class="hdr">🤖 AI</div>';
+  let x='';
+  if(extra&&extra.r&&extra.r.length>0){
+    x='<div style="margin-top:6px">';
+    extra.r.slice(0,8).forEach(r=>{
+      x+=`<div class="r-card" onclick="showD('${r.code.replace(/'/g,"\\'")}')">
+        <div class="rc">${r.code}</div>
+        <div class="rn">${r.name||''}</div>
+        <div class="rm"><span>${r.status||''}</span>${r.ics?'<span class="rt">ICS '+r.ics+'</span>':''}${r.ccs?'<span class="rt">CCS '+r.ccs+'</span>':''}</div>
+      </div>`;
+    });
+    if(extra.total>8)x+=`<div style="text-align:center;font-size:11px;color:#999;padding:2px">共${extra.total}条</div>`;
+    x+='</div>';
+  }
+  d.innerHTML=h+'<div class="bubble">'+c+x+'</div>';
+  const f=document.createElement('div'); f.className='ftr';
+  f.innerHTML='<button onclick="copyM(this)">📋 复制</button>';
+  d.querySelector('.bubble').after(f);
+  msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight;
+}
+
+// ===== 复制 =====
+function copyM(btn){
+  const t=btn.closest('.msg').querySelector('.bubble').textContent;
+  navigator.clipboard.writeText(t).then(()=>{ btn.textContent='✅'; setTimeout(()=>btn.textContent='📋 复制',1200); });
+  showToast('已复制');
+}
+
+// ===== 打字动画 =====
+function showDots(){
+  const d=document.createElement('div'); d.className='msg ai'; d.id='dot';
+  d.innerHTML='<div class="hdr">🤖 AI</div><div class="bubble"><div class="dots"><span></span><span></span><span></span></div></div>';
+  msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight;
+}
+function hideDots(){const e=document.getElementById('dot');if(e)e.remove();}
+
+// ===== Toast =====
+function showToast(t){
+  const e=document.getElementById('toast'); e.textContent=t; e.classList.add('show');
+  setTimeout(()=>e.classList.remove('show'),2000);
+}
+
+// ===== 标准搜索 =====
+async function stdSearch(text){
+  const r=await fetch('/api/search?q='+encodeURIComponent(text));
+  const d=await r.json();
+  if(d.data&&d.data.length>0){
+    addMsg(`🔍 找到 **${d.total}** 条相关标准：`,'ai',{r:d.data.slice(0,8),total:d.total});
+  } else if(cfg.apiKey){
+    try{
+      const r2=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,apiConfig:cfg})});
+      const d2=await r2.json();
+      addMsg(d2.reply||'未找到','ai',{r:d2.searchResults||[],total:d2.totalResults||0});
+    }catch(e){addMsg('AI查询失败: '+e.message,'ai')}
+  } else {
+    addMsg('未找到相关标准。输入网址可百度搜索，或⚙️配置API后用AI搜索。','ai');
+  }
+}
+
+// ===== 百度搜索 =====
+async function baiduSearch(url){
+  addMsg('🌐 正在百度搜索...','ai');
+  try{
+    const r=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,method:'GET'})});
+    const d=await r.json();
+    if(d.results&&d.results.length>0){
+      let h=`✅ 百度结果（${d.total}条）：`;
+      d.results.slice(0,5).forEach(r=>{
+        h+=`<div class="r-card" onclick="if(window.electronAPI)electronAPI.openExternal('${r.link}')">
+          <div class="rc">${r.title}</div>
+          <div class="rn">${r.snippet||''}</div>
+        </div>`;
+      });
+      addMsg(h,'ai');
+    } else addMsg('百度搜索受限，建议直接浏览器访问。','ai');
+  }catch(e){addMsg('❌ 搜索失败: '+e.message,'ai')}
+}
+
+// ===== 详情弹窗 =====
+async function showD(code){
+  document.getElementById('dOverlay').classList.add('show');
+  try{
+    const r=await fetch('/api/standard/'+encodeURIComponent(code));
+    const d=await r.json();
+    document.getElementById('dName').textContent=d.name||'(无名称)';
+    document.getElementById('dCode').textContent=d.code;
+    let h='';
+    const f=[['英文名称',d.enName],['状态',d.status],['ICS分类',d.ics?`<span class="it">${d.ics}</span>`:''],['CCS分类',d.ccs?`<span class="it">${d.ccs}</span>`:''],['发布日期',d.publishDate],['实施日期',d.implementDate],['主管部门',d.department],['归口单位',d.manager],['发布单位',d.issuer],['来源',d.source]];
+    f.forEach(([l,v])=>{if(v)h+=`<div class="fl"><div class="lb">${l}</div><div class="vl">${v}</div></div>`;});
+    document.getElementById('dFields').innerHTML=h;
+  }catch(e){document.getElementById('dFields').innerHTML='<div style="color:red">加载失败</div>';}
+}
+function closeD(){document.getElementById('dOverlay').classList.remove('show');}
+
+// ===== 配置 =====
+function openCfg(){
+  document.getElementById('cUrl').value=cfg.baseUrl;
+  document.getElementById('cKey').value=cfg.apiKey;
+  document.getElementById('cModel').value=cfg.model;
+  document.getElementById('cfg').classList.add('show');
+}
+function closeCfg(){document.getElementById('cfg').classList.remove('show');}
+function saveCfg(){
+  cfg.baseUrl=document.getElementById('cUrl').value.trim();
+  cfg.apiKey=document.getElementById('cKey').value.trim();
+  cfg.model=document.getElementById('cModel').value;
+  localStorage.setItem('acfg',JSON.stringify(cfg));
+  closeCfg();
+  showToast('✅ 配置已保存');
+}
+
+// ===== 快捷键 =====
+inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+
+// ===== 弹窗外部关闭 =====
+document.getElementById('dOverlay').addEventListener('click',function(e){if(e.target===this)closeD();});
+document.getElementById('cfg').addEventListener('click',function(e){if(e.target===this)closeCfg();});
+
+// ===== 加载统计 =====
+fetch('/api/stats').then(r=>r.json()).then(d=>{
+  if(d.total) document.getElementById('statBadge').textContent=(d.total/10000|0)+'万+';
+}).catch(()=>{});
+
+// ===== 首次启动 =====
+if(!localStorage.getItem('acfg_shown')){
+  setTimeout(()=>{
+    addMsg('👋 你好！我是 **标准查询 AI 助手**\n\n**直接输入**标准号或关键词，例如：\n- `混凝土结构`\n- `GB 50068`\n- `建筑防火`\n\n**输入网址**可百度搜索\n⚙️ 配置 API 可使用 AI 智能查询','ai');
+    localStorage.setItem('acfg_shown','1');
+  },300);
+}
+</script>
+</body>
+</html>
