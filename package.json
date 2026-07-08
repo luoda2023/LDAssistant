@@ -1,0 +1,72 @@
+{
+  "name": "csres-standards",
+  "version": "1.0.0",
+  "description": "",
+  "main": "electron-main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron electron-main.js",
+    "electron": "electron electron-main.js",
+    "dev": "electron electron-main.js",
+    "build": "electron-builder --win",
+    "pack": "electron-builder --win --dir"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@file-viewer/web-full": "^2.1.23",
+    "better-sqlite3": "^12.11.1",
+    "cors": "^2.8.6",
+    "electron": "^43.1.0",
+    "express": "^5.2.1",
+    "iconv-lite": "^0.7.2",
+    "playwright": "^1.61.1",
+    "puppeteer-core": "^25.3.0",
+    "socks-proxy-agent": "^10.1.0",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.workbuddy.csres-standards",
+    "productName": "工程助手标准查询",
+    "copyright": "Copyright © 2026",
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "public/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "工程助手标准查询"
+    },
+    "files": [
+      "electron-main.js",
+      "preload.js",
+      "server.js",
+      "public/**/*",
+      "node_modules/@file-viewer/**/*",
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/express/**/*",
+      "node_modules/cors/**/*",
+      "node_modules/iconv-lite/**/*",
+      "node_modules/socks-proxy-agent/**/*",
+      "node_modules/sql.js/**/*",
+      "standards_gov_full.db"
+    ],
+    "extraResources": [
+      {
+        "from": "public/file-viewer",
+        "to": "file-viewer"
+      }
+    ]
+  }
+}
