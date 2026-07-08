@@ -20,6 +20,11 @@ jobs:
       - name: 安装依赖
         run: npm install --registry=https://registry.npmmirror.com
 
+      - name: 复制 file-viewer 资源到 public
+        run: |
+          mkdir -p public/file-viewer
+          xcopy /E /I /Y node_modules\@file-viewer\web-full\dist\* public\file-viewer\
+
       - name: 构建安装包
         run: npx electron-builder --win --x64
         env:
