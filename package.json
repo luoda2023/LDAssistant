@@ -19,7 +19,6 @@
     "@file-viewer/web-full": "^2.1.23",
     "better-sqlite3": "^12.11.1",
     "cors": "^2.8.6",
-    "electron": "^43.1.0",
     "express": "^5.2.1",
     "iconv-lite": "^0.7.2",
     "playwright": "^1.61.1",
@@ -28,7 +27,8 @@
     "sql.js": "^1.14.1"
   },
   "devDependencies": {
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "electron": "^43.1.0"
   },
   "build": {
     "appId": "com.workbuddy.csres-standards",
