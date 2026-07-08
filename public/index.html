@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工程助手 - 标准查询</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100vh;
+      font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+      background: #f5f7fa;
+      color: #1a1a1a;
+      overflow: hidden;
+    }
+
+    /* ============ 顶部工具栏 ============ */
+    .topbar {
+      height: 56px;
+      background: linear-gradient(90deg, #1f966e 0%, #3b82f6 100%);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      z-index: 10;
+    }
+    .topbar .brand {
+      color: #fff;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .topbar .brand .mark {
+      display: inline-block;
+      width: 32px; height: 32px;
+      background: rgba(255,255,255,0.18);
+      border-radius: 6px;
+      text-align: center;
+      line-height: 32px;
+      margin-right: 12px;
+      vertical-align: middle;
+    }
+    .topbar .status-chip {
+      margin-left: auto;
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
+    .topbar .btn {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      margin-left: 10px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+    .topbar .btn:hover { background: rgba(255,255,255,0.28); }
+    .topbar .btn.primary { background: #fff; color: #1f966e; font-weight: 600; }
+    .topbar .btn.primary:hover { background: #f0f0f0; }
+
+    /* ============ 主区域 ============ */
+    .main {
+      display: flex;
+      height: calc(100vh - 56px);
+      position: relative;
+    }
+
+    /* 文件预览区全屏 */
+    .preview {
+      flex: 1;
+      background: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    .preview-header {
+      height: 36px;
+      background: #eef5f1;
+      border-bottom: 1px solid #d8e2dc;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      color: #555;
+      font-size: 13px;
+    }
+    .preview-container {
+      width: 100%;
+      height: calc(100% - 36px);
+      position: relative;
+    }
+    /* file-viewer 占满整个容器 */
+    flyfish-file-viewer {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 加载占位 */
+    .preview-placeholder {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: #888;
+      font-size: 14px;
+      background: #fafbfc;
+      background-image:
+        linear-gradient(90deg, rgba(31,150,110,0.05) 1px, transparent 1px),
+        linear-gradient(rgba(31,150,110,0.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    .preview-placeholder .big {
+      font-size: 60px;
+      margin-bottom: 14px;
+      opacity: 0.4;
+    }
+    .preview-placeholder .hint {
+      max-width: 80%;
+      line-height: 1.7;
+    }
+    .preview-placeholder .kbd {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-family: monospace;
+      margin: 0 3px;
+    }
+
+    /* ============ 右下角浮动 AI 对话框 ============ */
+    .ai-dialog {
+      position: absolute;
+      right: 20px;
+      bottom: 20px;
+      width: 380px;
+      height: 560px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 100;
+      border: 1px solid #e1e4e8;
+    }
+    .ai-dialog .drag-handle {
+      height: 36px;
+      background: linear-gradient(90deg, #1f966e 0%, #3b82f6 100%);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      cursor: move;
+      user-select: none;
+    }
+    .ai-dialog .drag-handle .title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .ai-dialog .drag-handle .badge {
+      margin-left: 8px;
+      font-size: 11px;
+      background: rgba(255,255,255,0.2);
+      padding: 2px 6px;
+      border-radius: 8px;
+    }
+    .ai-dialog .drag-handle .controls {
+      margin-left: auto;
+      display: flex;
+      gap: 4px;
+    }
+    .ai-dialog .drag-handle .controls span {
+      width: 22px; height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .ai-dialog .drag-handle .controls span:hover {
+      background: rgba(255,255,255,0.25);
+    }
+
+    .ai-dialog .body {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+    }
+    .ai-dialog iframe {
+      border: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 折叠状态下的小按钮 */
+    .ai-mini {
+      position: absolute;
+      right: 20px;
+      bottom: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1f966e 0%, #3b82f6 100%);
+      color: #fff;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(31,150,110,0.4);
+      z-index: 100;
+    }
+    .ai-mini:hover { transform: scale(1.05); }
+
+    /* 加载中遮罩（分批加载，避免傻等） */
+    .loader-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(245,247,250,0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.4s;
+    }
+    .loader-overlay.hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .loader-overlay .logo {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, #1f966e 0%, #3b82f6 100%);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 32px;
+      font-weight: 800;
+      box-shadow: 0 8px 24px rgba(31,150,110,0.3);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .loader-overlay .text {
+      margin-top: 16px;
+      color: #555;
+      font-size: 14px;
+    }
+    .loader-overlay .progress {
+      margin-top: 12px;
+      width: 240px;
+      height: 4px;
+      background: #dce7ee;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .loader-overlay .progress::after {
+      content: '';
+      display: block;
+      width: 40%;
+      height: 100%;
+      background: linear-gradient(90deg, #1f966e, #3b82f6);
+      animation: loadbar 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+    @keyframes loadbar {
+      0% { transform: translateX(-110%); }
+      50% { transform: translateX(75%); }
+      100% { transform: translateX(240%); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 启动加载屏（分批加载，秒开） -->
+  <div class="loader-overlay" id="loader">
+    <div class="logo">工</div>
+    <div class="text">工程助手启动中...</div>
+    <div class="progress"></div>
+  </div>
+
+  <!-- 顶部栏 -->
+  <div class="topbar">
+    <span class="brand"><span class="mark">工</span>工程助手 - 标准查询</span>
+    <button class="btn primary" id="btn-open">📂 打开文件</button>
+    <button class="btn" id="btn-toggle-ai">🤖 AI助手</button>
+    <span class="status-chip" id="status">就绪</span>
+  </div>
+
+  <!-- 主预览区 -->
+  <div class="main">
+    <div class="preview">
+      <div class="preview-header">
+        <span id="file-name">未打开文件</span>
+        <span style="margin-left:auto;color:#999;font-size:12px">
+          支持 PDF / Word / Excel / CAD(DWG/DXF) / 图片 / TXT / 压缩包 / OFD 等 200+ 格式
+        </span>
+      </div>
+      <div class="preview-container">
+        <div class="preview-placeholder" id="placeholder">
+          <div class="big">📄</div>
+          <div class="hint">
+            点击右上角 <span class="kbd">📂 打开文件</span> 选择一个文件开始<br><br>
+            所有文件直接在本地解析，无需联网，无需 OCR（Word/Excel/TXT 自动提取文本）
+          </div>
+        </div>
+        <!-- file-viewer 组件，启动时不加载，打开文件后才挂载 -->
+        <div id="viewer-host" style="display:none;width:100%;height:100%"></div>
+      </div>
+    </div>
+
+    <!-- 右下角 AI 对话框 -->
+    <div class="ai-dialog" id="ai-dialog">
+      <div class="drag-handle" id="drag-handle">
+        <span class="title">🤖 AI 助手</span>
+        <span class="badge" id="ai-badge">离线</span>
+        <span class="controls">
+          <span id="ai-min" title="最小化">—</span>
+          <span id="ai-max" title="放大">⛶</span>
+          <span id="ai-close" title="关闭">✕</span>
+        </span>
+      </div>
+      <div class="body">
+        <iframe src="./dialog.html"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- 引入 file-viewer Web Component -->
+  <script src="./file-viewer/flyfish-file-viewer-web-full.iife.js"></script>
+
+  <script>
+    // ============ 分批加载：先显示 UI，再异步加载重资源 ============
+    const { electronAPI } = window;
+    const $ = sel => document.querySelector(sel);
+
+    // 1秒后隐藏加载屏
+    setTimeout(() => {
+      $('#loader').classList.add('hide');
+      // 检测 AI 服务
+      fetch('http://localhost:3000/api/stats')
+        .then(r => r.json())
+        .then(d => {
+          if (d.total) {
+            $('#ai-badge').textContent = `${(d.total/10000).toFixed(0)}万+`;
+            $('#ai-badge').style.background = '#1f966e';
+          }
+        })
+        .catch(() => {});
+    }, 600);
+
+    // ============ 打开文件 ============
+    $('#btn-open').addEventListener('click', async () => {
+      const result = await electronAPI.openFileDialog();
+      if (result.canceled || !result.filePaths.length) return;
+      const filePath = result.filePaths[0];
+      $('#file-name').textContent = filePath.split(/[\\/]/).pop();
+      $('#status').textContent = '加载中...';
+
+      // 读取为 data URL 传给 file-viewer
+      const dataUrl = await electronAPI.readFileAsUrl(filePath);
+      if (!dataUrl) {
+        $('#status').textContent = '读取失败';
+        return;
+      }
+
+      // 隐藏占位，显示 file-viewer
+      $('#placeholder').style.display = 'none';
+      $('#viewer-host').style.display = 'block';
+      $('#viewer-host').innerHTML = '';
+
+      // 创建 file-viewer 组件实例
+      const viewer = document.createElement('flyfish-file-viewer');
+      viewer.setAttribute('src', dataUrl);
+      viewer.setAttribute('theme', 'light');
+      viewer.setAttribute('toolbar-position', 'bottom-right');
+      viewer.style.display = 'block';
+      viewer.style.width = '100%';
+      viewer.style.height = '100%';
+      $('#viewer-host').appendChild(viewer);
+
+      $('#status').textContent = '已加载';
+    });
+
+    // ============ AI 对话框：拖动 ============
+    const dragHandle = $('#drag-handle');
+    const aiDialog = $('#ai-dialog');
+    let isDragging = false, dragX = 0, dragY = 0, offsetX = 0, offsetY = 0;
+    aiDialog.style.right = 'auto';
+    aiDialog.style.bottom = 'auto';
+
+    // 初始定位（父元素右下角）
+    requestAnimationFrame(() => {
+      const parent = aiDialog.parentElement.getBoundingClientRect();
+      aiDialog.style.left = (parent.width - 380 - 20) + 'px';
+      aiDialog.style.top  = (parent.height - 560 - 20) + 'px';
+    });
+
+    dragHandle.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.controls')) return;
+      isDragging = true;
+      const rect = aiDialog.getBoundingClientRect();
+      const parent = aiDialog.parentElement.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const parent = aiDialog.parentElement.getBoundingClientRect();
+      let x = e.clientX - parent.left - offsetX;
+      let y = e.clientY - parent.top - offsetY;
+      // 限制在父容器内
+      x = Math.max(0, Math.min(parent.width - aiDialog.offsetWidth, x));
+      y = Math.max(0, Math.min(parent.height - aiDialog.offsetHeight, y));
+      aiDialog.style.left = x + 'px';
+      aiDialog.style.top  = y + 'px';
+    });
+    document.addEventListener('mouseup', () => { isDragging = false; });
+
+    // ============ AI 对话框：折叠/还原 ============
+    let isExpanded = false;
+    let prevRect = null;
+    $('#ai-max').addEventListener('click', () => {
+      if (!isExpanded) {
+        prevRect = { x: aiDialog.style.left, y: aiDialog.style.top, w: 380, h: 560 };
+        const parent = aiDialog.parentElement.getBoundingClientRect();
+        aiDialog.style.left = '10px';
+        aiDialog.style.top = '10px';
+        aiDialog.style.width = (parent.width - 20) + 'px';
+        aiDialog.style.height = (parent.height - 20) + 'px';
+        isExpanded = true;
+      } else {
+        aiDialog.style.left = prevRect.x;
+        aiDialog.style.top = prevRect.y;
+        aiDialog.style.width = prevRect.w + 'px';
+        aiDialog.style.height = prevRect.h + 'px';
+        isExpanded = false;
+      }
+    });
+
+    // 最小化：变成右下角小圆
+    let mini = null;
+    $('#ai-min').addEventListener('click', () => {
+      aiDialog.style.display = 'none';
+      if (!mini) {
+        mini = document.createElement('div');
+        mini.className = 'ai-mini';
+        mini.textContent = '🤖';
+        mini.addEventListener('click', () => {
+          aiDialog.style.display = 'flex';
+          mini.remove();
+          mini = null;
+        });
+        document.querySelector('.main').appendChild(mini);
+      }
+    });
+
+    $('#ai-close').addEventListener('click', () => {
+      aiDialog.style.display = 'none';
+      if (!mini) {
+        mini = document.createElement('div');
+        mini.className = 'ai-mini';
+        mini.textContent = '🤖';
+        mini.addEventListener('click', () => {
+          aiDialog.style.display = 'flex';
+          mini.remove();
+          mini = null;
+        });
+        document.querySelector('.main').appendChild(mini);
+      }
+    });
+
+    $('#btn-toggle-ai').addEventListener('click', () => {
+      aiDialog.style.display = (aiDialog.style.display === 'none') ? 'flex' : 'none';
+    });
+  </script>
+</body>
+</html>
