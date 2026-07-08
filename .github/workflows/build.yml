@@ -17,6 +17,18 @@ jobs:
         with:
           node-version: 20
 
+      - name: 下载标准数据库
+        shell: pwsh
+        run: |
+          $GZ_URL="https://github.com/luoda2023/LDAssistant/releases/download/data-v1/standards_gov_full.db.gz"
+          $DB_FILE="standards_gov_full.db"
+          $GZ_FILE="standards_gov_full.db.gz"
+          Write-Host "下载数据库..."
+          curl -L -o $GZ_FILE $GZ_URL
+          Write-Host "解压..."
+          7z x $GZ_FILE -y
+          Write-Host "数据库大小: $((Get-Item $DB_FILE).Length / 1MB) MB"
+
       - name: 安装依赖
         run: npm install --registry=https://registry.npmmirror.com
 
