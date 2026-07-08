@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>标准查询 AI 助手</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--primary:#1a73e8;--primary-hover:#1557b0;--bg:#f0f2f5;--card-bg:#fff;--text:#1a1a1a;--border:#e0e0e0;--radius:12px;}
+
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);height:100vh;overflow:hidden;color:var(--text);}
+
+/* ===== 浮动按钮 ===== */
+.floating-btn{
+  position:fixed;bottom:30px;right:30px;z-index:99999;
+  width:56px;height:56px;border-radius:50%;
+  background:var(--primary);color:#fff;
+  border:none;cursor:pointer;
+  box-shadow:0 4px 16px rgba(26,115,232,0.4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;transition:all .3s ease;
+}
+.floating-btn:hover{transform:scale(1.1);background:var(--primary-hover);}
+.floating-btn.hidden{display:none;}
+
+/* ===== AI对话框容器 ===== */
+.ai-dialog{
+  position:fixed;z-index:99998;
+  display:flex;flex-direction:column;
+  box-shadow:0 8px 32px rgba(0,0,0,0.18);
+  border-radius:var(--radius);
+  overflow:hidden;
+  background:var(--card-bg);
+  transition:all .3s ease;
+}
+.ai-dialog.minimized{display:none;}
+
+/* 浮动模式（默认） */
+.ai-dialog.float-mode{
+  bottom:100px;right:30px;
+  width:440px;height:620px;
+  border-radius:var(--radius);
+  resize:both;
+  min-width:320px;min-height:400px;
+}
+
+/* 展开模式（全屏主体） */
+.ai-dialog.expand-mode{
+  top:0;left:0;right:0;bottom:0;
+  width:100%;height:100%;
+  border-radius:0;
+  resize:none;
+}
+
+/* 拖动处理区 */
+.ai-dialog.float-mode .drag-bar{
+  cursor:grab;
+}
+.ai-dialog.float-mode .drag-bar:active{cursor:grabbing;}
+
+/* ===== 顶部栏 ===== */
+.dialog-header{
+  background:var(--primary);color:#fff;
+  padding:10px 16px;
+  display:flex;align-items:center;
+  flex-shrink:0;user-select:none;
+  gap:8px;
+}
+.dialog-header .title{
+  font-size:15px;font-weight:600;
+  flex:1;display:flex;align-items:center;gap:6px;
+}
+.dialog-header .title .stat-badge{
+  font-size:11px;background:rgba(255,255,255,0.2);
+  padding:1px 8px;border-radius:10px;font-weight:400;
+}
+.header-btns{display:flex;gap:4px;}
+.header-btns button{
+  background:rgba(255,255,255,0.15);
+  border:none;color:#fff;
+  width:30px;height:30px;border-radius:6px;
+  cursor:pointer;font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .2s;
+}
+.header-btns button:hover{background:rgba(255,255,255,0.3);}
+
+/* ===== 消息区域 ===== */
+.messages-area{
+  flex:1;overflow-y:auto;padding:16px;
+  background:#f8f9fa;
+}
+
+.message{max-width:92%;margin-bottom:14px;animation:fadeIn .25s;}
+.message.user{margin-left:auto;}
+.message.assistant{margin-right:auto;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+.msg-bubble{
+  padding:10px 14px;border-radius:12px;
+  line-height:1.65;font-size:14px;word-break:break-word;
+  position:relative;
+}
+.message.user .msg-bubble{
+  background:var(--primary);color:#fff;
+  border-bottom-right-radius:4px;
+}
+.message.assistant .msg-bubble{
+  background:#fff;color:var(--text);
+  box-shadow:0 1px 4px rgba(0,0,0,0.08);
+  border-bottom-left-radius:4px;
+}
+
+.msg-header{
+  font-size:11px;margin-bottom:4px;opacity:0.7;
+  display:flex;align-items:center;gap:6px;
+}
+.message.user .msg-header{justify-content:flex-end;}
+
+.msg-footer{
+  display:flex;gap:6px;justify-content:flex-end;
+  margin-top:4px;opacity:0;
+  transition:opacity .2s;
+}
+.message:hover .msg-footer{opacity:1;}
+.msg-footer button{
+  background:none;border:none;cursor:pointer;
+  font-size:12px;color:#999;padding:2px 6px;border-radius:4px;
+}
+.msg-footer button:hover{background:#eee;color:#333;}
+
+/* 标准搜索结果卡片 */
+.result-card{
+  border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;margin:6px 0;
+  background:#fafbfc;cursor:pointer;
+  transition:all .15s;
+}
+.result-card:hover{border-color:var(--primary);box-shadow:0 1px 6px rgba(26,115,232,0.15);}
+.result-card .rc-code{font-weight:600;color:var(--primary);font-size:13px;}
+.result-card .rc-name{font-size:13px;color:#333;margin:2px 0;}
+.result-card .rc-meta{font-size:11px;color:#999;display:flex;gap:10px;flex-wrap:wrap;}
+.result-card .rc-tag{
+  display:inline-block;font-size:10px;padding:1px 6px;
+  border-radius:4px;background:#e8f0fe;color:var(--primary);
+}
+
+/* 标准详情弹窗 */
+.detail-overlay{
+  display:none;position:fixed;inset:0;z-index:999999;
+  background:rgba(0,0,0,0.4);
+  align-items:center;justify-content:center;
+}
+.detail-overlay.show{display:flex;}
+.detail-card{
+  background:#fff;border-radius:var(--radius);
+  width:520px;max-width:90vw;max-height:80vh;overflow-y:auto;
+  padding:24px;box-shadow:0 12px 48px rgba(0,0,0,0.2);
+  animation:popIn .2s;
+}
+@keyframes popIn{from{transform:scale(0.95);opacity:0;}to{transform:scale(1);opacity:1;}}
+.detail-card .close-btn{
+  float:right;background:none;border:none;font-size:20px;cursor:pointer;color:#999;
+}
+.detail-card .close-btn:hover{color:#333;}
+.detail-card h2{font-size:18px;margin-bottom:4px;}
+.detail-card .detail-code{color:var(--primary);font-weight:600;font-size:14px;margin-bottom:16px;}
+.detail-card .field{display:flex;padding:6px 0;border-bottom:1px solid #f0f0f0;}
+.detail-card .field .label{width:110px;flex-shrink:0;color:#999;font-size:13px;}
+.detail-card .field .value{flex:1;font-size:13px;}
+.detail-card .field .ics-tag{display:inline-block;background:#e8f0fe;color:var(--primary);padding:1px 8px;border-radius:4px;font-size:12px;margin-right:4px;}
+
+/* ===== 输入区 ===== */
+.input-area{
+  padding:12px 16px 14px;
+  border-top:1px solid var(--border);
+  background:#fff;
+  display:flex;gap:8px;align-items:flex-end;
+}
+.input-area textarea{
+  flex:1;resize:none;
+  border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;font-size:14px;
+  font-family:inherit;line-height:1.4;
+  max-height:120px;outline:none;
+  transition:border-color .2s;
+}
+.input-area textarea:focus{border-color:var(--primary);}
+.input-area .send-btn{
+  background:var(--primary);color:#fff;
+  border:none;width:40px;height:40px;border-radius:8px;
+  cursor:pointer;font-size:18px;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .2s;flex-shrink:0;
+}
+.input-area .send-btn:hover{background:var(--primary-hover);}
+.input-area .send-btn:disabled{background:#ccc;cursor:default;}
+
+/* 快捷按钮行 */
+.quick-row{
+  padding:6px 16px 4px;
+  display:flex;gap:6px;flex-wrap:wrap;
+  border-top:1px solid #f0f0f0;
+}
+.quick-btn{
+  font-size:11px;padding:3px 10px;
+  border:1px solid var(--border);border-radius:14px;
+  background:#fff;cursor:pointer;color:#666;
+  transition:all .15s;white-space:nowrap;
+}
+.quick-btn:hover{border-color:var(--primary);color:var(--primary);background:#f0f6ff;}
+
+/* 加载动画 */
+.typing-dots{display:flex;gap:4px;padding:4px 0;}
+.typing-dots span{
+  width:6px;height:6px;border-radius:50%;
+  background:#999;animation:bounce 1.2s infinite;
+}
+.typing-dots span:nth-child(2){animation-delay:.2s;}
+.typing-dots span:nth-child(3){animation-delay:.4s;}
+@keyframes bounce{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* 配置弹窗 */
+.config-overlay{display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;}
+.config-overlay.show{display:flex;}
+.config-card{background:#fff;border-radius:var(--radius);width:420px;max-width:90vw;padding:24px;}
+.config-card h3{font-size:16px;margin-bottom:16px;}
+.config-card label{font-size:13px;color:#666;display:block;margin:10px 0 4px;}
+.config-card input,.config-card select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;outline:none;}
+.config-card input:focus{border-color:var(--primary);}
+.config-card .config-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+.config-card .config-actions button{padding:7px 16px;border-radius:6px;border:none;cursor:pointer;font-size:13px;}
+.config-card .btn-save{background:var(--primary);color:#fff;}
+.config-card .btn-cancel{background:#f0f0f0;color:#666;}
+</style>
+</head>
+<body>
+
+<!-- ===== 浮动按钮 ===== -->
+<button class="floating-btn" id="floatBtn" title="打开AI助手">💬</button>
+
+<!-- ===== AI 对话框 ===== -->
+<div class="ai-dialog float-mode" id="aiDialog">
+
+  <!-- 拖动条（仅浮动模式显示） -->
+  <div class="drag-bar" id="dragBar" style="height:4px;background:var(--primary);cursor:grab;"></div>
+
+  <!-- 顶栏 -->
+  <div class="dialog-header" id="dialogHeader">
+    <div class="title">
+      🤖 AI 助手
+      <span class="stat-badge" id="statBadge">43万+标准</span>
+    </div>
+    <div class="header-btns">
+      <button onclick="toggleExpand()" id="expandBtn" title="展开/浮动">⛶</button>
+      <button onclick="closeDialog()" title="最小化">—</button>
+    </div>
+  </div>
+
+  <!-- 快捷按钮 -->
+  <div class="quick-row" id="quickRow">
+    <button class="quick-btn" onclick="quickSearch('混凝土结构')">🏗️ 混凝土结构</button>
+    <button class="quick-btn" onclick="quickSearch('建筑防火')">🔥 建筑防火</button>
+    <button class="quick-btn" onclick="quickSearch('GB 50068')">📋 GB 50068</button>
+    <button class="quick-btn" onclick="quickSearch('最新发布')">🆕 最新标准</button>
+    <button class="quick-btn" onclick="quickSearch('水利工程')">💧 水利工程</button>
+    <button class="quick-btn" onclick="openConfig()">⚙️ 配置</button>
+  </div>
+
+  <!-- 消息区域 -->
+  <div class="messages-area" id="messagesArea"></div>
+
+  <!-- 输入区 -->
+  <div class="input-area">
+    <textarea id="inputBox" rows="1" placeholder="输入标准号或关键词搜索..." onkeydown="if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}"></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+  </div>
+</div>
+
+<!-- ===== 标准详情弹窗 ===== -->
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-card">
+    <button class="close-btn" onclick="closeDetail()">✕</button>
+    <h2 id="detailName"></h2>
+    <div class="detail-code" id="detailCode"></div>
+    <div id="detailFields"></div>
+  </div>
+</div>
+
+<!-- ===== 配置弹窗 ===== -->
+<div class="config-overlay" id="configOverlay">
+  <div class="config-card">
+    <h3>⚙️ API 配置</h3>
+    <label>API 地址</label>
+    <input id="cfgBaseUrl" value="https://api.chatnio.net" placeholder="https://api.openai.com">
+    <label>API Key</label>
+    <input id="cfgApiKey" type="password" placeholder="sk-...">
+    <label>模型</label>
+    <select id="cfgModel">
+      <option value="glm-5.2">GLM 5.2</option>
+      <option value="glm-5.1">GLM 5.1</option>
+      <option value="gpt-4o">GPT-4o</option>
+      <option value="gpt-4o-mini">GPT-4o-mini</option>
+      <option value="deepseek-chat">DeepSeek</option>
+    </select>
+    <div class="config-actions">
+      <button class="btn-cancel" onclick="closeConfig()">取消</button>
+      <button class="btn-save" onclick="saveConfig()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 状态 =====
+let config = { baseUrl: 'https://api.chatnio.net', apiKey: '', model: 'glm-5.2' };
+let messages = [];
+let isExpanded = false;
+let dragging = false, dragStartX, dragStartY, dragOrigLeft, dragOrigTop;
+
+// 加载配置
+try { const saved = localStorage.getItem('ai_dialog_config'); if(saved) Object.assign(config, JSON.parse(saved));
+  document.getElementById('cfgBaseUrl').value = config.baseUrl;
+  document.getElementById('cfgApiKey').value = config.apiKey;
+  document.getElementById('cfgModel').value = config.model;
+} catch(e){}
+
+// ===== 对话框 =====
+const dialog = document.getElementById('aiDialog');
+const floatBtn = document.getElementById('floatBtn');
+const messagesArea = document.getElementById('messagesArea');
+const inputBox = document.getElementById('inputBox');
+
+function openDialog(){ floatBtn.classList.add('hidden'); dialog.classList.remove('minimized'); }
+function closeDialog(){ floatBtn.classList.remove('hidden'); dialog.classList.add('minimized'); }
+floatBtn.onclick = openDialog;
+
+closeDialog(); // 默认隐藏
+
+// ===== 浮动/展开切换 =====
+function toggleExpand(){
+  isExpanded = !isExpanded;
+  dialog.classList.remove('float-mode','expand-mode');
+  dialog.classList.add(isExpanded ? 'expand-mode' : 'float-mode');
+  document.getElementById('expandBtn').textContent = isExpanded ? '⛶' : '⛶';
+  // 展开模式下恢复居中位置
+  if(isExpanded){ dialog.style.left = ''; dialog.style.top = ''; dialog.style.right = ''; dialog.style.bottom = ''; }
+  else { dialog.style.bottom = '100px'; dialog.style.right = '30px'; }
+}
+
+// ===== 拖动 =====
+const dragBar = document.getElementById('dragBar');
+dragBar.addEventListener('mousedown', e => {
+  if(isExpanded) return;
+  dragging = true; const rect = dialog.getBoundingClientRect();
+  dragStartX = e.clientX; dragStartY = e.clientY;
+  dragOrigLeft = rect.left; dragOrigTop = rect.top;
+  dialog.style.left = rect.left+'px'; dialog.style.top = rect.top+'px';
+  dialog.style.bottom = ''; dialog.style.right = '';
+  document.body.style.cursor = 'grabbing';
+});
+document.addEventListener('mousemove', e => {
+  if(!dragging) return;
+  dialog.style.left = (dragOrigLeft + e.clientX - dragStartX)+'px';
+  dialog.style.top = (dragOrigTop + e.clientY - dragStartY)+'px';
+});
+document.addEventListener('mouseup', () => { if(dragging){dragging=false;document.body.style.cursor='';} });
+
+// ===== 自动调整输入框高度 =====
+inputBox.addEventListener('input', () => {
+  inputBox.style.height = 'auto';
+  inputBox.style.height = Math.min(inputBox.scrollHeight, 120)+'px';
+});
+
+// ===== 发送消息 =====
+async function sendMessage(){
+  const text = inputBox.value.trim();
+  if(!text) return;
+  inputBox.value = ''; inputBox.style.height = 'auto';
+  addMessage(text, 'user');
+  document.getElementById('sendBtn').disabled = true;
+  showTyping();
+  try {
+    if(text.startsWith('http://') || text.startsWith('https://')){
+      // 百度搜索模式 - 代理抓取
+      await doBaiduSearch(text);
+    } else {
+      // 标准搜索模式
+      await doAISearch(text);
+    }
+  } catch(e){ addMessage('⚠️ 发生错误: '+e.message, 'assistant'); }
+  hideTyping();
+  document.getElementById('sendBtn').disabled = false;
+}
+
+// ===== 快捷搜索 =====
+function quickSearch(keyword){
+  inputBox.value = keyword;
+  sendMessage();
+}
+
+// ===== 添加消息 =====
+function addMessage(content, role, extra){
+  const div = document.createElement('div');
+  div.className = 'message ' + role;
+  let header = '';
+  if(role === 'user') header = '<div class="msg-header">🧑 你</div>';
+  else header = '<div class="msg-header">🤖 AI 助手</div>';
+  let extraHTML = '';
+  if(extra && extra.results && extra.results.length > 0){
+    extraHTML = '<div style="margin-top:8px;">';
+    extra.results.slice(0,8).forEach(r => {
+      extraHTML += `<div class="result-card" onclick="showDetail('${r.code.replace(/'/g,"\\'")}')">
+        <div class="rc-code">${r.code}</div>
+        <div class="rc-name">${r.name || ''}</div>
+        <div class="rc-meta">
+          <span>${r.status || ''}</span>
+          ${r.ics ? '<span class="rc-tag">ICS '+r.ics+'</span>' : ''}
+          ${r.ccs ? '<span class="rc-tag">CCS '+r.ccs+'</span>' : ''}
+        </div>
+      </div>`;
+    });
+    if(extra.total > 8) extraHTML += `<div style="text-align:center;font-size:12px;color:#999;padding:4px;">共${extra.total}条结果</div>`;
+    extraHTML += '</div>';
+  }
+  div.innerHTML = header + '<div class="msg-bubble">' + content + extraHTML + '</div>';
+  // 底部按钮区
+  const footer = document.createElement('div');
+  footer.className = 'msg-footer';
+  footer.innerHTML = '<button onclick="copyMsg(this)">📋 复制</button>';
+  div.querySelector('.msg-bubble').after(footer);
+  messagesArea.appendChild(div);
+  messagesArea.scrollTop = messagesArea.scrollHeight;
+}
+
+// ===== 复制按钮 =====
+function copyMsg(btn){
+  const bubble = btn.closest('.message').querySelector('.msg-bubble');
+  const text = bubble.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✅ 已复制';
+    setTimeout(() => btn.textContent = '📋 复制', 1500);
+  });
+}
+
+// ===== 打字动画 =====
+function showTyping(){
+  const div = document.createElement('div');
+  div.className = 'message assistant';
+  div.id = 'typingIndicator';
+  div.innerHTML = '<div class="msg-header">🤖 AI 助手</div><div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+  messagesArea.appendChild(div);
+  messagesArea.scrollTop = messagesArea.scrollHeight;
+}
+function hideTyping(){
+  const el = document.getElementById('typingIndicator');
+  if(el) el.remove();
+}
+
+// ===== AI 搜索 =====
+async function doAISearch(text){
+  // 先调用搜索API - 注意中文需要编码
+  const searchResp = await fetch('/api/search?q='+encodeURIComponent(text));
+  const searchData = await searchResp.json();
+  let reply = '';
+  let results = [];
+
+  if(searchData.data && searchData.data.length > 0){
+    results = searchData.data;
+    const total = searchData.total || results.length;
+    reply = `🔍 找到 **${total}** 条与「${text}」相关的标准：（显示前${Math.min(results.length, 8)}条）`;
+    addMessage(reply, 'assistant', { results, total });
+  } else {
+    // 尝试调用 AI API
+    if(config.apiKey){
+      try {
+        const resp = await fetch('/api/chat', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            message: text,
+            history: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+            apiConfig: config
+          })
+        });
+        const data = await resp.json();
+        reply = data.reply || '未找到相关标准。';
+        addMessage(reply, 'assistant', { results: data.searchResults || [], total: data.totalResults || 0 });
+        return;
+      } catch(e){}
+    }
+    addMessage('未找到相关标准，请输入其他关键词或配置 API Key 使用 AI 搜索。', 'assistant');
+  }
+}
+
+// ===== 百度搜索代理 =====
+async function doBaiduSearch(url){
+  addMessage('🌐 正在百度搜索...', 'assistant');
+  try {
+    const resp = await fetch('/api/proxy', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ url, method: 'GET' })
+    });
+    const data = await resp.json();
+    if(data.results && data.results.length > 0){
+      let html = `✅ 百度搜索结果（${data.total}条）：`;
+      data.results.slice(0,6).forEach(r => {
+        html += `<div class="result-card" onclick="window.open('${r.link}','_blank')">
+          <div class="rc-code">${r.title}</div>
+          <div class="rc-name">${r.snippet || ''}</div>
+        </div>`;
+      });
+      addMessage(html, 'assistant');
+    } else {
+      addMessage('⚠️ 百度搜索无结果或访问受限', 'assistant');
+    }
+  } catch(e){
+    addMessage('⚠️ 搜索失败: ' + e.message, 'assistant');
+  }
+}
+
+// ===== 标准详情弹窗 =====
+async function showDetail(code){
+  const overlay = document.getElementById('detailOverlay');
+  overlay.classList.add('show');
+  try {
+    const resp = await fetch('/api/standard/'+encodeURIComponent(code));
+    const data = await resp.json();
+    document.getElementById('detailName').textContent = data.name || '(无名称)';
+    document.getElementById('detailCode').textContent = data.code;
+    let html = '';
+    const fields = [
+      ['英文名称', data.enName],
+      ['状态', data.status],
+      ['ICS 分类', data.ics ? `<span class="ics-tag">${data.ics}</span>` : ''],
+      ['CCS 分类', data.ccs ? `<span class="ics-tag">${data.ccs}</span>` : ''],
+      ['发布日期', data.publishDate],
+      ['实施日期', data.implementDate],
+      ['主管部门', data.department],
+      ['归口单位', data.manager],
+      ['发布单位', data.issuer],
+      ['数据来源', data.source],
+    ];
+    fields.forEach(([label, val]) => {
+      if(val) html += `<div class="field"><div class="label">${label}</div><div class="value">${val}</div></div>`;
+    });
+    document.getElementById('detailFields').innerHTML = html;
+  } catch(e){
+    document.getElementById('detailFields').innerHTML = '<div style="color:red">加载失败</div>';
+  }
+}
+function closeDetail(){
+  document.getElementById('detailOverlay').classList.remove('show');
+}
+
+// ===== 配置 =====
+function openConfig(){ document.getElementById('configOverlay').classList.add('show'); }
+function closeConfig(){ document.getElementById('configOverlay').classList.remove('show'); }
+function saveConfig(){
+  config.baseUrl = document.getElementById('cfgBaseUrl').value.trim();
+  config.apiKey = document.getElementById('cfgApiKey').value.trim();
+  config.model = document.getElementById('cfgModel').value;
+  localStorage.setItem('ai_dialog_config', JSON.stringify(config));
+  closeConfig();
+  addMessage('✅ 配置已保存: ' + config.model, 'assistant');
+}
+
+// ===== 测试连接 =====
+async function testConnection(){
+  if(!config.apiKey){ addMessage('⚠️ 请先在配置中填入 API Key', 'assistant'); return; }
+  const resp = await fetch('/api/proxy', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      url: config.baseUrl + '/v1/chat/completions',
+      apiKey: config.apiKey,
+      body: { model: config.model, messages: [{role:'user', content:'hi'}], max_tokens: 10 }
+    })
+  });
+  const data = await resp.json();
+  if(data.error) addMessage('❌ 连接失败: ' + JSON.stringify(data.error), 'assistant');
+  else addMessage('✅ API 连接成功！模型: ' + (data.model || '未知'), 'assistant');
+}
+
+// ===== 点击弹窗外部关闭 =====
+document.getElementById('detailOverlay').addEventListener('click', function(e){
+  if(e.target === this) closeDetail();
+});
+document.getElementById('configOverlay').addEventListener('click', function(e){
+  if(e.target === this) closeConfig();
+});
+
+// ===== 自动打开提示 =====
+window.onload = function(){
+  // 首次使用打开对话框
+  if(!localStorage.getItem('ai_dialog_shown')){
+    setTimeout(() => {
+      openDialog();
+      addMessage('👋 你好！我是 **标准查询 AI 助手**。\n\n我可以帮你：\n- 🔍 搜索标准号或关键词\n- 📂 按分类浏览（ICS/CCS）\n- 📋 查看标准详情\n- 🌐 百度搜索规范\n\n**试试输入**：`混凝土结构` 或 `GB 50068`\n\n💡 **输入网址**直接百度搜索', 'assistant');
+      localStorage.setItem('ai_dialog_shown', '1');
+    }, 500);
+  }
+};
+
+// 重写keydown事件
+inputBox.addEventListener('keydown', function(e){
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// ===== 加载统计数据 =====
+fetch('/api/stats').then(r=>r.json()).then(d=>{
+  if(d.total) document.getElementById('statBadge').textContent = (d.total/10000).toFixed(1)+'万+标准';
+}).catch(()=>{});
+</script>
+</body>
+</html>
