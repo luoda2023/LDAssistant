@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.log
+*.tmp
+app.log
+electron.log
+server.log
+ai_cfg.json
+.cache/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+Thumbs.db
+node_modules/
