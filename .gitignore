@@ -4,6 +4,7 @@ _recover2.js
 _upload.js
 _upload_v2.js
 _upload_v3.js
+_push_via_api.js
 "_\351\207\207\351\233\206\350\277\233\345\272\246.txt"
 logs.zip
 _collect_work.txt
@@ -13,4 +14,9 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+# 数据库太50MB, 用Release方式分发,不提交到仓库
+standards.db
+standards_gov_full.db
+standards.db.bak
+standards_gov_full.db.bak
 
