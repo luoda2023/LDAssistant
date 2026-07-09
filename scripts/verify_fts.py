@@ -1,0 +1,10 @@
+import sqlite3, sys
+sys.stdout.reconfigure(encoding='utf-8')
+conn = sqlite3.connect(r'C:\ZCODE\github_repo\standards.db')
+cur = conn.execute("SELECT code, name, status FROM standards_fts WHERE standards_fts MATCH '管理' LIMIT 5")
+rows = cur.fetchall()
+print(f'FTS5搜索 "管理": {len(rows)} 条')
+for r in rows: print(f'  [{r[0]}] {r[1][:50]}')
+cur = conn.execute("SELECT code FROM standards_fts WHERE standards_fts MATCH '现行' LIMIT 3")
+print(f'FTS5搜索 "现行": {cur.fetchall()}')
+conn.close()
