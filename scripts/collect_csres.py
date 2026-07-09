@@ -29,10 +29,14 @@ def get_subcategories(letter):
     url = f"{SITE}/sort/chsortdetail/{letter}.html"
     html = fetch_gbk(url)
     subs = []
-    # 形如 href="/sort/Chtype/A00_1.html" 后跟文本 "A00&nbsp;标准化、质量管理"
-    for m in re.finditer(r'href="(/sort/Chtype/([A-Z]\w+?)_\d+\.html)"[^>]*>(.+?)</a>', html):
-        path, code, name = m.group(1), m.group(2), m.group(3)
-        name = re.sub(r'<[^>]+>', '', name).replace('&nbsp;', ' ').strip()
+    # csres 页面中 a 标签形如: <a href="/sort/Chtype/A00_1.html" class="sh14lian">A00&nbsp;标准化、质量管理<font color=red>[215]</font></href>
+    # 需使用 re.DOTALL 让 .+? 跨行（虽实际不跨行，但确保捕获）
+    for m in re.finditer(r'href="(/sort/Chtype/(\w+?)_1\.html)"[^>]*class="[^"]*sh14lian[^"]*"[^>]*>([\s\S]+?)</a>', html, re.IGNORECASE | re.DOTALL):
+        path, code, raw_name = m.group(1), m.group(2), m.group(3)
+        # 清理名
+        name = re.sub(r'<[^>]+>', '', raw_name).replace('&nbsp;', ' ').strip()
+        if not code or code == '_':
+            continue
         subs.append((SITE + path, code, name))
     # 去重(用code)
     seen = set()
@@ -41,6 +45,7 @@ def get_subcategories(letter):
         if s[1] not in seen:
             seen.add(s[1])
             uniq.append(s)
+    print(f"大类 {letter}: 提取到 {len(uniq)} 个子类")
     return uniq
 
 def get_total_pages_subcategory(sub_url):
@@ -74,71 +79,86 @@ def parse_subcategory_page(html):
     return items
 
 def parse_detail_page(html):
-    """详情页解析 11 字段"""
-    soup = parse_html(html)
+    """详情页解析 11 字段 - csres.com 格式
+    csres详情页主要从meta description提取信息：
+    《GB/T 46961-2025 专利密集型产品评价方法》本文件规定了...本文件适用于...状态：现行
+    """
     rec = {f: "" for f in FIELDS}
 
-    # 工标网详情页结构需实际探查。先做通用解析。
-    # 常见模式：<table>中含 "标准号：XXX" "标准名称：XXX" 等
-    text = soup.get_text(separator='\n')
-    lines = [l.strip() for l in text.split('\n') if l.strip()]
+    # meta description - csres 主要数据源
+    m_desc = re.search(r'<meta\s+name="description"\s+content="([^"]+)"', html, re.IGNORECASE)
+    if m_desc:
+        desc = m_desc.group(1)
+        # 提取标准编号和名称：《GB/T 46961-2025 专利密集型产品评价方法》...
+        # 编号格式如：GB/T 46961-2025、GB 28381-2026、DB11/T 3047-2025
+        m = re.match(r'《((?:[A-Z]{1,5}/[A-Z]?\s*|[A-Z]{1,5}\s*)?\d+(?:\.\d+)?-\d{4})\s+(.+?)》', desc)
+        if m:
+            rec['标准编号'] = re.sub(r'\s+', ' ', m.group(1).strip())
+            rec['标准名称'] = m.group(2).strip()
+        else:
+            m = re.match(r'《([^》]+)》', desc)
+            if m:
+                inner = m.group(1).strip()
+                # 用正则拆：标准编号 + 中文名
+                m2 = re.match(r'^([\w/\.\-]+\s+\d+(?:\.\d+)?-\d{4})\s+(.+)$', inner)
+                if m2:
+                    rec['标准编号'] = m2.group(1).strip()
+                    rec['标准名称'] = m2.group(2).strip()
+                else:
+                    rec['标准名称'] = inner
+        # 提取简介：《XX》后面到 状态： 之前的内容
+        m = re.search(r'》(.+?)(?:\s+状态[：:]|\s*$)', desc, re.DOTALL)
+        if m:
+            intro = m.group(1).strip()
+            if intro:
+                rec['标准简介'] = intro[:500]
+        # 状态
+        m = re.search(r'状态[：:]\s*([^\s。]+)', desc)
+        if m:
+            rec['标准状态'] = m.group(1).strip()
 
-    for i, line in enumerate(lines):
-        m = re.match(r'^标准名称[：:]\s*(.+)$', line)
-        if m: rec['标准名称'] = m.group(1).strip()
-        m = re.match(r'^标准编号[：:]\s*(.+)$', line)
-        if m: rec['标准编号'] = m.group(1).strip()
-        m = re.match(r'^标准号[：:]\s*(.+)$', line)
-        if m and not rec['标准编号']: rec['标准编号'] = m.group(1).strip()
-        m = re.match(r'^中文标准名称[：:]\s*(.+)$', line)
-        if m: rec['标准名称'] = m.group(1).strip()
-        m = re.match(r'^英文标准名称[：:]\s*(.+)$', line)
-        if m and not rec['标准简介']:
-            rec['标准简介'] = 'English: ' + m.group(1).strip()
-        m = re.match(r'^标准简介[：:]\s*(.+)$', line)
-        if m: rec['标准简介'] = m.group(1).strip()
-        m = re.match(r'^范围[：:]\s*(.+)$', line)
-        if m and not rec['标准简介']:
-            rec['标准简介'] = m.group(1).strip()
-        m = re.match(r'^状态[：:]\s*(.+)$', line)
-        if m: rec['标准状态'] = m.group(1).strip()
-        m = re.match(r'^标准状态[：:]\s*(.+)$', line)
-        if m: rec['标准状态'] = m.group(1).strip()
-        m = re.match(r'^现行[？?]\s*(.+)$', line)
-        if m: rec['现行或作废'] = m.group(1).strip()
-        m = re.match(r'^替代[关系情况]*[：:]\s*(.+)$', line)
-        if m: rec['替代情况'] = m.group(1).strip()
-        m = re.match(r'^被代替[：:]\s*(.+)$', line)
-        if m and not rec['替代情况']: rec['替代情况'] = m.group(1).strip()
-        m = re.match(r'^中标分类[：:]\s*(.+)$', line)
-        if m: rec['中标分类'] = m.group(1).strip()
-        m = re.match(r'^CCS[：:]\s*(.+)$', line)
-        if m and not rec['中标分类']: rec['中标分类'] = m.group(1).strip()
-        m = re.match(r'^ICS[分类]*[：:]\s*(.+)$', line)
-        if m: rec['ICS分类'] = m.group(1).strip()
-        m = re.match(r'^发布部门[：:]\s*(.+)$', line)
-        if m: rec['发布部门'] = m.group(1).strip()
-        m = re.match(r'^发布日期[：:]\s*(.+)$', line)
-        if m: rec['发布日期'] = m.group(1).strip()
-        m = re.match(r'^实施日期[：:]\s*(.+)$', line)
-        if m: rec['实施日期'] = m.group(1).strip()
-        m = re.match(r'^发布[：:]\s*(.+)$', line)
-        if m and not rec['发布日期']:
-            rec['发布日期'] = m.group(1).strip()
-        m = re.match(r'^实施[：:]\s*(.+)$', line)
-        if m and not rec['实施日期']:
-            rec['实施日期'] = m.group(1).strip()
-        m = re.match(r'^归口单位[：:]\s*(.+)$', line)
-        if m and not rec['发布部门']:
-            rec['发布部门'] = m.group(1).strip()
-        m = re.match(r'^起草单位[：:]\s*(.+)$', line)
-        if m and not rec['发布部门']:
-            rec['发布部门'] = m.group(1).strip()
+    # title 备用：GB/T 46961-2025 专利密集型产品评价方法 -工标网
+    if not rec['标准编号'] or not rec['标准名称']:
+        m_t = re.search(r'<title>(.+?)\s*-\s*工标网</title>', html)
+        if m_t:
+            title_part = m_t.group(1).strip()
+            m = re.match(r'^(\S+)\s+(.+)$', title_part)
+            if m:
+                if not rec['标准编号']: rec['标准编号'] = m.group(1).strip()
+                if not rec['标准名称']: rec['标准名称'] = m.group(2).strip()
 
+    # meta keywords 可能含其他变体标准号
+    m_kw = re.search(r'<meta\s+name="keywords"\s+content="([^"]+)"', html, re.IGNORECASE)
+    if m_kw:
+        kw = m_kw.group(1)
+        # 提取拼音/英文别名
+        if not rec['标准编号']:
+            m = re.search(r'([a-z]{1,5}[-/t]*\d+(?:\.\d+)?-\d{2,4})', kw, re.IGNORECASE)
+            if m:
+                rec['标准编号'] = m.group(1).strip()
+
+    # 从 table 字段提取（备用）
+    for m in re.finditer(r'(标准编号|标准名称|标准状态|中标分类|CCS|ICS分类|ICS分类号|发布部门|发布日期|实施日期|代替标准|替代情况|归口单位|起草单位|范围)[：:]\s*</?(?:td|span|div|p)[^>]*>\s*([^<\n]+)', html, re.IGNORECASE):
+        k, v = m.group(1), m.group(2).strip()
+        v = re.sub(r'&nbsp;', ' ', v).strip()
+        if '标准编号' in k and not rec['标准编号']: rec['标准编号'] = v
+        elif '标准名称' in k and not rec['标准名称']: rec['标准名称'] = v
+        elif '标准状态' in k and not rec['标准状态']: rec['标准状态'] = v
+        elif '替代' in k and not rec['替代情况']: rec['替代情况'] = v
+        elif '中标分类' in k and not rec['中标分类']: rec['中标分类'] = v
+        elif 'CCS' in k and not rec['中标分类']: rec['中标分类'] = v
+        elif 'ICS' in k and not rec['ICS分类']: rec['ICS分类'] = v
+        elif '发布部门' in k and not rec['发布部门']: rec['发布部门'] = v
+        elif '发布日期' in k and not rec['发布日期']: rec['发布日期'] = v
+        elif '实施日期' in k and not rec['实施日期']: rec['实施日期'] = v
+
+    # 现行或作废
     state = rec['标准状态']
     if state:
         if '现行' in state: rec['现行或作废'] = '现行'
         elif '废止' in state or '作废' in state: rec['现行或作废'] = '作废'
+        elif '即将实施' in state: rec['现行或作废'] = '现行'
+        elif '被代替' in state: rec['现行或作废'] = '被代替'
         else: rec['现行或作废'] = state
 
     return rec
