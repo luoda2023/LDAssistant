@@ -1,0 +1,2502 @@
+[
+  {
+    "url": "https://www.biaozhun.org/hangye/375743.html",
+    "code": "YD/T",
+    "name": "4990-2024 区块链 安全指标要求与测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375744.html",
+    "code": "YD/T",
+    "name": "6011-2024 面向消费电子设备的支持远程SIM配置的终端技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375742.html",
+    "code": "YD/T",
+    "name": "6010-2024 智能家居终端安全 智能摄像头安全能力技术要求和测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375741.html",
+    "code": "QB/T",
+    "name": "1649-2024 聚苯乙烯泡沫塑料包装材料"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375740.html",
+    "code": "JC/T",
+    "name": "2830-2024 混凝土及砂浆用电炉镍铁渣砂"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375739.html",
+    "code": "JC/T",
+    "name": "2829-2024 水泥烧成系统？平衡、？效率计算方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375738.html",
+    "code": "JC/T",
+    "name": "2828-2024 无机非金属纤维及制品固体废物分类"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375737.html",
+    "code": "JC/T",
+    "name": "2827-2024 废弃纤维复合材料回收技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375736.html",
+    "code": "JC/T",
+    "name": "2822-2024 水泥替代原料 处理后的生活垃圾焚烧飞灰"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375735.html",
+    "code": "JC/T",
+    "name": "2821-2024 特种水泥单位产品能源消耗限额"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375734.html",
+    "code": "JC/T",
+    "name": "2820-2024 岩棉生产企业节能技术指南"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375733.html",
+    "code": "JC/T",
+    "name": "2819-2024 玻璃纤维生产企业节能技术指南"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375732.html",
+    "code": "JC/T",
+    "name": "2818-2024 耐火材料企业节能诊断技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375731.html",
+    "code": "YD/T",
+    "name": "6296-2024 移动转售企业与基础电信企业互联网关设备测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375730.html",
+    "code": "YD/T",
+    "name": "6294-2024 移动转售企业与基础电信企业互联业务接口测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375729.html",
+    "code": "YD/T",
+    "name": "6293-2024 物联网云平台数据传输格式要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375728.html",
+    "code": "YD/T",
+    "name": "3764.4-2024 云计算服务客户信任体系能力要求 第4部分：企业级SaaS服务"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375727.html",
+    "code": "YD/T",
+    "name": "3758.13-2024 电信数据服务平台 第13部分：高校校园管理应用技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375726.html",
+    "code": "YD/T",
+    "name": "6290-2024 信息通信制造业利用信息化智能化技术促进绿色制造实施指南"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375725.html",
+    "code": "YD/T",
+    "name": "6288-2024 车载超宽带和全频带语音通信设备传输性能要求和测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375724.html",
+    "code": "YD/T",
+    "name": "6281-2024 移动互联网环境下的金融信息服务业务术语"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375723.html",
+    "code": "YD/T",
+    "name": "6280-2024 基于蜂窝网络的民用无人驾驶航空器系统业务平台接口技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375722.html",
+    "code": "YD/T",
+    "name": "6272-2024 以太虚拟专用网（EVPN）组播技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375721.html",
+    "code": "YD/T",
+    "name": "6269-2024 基于FDN的数据中心内部网络技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375720.html",
+    "code": "YD/T",
+    "name": "6268-2024 基于FDN的虚拟宽带远程服务器配置技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375719.html",
+    "code": "YD/T",
+    "name": "6267-2024 未来数据网络（FDN）应用场景及需求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375718.html",
+    "code": "YD/T",
+    "name": "6261-2024 网络功能虚拟化编排器（NFVO）技术要求 NFVO与虚拟网络功能管理器（VNFM）接口"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375717.html",
+    "code": "YD/T",
+    "name": "6260-2024 网络功能虚拟化（NFV）通用虚拟网络功能管理器（VNFM）技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375716.html",
+    "code": "FZ/T",
+    "name": "01180.2-2024 非织造布及其制品接缝强力的测定 第2部分：抓样法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375715.html",
+    "code": "FZ/T",
+    "name": "01180.1-2024 非织造布及其制品接缝强力的测定 第1部分：条样法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375714.html",
+    "code": "FZ/T",
+    "name": "01179-2024 纺织品 总铅和总镉含量的测定 电化学分析法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375713.html",
+    "code": "FZ/T",
+    "name": "01178-2024 纺织品 昆虫驱避剂含量的测定 气相色谱-质谱法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375712.html",
+    "code": "FZ/T",
+    "name": "01177-2024 纺织品 定量化学分析 聚3-羟基丁酸-戊酸酯/聚乳酸（PHBV/PLA）共混物纤维与某些其他纤维的混合物"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375711.html",
+    "code": "FZ/T",
+    "name": "01050-2024 纺织品 纱线疵点的分级与检验方法 电容式"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375710.html",
+    "code": "YS/T",
+    "name": "1708-2024 温室气体排放核算与报告要求 硅多晶生产企业"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375709.html",
+    "code": "YS/T",
+    "name": "1178-2024 铝灰渣物相分析 X射线衍射法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375707.html",
+    "code": "YS/T",
+    "name": "1771-2024 铜冶炼废水循环利用技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375708.html",
+    "code": "YS/T",
+    "name": "1710-2024 硅多晶行业能源管理体系实施指南"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375705.html",
+    "code": "YS/T",
+    "name": "1706-2024 冶炼副产品铅铋合金锭"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375706.html",
+    "code": "YS/T",
+    "name": "1709-2024 硅多晶企业能源管理中心技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375704.html",
+    "code": "YS/T",
+    "name": "1705-2024 废空调器中有色金属回收技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375703.html",
+    "code": "YD/T",
+    "name": "5270-2024 信息通信附属设施抗震检测标准"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375702.html",
+    "code": "YD/T",
+    "name": "5268-2024 民用建筑通信基础设施工程技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375701.html",
+    "code": "YD/T",
+    "name": "5227-2024 云计算资源池系统设备安装工程技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375700.html",
+    "code": "YD/T",
+    "name": "5102-2024 通信线路工程技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375699.html",
+    "code": "YD/T",
+    "name": "5092-2024 波分复用（WDM）光纤传输系统工程技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375698.html",
+    "code": "YD/T",
+    "name": "6298-2024 移动转售业务监管平台测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375697.html",
+    "code": "YD/T",
+    "name": "6206-2024 宽带互联网业务和网络质量评价方法 网页/视频/测速业务"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375696.html",
+    "code": "YD/T",
+    "name": "6199-2024 信息通信用数字控制能量变换型磷酸铁锂电池系统"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375695.html",
+    "code": "YD/T",
+    "name": "637-2024 通信用直流-直流变换设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375694.html",
+    "code": "YD/T",
+    "name": "1363.7-2024 通信局（站）电源、空调及环境集中监控管理系统 第7部分：监控单元协议（B接口）"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375693.html",
+    "code": "YD/T",
+    "name": "6195-2024 基于通信网络的移动媒体发布系统 中心管理平台接口技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375692.html",
+    "code": "YD/T",
+    "name": "6194-2024 基于通信网络的移动媒体发布系统 中心管理平台技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375691.html",
+    "code": "YD/T",
+    "name": "3758.12-2024 电信数据服务平台 第12部分：预警救灾应用技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375690.html",
+    "code": "YD/T",
+    "name": "6190-2024 研运流程数字化平台成熟度模型"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375689.html",
+    "code": "YD/T",
+    "name": "6184-2024 面向互联网应用的健康医疗数据应用脱敏技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375688.html",
+    "code": "YD/T",
+    "name": "1177-2024 IP组播体系架构及基础协议"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375687.html",
+    "code": "YD/T",
+    "name": "6169-2024 域名递归解析服务管理系统技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375686.html",
+    "code": "YD/T",
+    "name": "6168-2024 域名递归解析服务管理系统及接口测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375685.html",
+    "code": "YD/T",
+    "name": "6248-2024 用于DHCPv6的YANG数据模型技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375684.html",
+    "code": "YD/T",
+    "name": "6246-2024 获取DHCPv4 over IPv6的服务器和中继地址的DHCPv6选项技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375683.html",
+    "code": "YD/T",
+    "name": "6243-2024 IP网网络拓扑YANG模型技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375682.html",
+    "code": "YD/T",
+    "name": "6238-2024 IPv6发展监测指标体系"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375681.html",
+    "code": "YD/T",
+    "name": "6237-2024 通信用紧套光纤"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375680.html",
+    "code": "YD/T",
+    "name": "4377.3-2024 光收发合一模块软件管理接口 第3部分：QSFP-DD/OSFP"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375679.html",
+    "code": "YD/T",
+    "name": "6234-2024 面向家庭网络的宽带业务体验和网络性能评价指标体系"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375678.html",
+    "code": "YD/T",
+    "name": "6230-2024 公众无线局域网 基于第三方应用平台的接入认证技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375677.html",
+    "code": "YD/T",
+    "name": "4524.5-2024 5G供电与环境的基础设施 第5部分：BBU机柜"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375676.html",
+    "code": "YD/T",
+    "name": "6228-2024 基于5G的院前急救平台技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375675.html",
+    "code": "YD/T",
+    "name": "6227-2024 5G网络切片 服务等级协议（SLA）增强保障技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375674.html",
+    "code": "YD/T",
+    "name": "4284.2-2024 5G移动通信网 非3GPP接入网络接入5G核心网技术要求 第2部分：受信接入和有线接入"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375673.html",
+    "code": "YD/T",
+    "name": "6225-2024 大数据 数据脱敏工具技术要求与测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375672.html",
+    "code": "YD/T",
+    "name": "6222-2024 基于安全平台的eSIM安全技术要求和测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375671.html",
+    "code": "YD/T",
+    "name": "6221-2024 移动应用软件个人信息保护要求和评估方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375670.html",
+    "code": "YD/T",
+    "name": "4544.3-2024 互联网域名滥用治理 第3部分：重定向技术应用指南"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375669.html",
+    "code": "YD/T",
+    "name": "6130-2024 工业互联网标识解析 标识数据参考模型"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375667.html",
+    "code": "YD/T",
+    "name": "6128-2024 工业互联网标识解析 接入认证系统接口测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375668.html",
+    "code": "YD/T",
+    "name": "6129-2024 工业互联网标识解析 可信解析"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375666.html",
+    "code": "YD/T",
+    "name": "6126-2024 工业互联网标识解析 注册系统技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375665.html",
+    "code": "YD/T",
+    "name": "6125-2024 工业互联网标识解析 权威解析系统技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375664.html",
+    "code": "YD/T",
+    "name": "6124-2024 工业互联网标识解析 递归节点技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375663.html",
+    "code": "YD/T",
+    "name": "6123-2024 工业互联网标识解析 二级节点测试规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375662.html",
+    "code": "YD/T",
+    "name": "6120-2024 工业互联网标识解析 国家顶级节点与二级节点对接技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375661.html",
+    "code": "YD/T",
+    "name": "6116-2024 工业互联网 园区网络 5G网络部署技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375660.html",
+    "code": "YD/T",
+    "name": "6109-2024 5G消息 双卡终端测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375658.html",
+    "code": "YB/T",
+    "name": "6337.2-2024 氧化铁皮资源化利用 第2部分：永磁铁氧体用氧化铁皮"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375659.html",
+    "code": "YD/T",
+    "name": "4981-2024 工业领域重要数据识别指南"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375657.html",
+    "code": "YB/T",
+    "name": "6337.1-2024 氧化铁皮资源化利用 第1部分：还原铁粉用氧化铁皮"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375655.html",
+    "code": "YB/T",
+    "name": "6336.1-2024 机械柔性水磨法钢材表面氧化铁皮处理 第1部分：通用要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375656.html",
+    "code": "YB/T",
+    "name": "6336.2-2024 机械柔性水磨法钢材表面氧化铁皮处理 第2部分：钢板及钢带"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375654.html",
+    "code": "YB/T",
+    "name": "6229-2024 烧结、球团烟气处理用活性炭循环脱硫脱硝性能试验方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375653.html",
+    "code": "YB/T",
+    "name": "6228.3-2024 镍铁渣资源化利用 第3部分：沥青混凝土集料用镍铁渣"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375652.html",
+    "code": "YB/T",
+    "name": "6228.2-2024 镍铁渣资源化利用 第2部分：道路用镍铁渣"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375651.html",
+    "code": "YB/T",
+    "name": "6228.1-2024 镍铁渣资源化利用 第1部分：镍铁渣机制砂"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375650.html",
+    "code": "YB/T",
+    "name": "6333-2024 温室气体排放核算与报告要求 粗钢生产主要工序"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375648.html",
+    "code": "YB/T",
+    "name": "6231-2024 钢铁行业轧钢工序单位产品碳排放技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375649.html",
+    "code": "YB/T",
+    "name": "6230-2024 不锈钢单位产品能源消耗技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375647.html",
+    "code": "YB/T",
+    "name": "6233-2024 取水定额 钢铁行业热轧"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375646.html",
+    "code": "YB/T",
+    "name": "6235-2024 取水定额 钢铁行业炼铁"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375644.html",
+    "code": "YB/T",
+    "name": "6234-2024 取水定额 钢铁行业炼钢"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375645.html",
+    "code": "YB/T",
+    "name": "6232-2024 取水定额 钢铁行业冷轧"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375643.html",
+    "code": "YD/T",
+    "name": "6165-2024 IP源地址验证技术测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375642.html",
+    "code": "YD/T",
+    "name": "1538-2024 数字移动终端音频性能通用测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375641.html",
+    "code": "YD/T",
+    "name": "6154-2024 嵌入式通用集成电路卡（eUICC）数据兼容性技术要求和测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375640.html",
+    "code": "YD/T",
+    "name": "6153-2024 基于可信执行环境（TEE）的eSIM技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375639.html",
+    "code": "YD/T",
+    "name": "1699-2024 移动终端信息安全技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375638.html",
+    "code": "YD/T",
+    "name": "4177.16-2024 移动互联网应用程序（APP）收集使用个人信息最小必要评估规范 第16部分：剪切板信息"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375637.html",
+    "code": "YD/T",
+    "name": "4177.14-2024 移动互联网应用程序（APP）收集使用个人信息最小必要评估规范 第14部分：应用日志信息"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375636.html",
+    "code": "YD/T",
+    "name": "4177.12-2024 移动互联网应用程序（APP）收集使用个人信息最小必要评估规范 第12部分：好友列表"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375635.html",
+    "code": "YD/T",
+    "name": "4177.9-2024 移动互联网应用程序（APP）收集使用个人信息最小必要评估规范 第9部分：录音信息"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375634.html",
+    "code": "YD/T",
+    "name": "6134-2024 工业互联网标识解析 集装箱 标识编码"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375633.html",
+    "code": "YD/T",
+    "name": "6133-2024 工业互联网标识解析 石油 标识编码"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375632.html",
+    "code": "YD/T",
+    "name": "6132-2024 工业互联网标识解析 船舶 标识编码"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375631.html",
+    "code": "YD/T",
+    "name": "6131-2024 工业互联网标识解析 标识数据语义化通用技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375630.html",
+    "code": "YB/T",
+    "name": "6152-2024 钢渣处理工艺除尘技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375629.html",
+    "code": "YB/T",
+    "name": "6151-2024 烧结机头烟气净化除尘技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375628.html",
+    "code": "YB/T",
+    "name": "6150-2024 钢渣 RO相含量的测定 重量法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375627.html",
+    "code": "YB/T",
+    "name": "6149-2024 钢铁企业固体废弃物资源综合利用评价导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375626.html",
+    "code": "YB/T",
+    "name": "4891.5-2024 钢铁企业二氧化碳利用技术规范 第5部分：用于钢液精炼"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375625.html",
+    "code": "YB/T",
+    "name": "4891.4-2024 钢铁企业二氧化碳利用技术规范 第4部分：用于高炉炼铁"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375624.html",
+    "code": "YB/T",
+    "name": "4726.14-2024 含铁尘泥 砷含量的测定 原子荧光光谱法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375623.html",
+    "code": "YB/T",
+    "name": "6236-2024 钢铁企业水计量器具配备和管理要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375621.html",
+    "code": "YB/T",
+    "name": "6330-2024 节水型企业 铁合金行业"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375622.html",
+    "code": "YB/T",
+    "name": "6329-2024 取水定额 铁合金"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375620.html",
+    "code": "YB/T",
+    "name": "4783-2024 烧结烟气循环利用技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375619.html",
+    "code": "YB/T",
+    "name": "6226-2024 彩涂钢板及钢带绿色工厂评价要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375618.html",
+    "code": "YB/T",
+    "name": "6225-2024 热轧钢板及钢带绿色工厂评价要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375617.html",
+    "code": "YB/T",
+    "name": "6224-2024 耐火材料隧道窑热平衡测定与计算方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375616.html",
+    "code": "YB/T",
+    "name": "6223-2024 烧结（球团）烟气湿式电除尘技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375615.html",
+    "code": "YB/T",
+    "name": "6222-2024 烧结烟气活性炭/焦干法脱硫、脱硝技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375614.html",
+    "code": "YB/T",
+    "name": "6221-2024 焦炉烟气联合脱硫脱硝技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375613.html",
+    "code": "YB/T",
+    "name": "6220-2024 铁合金行业节能诊断技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375611.html",
+    "code": "YB/T",
+    "name": "6219-2024 铁合金企业二氧化碳排放监测技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375612.html",
+    "code": "YB/T",
+    "name": "6218-2024 焦化企业二氧化碳排放监测技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375609.html",
+    "code": "YB/T",
+    "name": "6215-2024 钢铁企业二氧化碳排放监测技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375610.html",
+    "code": "YB/T",
+    "name": "6214-2024 钢铁企业碳排放核查技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375608.html",
+    "code": "YB/T",
+    "name": "6213-2024 钢铁企业碳平衡表编制方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375607.html",
+    "code": "YB/T",
+    "name": "6212-2024 钢铁企业碳减排成本计算方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375605.html",
+    "code": "YB/T",
+    "name": "6211-2024 电弧炉余热回收利用技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375606.html",
+    "code": "YB/T",
+    "name": "6210-2024 连铸工序单位产品能源消耗技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375603.html",
+    "code": "YB/T",
+    "name": "6209-2024 钢铁产品碳信息披露导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375604.html",
+    "code": "YB/T",
+    "name": "4726.15-2024 含铁尘泥 氟含量的测定 离子选择电极法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375601.html",
+    "code": "YB/T",
+    "name": "6327-2024 烧结/球团烟气临界微脉冲电除尘技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375602.html",
+    "code": "YB/T",
+    "name": "6208-2024 钢渣稳定化处理方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375600.html",
+    "code": "YB/T",
+    "name": "6326-2024 钢铁行业焦炉烟气脱硫脱硝装置评价规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375599.html",
+    "code": "YB/T",
+    "name": "6325-2024 转炉炼钢一次烟气OG双塔湿法除尘净化技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375598.html",
+    "code": "YB/T",
+    "name": "6323-2024 烧结烟气循环流化床半干法脱硫技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375597.html",
+    "code": "YB/T",
+    "name": "6322-2024 钢渣分类"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375595.html",
+    "code": "YB/T",
+    "name": "6321-2024 镍铁冶炼渣回收利用技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375596.html",
+    "code": "YB/T",
+    "name": "6320-2024 钢铁生产企业碳资产管理规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375594.html",
+    "code": "YB/T",
+    "name": "6316-2024 电弧炉烟气余热回收利用能效评估导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375593.html",
+    "code": "YB/T",
+    "name": "6315-2024 回转窑-矿热炉冶炼镍铁工艺规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375592.html",
+    "code": "YB/T",
+    "name": "6314-2024 炭素环式焙烧炉燃烧系统优化技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375591.html",
+    "code": "YB/T",
+    "name": "6313-2024 镍铁单位产品能源消耗技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375590.html",
+    "code": "YB/T",
+    "name": "6312-2024 石墨化增碳剂单位产品能源消耗技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375589.html",
+    "code": "YB/T",
+    "name": "6311.1-2024 电弧炉炼钢数字化检测系统技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375587.html",
+    "code": "YB/T",
+    "name": "6310-2024 轻烧氧化镁单位产品能源消耗技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375586.html",
+    "code": "YB/T",
+    "name": "6309-2024 钢铁生产工序能源管理技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375588.html",
+    "code": "YB/T",
+    "name": "6308-2024 铁矿球团带式焙烧工艺节能技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375585.html",
+    "code": "YB/T",
+    "name": "6307-2024 镍系铁合金行业绿色工厂评价要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375584.html",
+    "code": "YB/T",
+    "name": "6306-2024 铬系铁合金行业绿色工厂评价要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375583.html",
+    "code": "YB/T",
+    "name": "6305-2024 硅系铁合金行业绿色工厂评价要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375581.html",
+    "code": "YB/T",
+    "name": "6304-2024 锰系铁合金行业绿色工厂评价要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375582.html",
+    "code": "YB/T",
+    "name": "6303-2024 石墨电极企业绿色工厂评价要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375580.html",
+    "code": "YB/T",
+    "name": "6155-2024 炼焦解冻系统热平衡测试与计算方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375579.html",
+    "code": "YB/T",
+    "name": "6154-2024 高炉炉顶均压煤气回收利用技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375578.html",
+    "code": "YB/T",
+    "name": "6153-2024 钢渣 水溶性铬（Ⅵ）含量的测定 二苯碳酰二肼分光光度法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375577.html",
+    "code": "SJ/T",
+    "name": "11957-2024 制造业数字化仿真 仿真环境要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375576.html",
+    "code": "SJ/T",
+    "name": "11956-2024 制造业数字化仿真 建模过程规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375575.html",
+    "code": "SJ/T",
+    "name": "11953-2024 光伏发电碳资产管理技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375574.html",
+    "code": "SJ/T",
+    "name": "11952-2024 废弃电器电子产品资源综合利用行业 绿色工厂评价要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375572.html",
+    "code": "SJ/T",
+    "name": "11951-2024 电子显示器件制造业节能诊断技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375573.html",
+    "code": "SJ/T",
+    "name": "11950-2024 锂离子动力蓄电池制造业 绿色工厂评价要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375571.html",
+    "code": "SJ/T",
+    "name": "11839.2-2024 离散型制造执行过程云化规范  第2部分：业务数据集成"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375570.html",
+    "code": "NB/T",
+    "name": "10007-2024 煤层气井排采数据采集设施安装维护技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375569.html",
+    "code": "YY/T",
+    "name": "1272-2016 透析液过滤器"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375568.html",
+    "code": "YY/T",
+    "name": "1271-2016 心肺流转系统 一次性使用吸引管"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375567.html",
+    "code": "YY/T",
+    "name": "1298-2016 医用内窥镜 胶囊式内窥镜"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375566.html",
+    "code": "YY/T",
+    "name": "0803.3-2016 牙科学 根管器械 第3部分 加压器"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375565.html",
+    "code": "YY/T",
+    "name": "0065-2016 眼科仪器 裂隙灯显微镜"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375564.html",
+    "code": "YY/T",
+    "name": "1057-2016 医用脚踏开关通用技术条件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375563.html",
+    "code": "YY/T",
+    "name": "1468-2016 用于医用气体管道系统的氧气浓缩器供气系统"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375562.html",
+    "code": "YY/T",
+    "name": "0877-2013 荷包缝合针"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375560.html",
+    "code": "YY/T",
+    "name": "1023-2013 子宫颈钳"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375561.html",
+    "code": "YY/T",
+    "name": "0091-2013 子宫颈扩张器"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375559.html",
+    "code": "YY/T",
+    "name": "0901-2013 紫外治疗设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375558.html",
+    "code": "YY/T",
+    "name": "0092-2013 子宫颈活体取样钳"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375557.html",
+    "code": "YY/T",
+    "name": "0900-2013 减重步行训练台"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375555.html",
+    "code": "YY/T",
+    "name": "0898-2013 毫米波治疗设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375556.html",
+    "code": "YY/T",
+    "name": "0881-2013 一次性使用植入式给药装置专用针"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375554.html",
+    "code": "YY/T",
+    "name": "1024-2013 输卵管提取钩"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375553.html",
+    "code": "YY/T",
+    "name": "0045-2013 普通产床"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375552.html",
+    "code": "YY/T",
+    "name": "0109-2013 医用超声雾化器"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375551.html",
+    "code": "YY/T",
+    "name": "0860-2011 心脏射频消融治疗设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375550.html",
+    "code": "YY/T",
+    "name": "0849-2011 眼科高频超声诊断仪"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375549.html",
+    "code": "YY/T",
+    "name": "0581.2-2011 输液连接件 第2部分：无针连接件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375548.html",
+    "code": "YY/T",
+    "name": "1081-2011 医用内窥镜 内窥镜功能供给装置 冷光源"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375546.html",
+    "code": "YY/T",
+    "name": "0332-2011 植入式给药装置"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375545.html",
+    "code": "YY/T",
+    "name": "0835-2011 牙科学 银汞合金分离器"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375544.html",
+    "code": "YY/T",
+    "name": "0847-2011 医用内窥镜 内窥镜器械 取石网篮"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375547.html",
+    "code": "YY/T",
+    "name": "0672.2-2011 内镜器械 第2部分：腹腔镜用剪"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375543.html",
+    "code": "YY/T",
+    "name": "0844-2011 激光治疗设备 脉冲二氧化碳激光治疗机"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375542.html",
+    "code": "YY/T",
+    "name": "0581.1-2011 输液连接件 第1部分：穿刺式连接件（肝素帽）"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375540.html",
+    "code": "YY/T",
+    "name": "0787-2010 眼科仪器 角膜地形图仪"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375541.html",
+    "code": "YY/T",
+    "name": "0773-2010 眼科B型超声诊断仪通用技术条件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375539.html",
+    "code": "YY/T",
+    "name": "0804-2010 药液转移器 要求和试验方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375538.html",
+    "code": "YY/T",
+    "name": "0302.1-2010 牙科旋转器械 车针 第1部分：钢质和硬质合金车针"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375537.html",
+    "code": "YY/T",
+    "name": "0788-2010 眼科仪器 微型角膜刀"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375536.html",
+    "code": "YY/T",
+    "name": "0776-2010 肝脏射频消融治疗设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375535.html",
+    "code": "YY/T",
+    "name": "0460-2009 超声洁牙设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375534.html",
+    "code": "YY/T",
+    "name": "0711-2009 牙科吸潮纸尖"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375531.html",
+    "code": "YY/T",
+    "name": "0675-2008 眼科仪器 同视机"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375533.html",
+    "code": "YY/T",
+    "name": "0678-2008 医用冷冻外科治疗设备性能和安全"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375532.html",
+    "code": "YY/T",
+    "name": "0290.5-2008 医用光学人工晶状体 第5部分：生物相容性"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375530.html",
+    "code": "YY/T",
+    "name": "0676-2008 眼科仪器 视野计"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375529.html",
+    "code": "YY/T",
+    "name": "1028-2008 纤维上消化道内窥镜"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375527.html",
+    "code": "YY/T",
+    "name": "0068.2-2008 医用内窥镜 硬性内窥镜 第2部分：机械性能及测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375525.html",
+    "code": "YY/T",
+    "name": "0175-2005 手术刀柄"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375528.html",
+    "code": "YY/T",
+    "name": "0001-2008 体外引发碎石设备技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375526.html",
+    "code": "YY/T",
+    "name": "0075-2005 泪道探针"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375524.html",
+    "code": "YY/T",
+    "name": "0489-2004 一次性使用无菌引流导管及辅助器械"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375523.html",
+    "code": "YY/T",
+    "name": "0030-2004 腹膜透析管"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375522.html",
+    "code": "YY/T",
+    "name": "0488-2004 一次性使用无菌直肠导管"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375521.html",
+    "code": "YY/T",
+    "name": "0484-2004 外科植入物 双组分加成型硫化硅橡胶"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375519.html",
+    "code": "YY/T",
+    "name": "0483-2004 一次性使用肠营养导管、肠给养器及其连接件 设计与试验方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375520.html",
+    "code": "YY/T",
+    "name": "0461-2003 麻醉机和呼吸机用呼吸管路"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375518.html",
+    "code": "YY/T",
+    "name": "0450.2-2003 一次性使用无菌血管内导管辅件 第2部分：套针外周导管管塞"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375517.html",
+    "code": "YY/T",
+    "name": "0337.1-2002 气管插管 第1部分：常用型插管及接头"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375516.html",
+    "code": "YY/T",
+    "name": "0338.2-2002 气管切开插管 第2部分：小儿用气管切开插管"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375515.html",
+    "code": "YY/T",
+    "name": "0338.1-2002 气管切开插管 第1部分：成人用插管及接头"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375514.html",
+    "code": "YY/T",
+    "name": "0337.2-2002 气管插管 第2部分：柯尔（Cole）型插管"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375513.html",
+    "code": "YY/T",
+    "name": "0833-2020 肢体加压理疗设备通用技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375512.html",
+    "code": "YY/T",
+    "name": "0174-2019 手术刀片"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375511.html",
+    "code": "YY/T",
+    "name": "1621-2018 医用二氧化碳培养箱"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375510.html",
+    "code": "YY/T",
+    "name": "0322-2018 高频电灼治疗仪"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375509.html",
+    "code": "YY/T",
+    "name": "0104-2018 三棱针"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375508.html",
+    "code": "YY/T",
+    "name": "1027-2018 牙科学 水胶体印模材料"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375507.html",
+    "code": "YY/T",
+    "name": "0462-2018 牙科学 石膏产品"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375506.html",
+    "code": "YY/T",
+    "name": "0285.5-2018 血管内导管 一次性使用无菌导管 第5部分：套针外周导管"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375505.html",
+    "code": "YY/T",
+    "name": "1493-2016 重力控制型腹膜透析设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375504.html",
+    "code": "YY/T",
+    "name": "0302.2-2016 牙科学 旋转器械车针 第2部分：修整用车针"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375503.html",
+    "code": "YY/T",
+    "name": "0992-2016 内镜清洗工作站"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375502.html",
+    "code": "YY/T",
+    "name": "1274-2016 压力控制型腹膜透析设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375501.html",
+    "code": "YY/T",
+    "name": "1273-2016 血液净化辅助用滚压泵"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375500.html",
+    "code": "FZ/T",
+    "name": "07032-2024 聚酯和涤纶行业绿色工厂评价要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375499.html",
+    "code": "FZ/T",
+    "name": "07042-2024 废旧纺织品回收利用碳减排评价导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375498.html",
+    "code": "FZ/T",
+    "name": "07041-2024 纺织企业水平衡测试导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375497.html",
+    "code": "FZ/T",
+    "name": "07040-2024 节水型企业 聚酯涤纶企业"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375496.html",
+    "code": "FZ/T",
+    "name": "07039-2024 节水型企业 毛纺织企业"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375495.html",
+    "code": "FZ/T",
+    "name": "07038-2024 节水型企业 丝绸企业"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375494.html",
+    "code": "FZ/T",
+    "name": "07037-2024 纺织企业水重复利用率计算方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375493.html",
+    "code": "YY/T",
+    "name": "1982-2025 外科植入物 多孔结构形貌特征试验方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375492.html",
+    "code": "YY/T",
+    "name": "1981-2025 放射治疗计划软件 电子束剂量计算准确性要求和试验方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375491.html",
+    "code": "YY/T",
+    "name": "1980-2025 一次性使用无菌切口保护套"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375490.html",
+    "code": "YY/T",
+    "name": "1979-2025 中医器械 刮痧器具"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375489.html",
+    "code": "YY/T",
+    "name": "1978-2025 牙科学 环钻"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375488.html",
+    "code": "YY/T",
+    "name": "1976-2025 中医器械 玻璃拔罐器"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375487.html",
+    "code": "YY/T",
+    "name": "1975-2025 远红外磁疗贴（袋）"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375485.html",
+    "code": "YY/T",
+    "name": "1974-2025 牙科学 多功能喷枪"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375486.html",
+    "code": "YY/T",
+    "name": "1973-2025 医用下肢外骨骼机器人"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375484.html",
+    "code": "YY/T",
+    "name": "1972-2025 牙科学 软组织环切刀"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375482.html",
+    "code": "YY/T",
+    "name": "1971.1-2025 牙科学 用于非永久性医疗环境的可携带的牙科设备 第1部分：通用要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375483.html",
+    "code": "YY/T",
+    "name": "1970-2025 脂蛋白相关磷脂酶A2测定试剂盒（化学发光免疫分析法）"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375481.html",
+    "code": "YY/T",
+    "name": "1969-2025 微量白蛋白测定试剂盒（免疫比浊法）"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375479.html",
+    "code": "YY/T",
+    "name": "1968-2025 胚胎植入前染色体非整倍体分析软件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375480.html",
+    "code": "YY/T",
+    "name": "1967-2025 流式点阵仪"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375478.html",
+    "code": "YY/T",
+    "name": "1966-2025 牙科学 反角充填器"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375476.html",
+    "code": "YY/T",
+    "name": "1964-2025 他克莫司测定试剂盒"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375477.html",
+    "code": "YY/T",
+    "name": "1963-2025 结直肠癌相关基因甲基化检测试剂盒（荧光PCR法）"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375475.html",
+    "code": "YY/T",
+    "name": "1962-2025 醛固酮测定试剂盒（化学发光免疫分析法）"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375474.html",
+    "code": "YY/T",
+    "name": "1961-2025 运动神经元存活基因（SMN）检测试剂盒"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375473.html",
+    "code": "YY/T",
+    "name": "1960-2025 医疗器械 制造商提供的信息"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375472.html",
+    "code": "YY/T",
+    "name": "1959-2025 口腔内数字化X射线成像系统专用技术条件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375471.html",
+    "code": "YY/T",
+    "name": "1958-2025 17α-羟孕酮测定试剂盒（标记免疫分析法）"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375470.html",
+    "code": "YY/T",
+    "name": "1945-2025 血液融化设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375469.html",
+    "code": "YY/T",
+    "name": "1567-2025 女用避孕套 技术要求与试验方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375468.html",
+    "code": "YY/T",
+    "name": "1488-2025 中医器械 舌象信息采集设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375467.html",
+    "code": "YY/T",
+    "name": "1274-2025 腹膜透析设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375466.html",
+    "code": "YY",
+    "name": "0989.6-2025 手术植入物 有源植入式医疗器械 第6部分：治疗快速性心律失常的有源植入式医疗器械（包括植入式除颤器）的专用要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375465.html",
+    "code": "YY",
+    "name": "0948-2025 心肺转流系统  一次性使用动静脉插管"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375464.html",
+    "code": "YY",
+    "name": "0780-2025 中医器械 电针治疗仪"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375463.html",
+    "code": "YY/T",
+    "name": "0764-2025 眼科仪器 视觉敏锐度测量用投影和电子视力表"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375462.html",
+    "code": "YY",
+    "name": "0710-2025 牙科学 聚合物基牙冠和贴面材料"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375461.html",
+    "code": "YY/T",
+    "name": "0679-2025 蒸汽甲醛灭菌器"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375460.html",
+    "code": "YY",
+    "name": "0621-2025 牙科学 金属-陶瓷和陶瓷-陶瓷体系匹配性试验"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375458.html",
+    "code": "YY/T",
+    "name": "0528-2025 牙科学 金属材料腐蚀试验方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375457.html",
+    "code": "YY/T",
+    "name": "0310-2025 X射线计算机体层摄影设备通用技术条件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375459.html",
+    "code": "YY",
+    "name": "0300-2025 牙科学 修复用人工牙"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375455.html",
+    "code": "JT/T",
+    "name": "1131.5-2025 钢桥面铺装 第5部分：聚氨酯胶粘剂"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375456.html",
+    "code": "JT/T",
+    "name": "1117-2025 综合客运枢纽智能化系统信息交换技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375454.html",
+    "code": "JT/T",
+    "name": "1033-2025 交通分隔栏"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375453.html",
+    "code": "JT/T",
+    "name": "935-2025 城市公共汽电车客流调查方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375452.html",
+    "code": "JT/T",
+    "name": "847-2025 塑料隔离墩"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375451.html",
+    "code": "JT/T",
+    "name": "817-2025 公路机电系统设备通用技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375450.html",
+    "code": "JT/T",
+    "name": "1560-2025 收费公路联网收费客户服务规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375449.html",
+    "code": "JT/T",
+    "name": "1559-2025 公路服务设施雨水循环利用技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375448.html",
+    "code": "JT/T",
+    "name": "1558-2025 城市轨道交通运营成本测算规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375447.html",
+    "code": "LY/T",
+    "name": "2190-2025 枣属植物新品种特异性、一致性和稳定性测试指南"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375446.html",
+    "code": "RF",
+    "name": "32001-2025 人民防空防护设备（防护门类）通用技术标准"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375444.html",
+    "code": "DB/T",
+    "name": "107-2025 地震烈度现场评定"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375443.html",
+    "code": "JT/T",
+    "name": "1256-2025 港口航道图编绘技术规定"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375445.html",
+    "code": "JT/T",
+    "name": "680.13-2025 船用通信导航设备的安装、使用、维护、修理技术要求 第13部分：406MHz卫星紧急无线电示位标"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375441.html",
+    "code": "JT/T",
+    "name": "1567.1-2025 船舶自动识别系统（AIS）岸基服务技术要求 第1部分：基本服务和数据架构"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375442.html",
+    "code": "JT/T",
+    "name": "1566-2025 海区雷达应答器配布导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375440.html",
+    "code": "JT/T",
+    "name": "1565-2025 应急潜水救生安全作业要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375439.html",
+    "code": "JT/T",
+    "name": "1564-2025 港口集疏运系统通信框架"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375438.html",
+    "code": "JT/T",
+    "name": "1563-2025 港口污水资源化利用技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375437.html",
+    "code": "JT/T",
+    "name": "1562-2025 内河危险货物运输安全管理技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375436.html",
+    "code": "SN/T",
+    "name": "1828.23-2025 进出口危险货物分类试验方法 第23部分：铅酸蓄电池"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375434.html",
+    "code": "FZ/T",
+    "name": "62051-2025 针织毛巾"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375435.html",
+    "code": "FZ/T",
+    "name": "62050-2025 植物染料染色床上用品"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375433.html",
+    "code": "FZ/T",
+    "name": "74002-2025 运动文胸"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375432.html",
+    "code": "FZ/T",
+    "name": "80019-2025 基于服装数字化仿真的结构单元通用要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375431.html",
+    "code": "FZ/T",
+    "name": "73047-2025 针织民用手套"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375430.html",
+    "code": "FZ/T",
+    "name": "73082-2025 针织绒面服装"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375429.html",
+    "code": "FZ/T",
+    "name": "73081-2025 热压贴合无缝针织服装"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375428.html",
+    "code": "FZ/T",
+    "name": "73053-2025 针织羽绒服装"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375427.html",
+    "code": "FZ/T",
+    "name": "72008-2025 针织牛仔布"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375426.html",
+    "code": "FZ/T",
+    "name": "70020-2025 针织品印花术语"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375425.html",
+    "code": "JT/T",
+    "name": "646.4-2025 公路声屏障 第4部分：全封闭声屏障技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375424.html",
+    "code": "JT/T",
+    "name": "646.2-2025 公路声屏障 第2部分：材料技术要求及检测方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375423.html",
+    "code": "JT/T",
+    "name": "646.1-2025 公路声屏障 第1部分：总体技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375422.html",
+    "code": "JT/T",
+    "name": "18-2025 交通运输标准制定、修订程序和要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375421.html",
+    "code": "JT/T",
+    "name": "17-2025 交通运输计量技术规范制定、修订程序及编写要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375420.html",
+    "code": "JT/T",
+    "name": "1569-2025 铁路专用线与港口衔接工程建设与运营技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375418.html",
+    "code": "YY/T",
+    "name": "1985-2025 组织工程医疗器械 胶原蛋白"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375419.html",
+    "code": "JT/T",
+    "name": "1568-2025 氢气（含液氢）道路运输技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375417.html",
+    "code": "YY/T",
+    "name": "0965-2025 运动医学植入器械 人工韧带专用要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375415.html",
+    "code": "YY",
+    "name": "0781-2025 血压传感器"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375416.html",
+    "code": "YY/T",
+    "name": "0648-2025 测量、控制和实验室用电气设备的安全要求  第2-101部分：体外诊断（IVD）医用设备的专用要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375413.html",
+    "code": "YY/T",
+    "name": "1996-2025 采用脑机接口技术的医疗器械 具备闭环功能的植入式神经刺激器 感知与响应性能测试方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375414.html",
+    "code": "FZ/T",
+    "name": "01057.3-2025 纺织纤维鉴别试验方法 第3部分：显微镜法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375412.html",
+    "code": "FZ/T",
+    "name": "01057.2-2025 纺织纤维鉴别试验方法 第2部分：燃烧法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375410.html",
+    "code": "FZ/T",
+    "name": "01181-2025 纺织品 色牢度试验 洗液沾色的测定"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375411.html",
+    "code": "FZ/T",
+    "name": "43033-2025 丝绸眼罩"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375409.html",
+    "code": "TB/T",
+    "name": "3602-2025 铁路信号集中监测系统"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375408.html",
+    "code": "FZ/T",
+    "name": "98026-2025 钉锤法织物勾丝性能测试仪"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375407.html",
+    "code": "FZ/T",
+    "name": "98025-2025 随机翻滚法织物起毛起球性能测试仪"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375406.html",
+    "code": "FZ/T",
+    "name": "93123-2025 纺粘法非织造布生产成套设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375405.html",
+    "code": "FZ/T",
+    "name": "95037-2025 剪毛机"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375404.html",
+    "code": "FZ/T",
+    "name": "94068-2025 毛巾剑杆织机"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375403.html",
+    "code": "FZ/T",
+    "name": "93122-2025 纤维混纺称量机"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375402.html",
+    "code": "FZ/T",
+    "name": "08008-2025 纺织服装企业供应商能力评价规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375401.html",
+    "code": "FZ/T",
+    "name": "64119-2025 双组分纺粘法非织造布"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375400.html",
+    "code": "FZ/T",
+    "name": "64118-2025 压缩面膜"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375397.html",
+    "code": "FZ/T",
+    "name": "60055-2025 纤维绳索弯曲疲劳试验方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375398.html",
+    "code": "FZ/T",
+    "name": "64116-2025 土工合成材料  再生聚酯长丝纺粘针刺非织造土工布"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375399.html",
+    "code": "FZ/T",
+    "name": "64117-2025 化妆棉"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375396.html",
+    "code": "FZ/T",
+    "name": "62052-2025 运动巾"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375057.html",
+    "code": "YY",
+    "name": "9706.241-2020/XG1-2022 《医用电气设备 第2-41部分：手术无影灯和诊断用照明灯的基本安全和基本性能专用要求》行业标准第1号修改单"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375056.html",
+    "code": "DL/T",
+    "name": "2473.11-2022 可调节负荷并网运行与控制技术规范 第11部分：调控运行规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375055.html",
+    "code": "DL/T",
+    "name": "2473.10-2022 可调节负荷并网运行与控制技术规范 第10部分：仿真计算模型与参数实测"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375054.html",
+    "code": "DL/T",
+    "name": "2473.9-2022 可调节负荷并网运行与控制技术规范 第9部分：调度信息通信"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375053.html",
+    "code": "DL/T",
+    "name": "2473.8-2022 可调节负荷并网运行与控制技术规范 第8部分：安全稳定控制"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375052.html",
+    "code": "DL/T",
+    "name": "2473.7-2022 可调节负荷并网运行与控制技术规范 第7部分：继电保护"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375051.html",
+    "code": "DL/T",
+    "name": "2473.6-2022 可调节负荷并网运行与控制技术规范 第6部分：并网运行调试"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375050.html",
+    "code": "DL/T",
+    "name": "2473.5-2022 可调节负荷并网运行与控制技术规范 第5部分：负荷能力评估"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375049.html",
+    "code": "DL/T",
+    "name": "2473.4-2022 可调节负荷并网运行与控制技术规范 第4部分：数据模型与存储"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375048.html",
+    "code": "DL/T",
+    "name": "2473.3-2022 可调节负荷并网运行与控制技术规范 第3部分：负荷调控系统"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375047.html",
+    "code": "DL/T",
+    "name": "2473.2-2022 可调节负荷并网运行与控制技术规范 第2部分：网络安全防护"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375046.html",
+    "code": "DL/T",
+    "name": "2473.1-2022 可调节负荷并网运行与控制技术规范 第1部分：资源接入"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375045.html",
+    "code": "DL/T",
+    "name": "2025.7-2022 电站阀门检修导则 第7部分：调节阀"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375044.html",
+    "code": "DL/T",
+    "name": "2025.4-2022 电站阀门检修导则 第4部分：球阀"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375043.html",
+    "code": "DL/T",
+    "name": "1242-2022 特高压直流线路带电作业技术导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375042.html",
+    "code": "DL/T",
+    "name": "1138-2022 发电厂水处理用粉末离子交换树脂"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375041.html",
+    "code": "DL/T",
+    "name": "1029-2022 发电厂水质分析仪器实验室质量管理导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375040.html",
+    "code": "DL/T",
+    "name": "1002-2022 低浓度溶解氧仪标定方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375039.html",
+    "code": "DL/T",
+    "name": "989-2022 直流输电系统可靠性评价规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375038.html",
+    "code": "DL/T",
+    "name": "985-2022 配电变压器能效技术经济评价导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375037.html",
+    "code": "DL/T",
+    "name": "793.7-2022 发电设备可靠性评价规程 第7部分：光伏发电设备"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375036.html",
+    "code": "DL/T",
+    "name": "733-2022 输变电工程用机动绞磨"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375034.html",
+    "code": "DL/T",
+    "name": "701-2022 火力发电厂热工自动化术语"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375035.html",
+    "code": "DL/T",
+    "name": "634.5101-2022 远动设备及系统 第5-101部分：传输规约基本远动任务配套标准"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375033.html",
+    "code": "DL/T",
+    "name": "618-2022 气体绝缘金属封闭开关设备现场交接试验规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375032.html",
+    "code": "DL/T",
+    "name": "592-2022 火力发电厂锅炉给水泵的检测与控制系统技术条件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375031.html",
+    "code": "DL/T",
+    "name": "591-2022 火力发电厂汽轮发电机的检测与控制系统技术条件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375030.html",
+    "code": "DL/T",
+    "name": "590-2022 火力发电厂凝汽式汽轮机的检测与控制系统技术条件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375029.html",
+    "code": "DL/T",
+    "name": "589-2022 火力发电厂燃煤锅炉的检测与控制系统技术条件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375028.html",
+    "code": "DL/T",
+    "name": "561-2022 火力发电厂水汽化学监督导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375027.html",
+    "code": "DL/T",
+    "name": "560-2022 电力安全工作规程 高压试验室部分"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375026.html",
+    "code": "DL/T",
+    "name": "502.1-2022 火力发电厂水汽分析方法 第1部分：总则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375025.html",
+    "code": "DL/T",
+    "name": "414-2022 火电厂环境监测技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375024.html",
+    "code": "DL/T",
+    "name": "382-2022 火电厂环境监测管理规定"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375023.html",
+    "code": "DL/T",
+    "name": "367-2022 火力发电厂大型风机的检测与控制系统技术条件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375022.html",
+    "code": "NB/T",
+    "name": "31072-2022 风电机组风轮系统技术监督规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375021.html",
+    "code": "NB/T",
+    "name": "10984-2022 风电机组检修安全工作规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375020.html",
+    "code": "NB/T",
+    "name": "10934-2022 压水堆核电厂常规岛重要泵（组）样机试验导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375019.html",
+    "code": "NB/T",
+    "name": "10932-2022 核电厂电动机运行维护与检修试验导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375018.html",
+    "code": "NB/T",
+    "name": "10931-2022 光伏发电站跟踪系统及支架监造导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375017.html",
+    "code": "NB/T",
+    "name": "10930-2022 光伏发电站组件监造导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375016.html",
+    "code": "NB/T",
+    "name": "10922-2022 风力发电机组风速风向仪检验与维护规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375015.html",
+    "code": "NB/T",
+    "name": "10921-2022 风电场监控系统信息安全防护技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375014.html",
+    "code": "NB/T",
+    "name": "10919-2022 风电场无人值守技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375013.html",
+    "code": "NB/T",
+    "name": "10918-2022 智能风电场技术导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375012.html",
+    "code": "DL/T",
+    "name": "5853-2022 火力发电厂烟囱工程施工与验收规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375011.html",
+    "code": "DL/T",
+    "name": "5852-2022 电气装置安装工程接地装置施工及验收规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375010.html",
+    "code": "DL/T",
+    "name": "5190.9-2022 电力建设施工技术规范 第9部分：水工结构工程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375009.html",
+    "code": "DL/T",
+    "name": "5190.1-2022 电力建设施工技术规范 第1部分：土建结构工程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375008.html",
+    "code": "DL/T",
+    "name": "2526-2022 热电厂智能热网运行技术规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375007.html",
+    "code": "DL/T",
+    "name": "2524-2022 电力应急电源装备测试导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375006.html",
+    "code": "DL/T",
+    "name": "2523-2022 电力应急电源装备通用技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375005.html",
+    "code": "DL/T",
+    "name": "2522-2022 电网企业应急演练导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375004.html",
+    "code": "DL/T",
+    "name": "2521-2022 电力应急数据采集技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375003.html",
+    "code": "DL/T",
+    "name": "2520-2022 电力管道有限空间作业安全技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375002.html",
+    "code": "DL/T",
+    "name": "2519-2022 电力建设企业应急预案编制导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375001.html",
+    "code": "DL/T",
+    "name": "2518-2022 电网企业应急预案编制导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/375000.html",
+    "code": "DL/T",
+    "name": "2517-2022 电力应急移动照明灯技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374999.html",
+    "code": "DL/T",
+    "name": "2516-2022 电力应急充电方舱技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374998.html",
+    "code": "DL/T",
+    "name": "2515-2022 电气试验接地实时监控与预警技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374996.html",
+    "code": "DL/T",
+    "name": "2514-2022 高压试验区域保护技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374997.html",
+    "code": "DL/T",
+    "name": "2513-2022 地下电力电缆光缆安全预警系统技术导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374995.html",
+    "code": "DL/T",
+    "name": "2512-2022 输电线路高空救援技术导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374994.html",
+    "code": "DL/T",
+    "name": "2511-2022 SF6/N2混合绝缘气体回收工作规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374993.html",
+    "code": "DL/T",
+    "name": "2510-2022 六氟化硫混合气体净化处理技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374992.html",
+    "code": "DL/T",
+    "name": "2509-2022 SF6/CF4混合气体绝缘设备气体监督导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374991.html",
+    "code": "DL/T",
+    "name": "2508-2022 直接空冷煤电机组高背压供热经济运行导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374990.html",
+    "code": "DL/T",
+    "name": "2507-2022 火电厂水效指标计算方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374989.html",
+    "code": "DL/T",
+    "name": "2506-2022 燃煤电厂环保设施节能运行优化技术导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374988.html",
+    "code": "DL/T",
+    "name": "2505-2022 半干法烟气脱硫系统运行规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374987.html",
+    "code": "DL/T",
+    "name": "2504-2022 半干法烟气脱硫系统检修规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374986.html",
+    "code": "DL/T",
+    "name": "2503-2022 直流输电系统单极大地回线运行方式下变压器直流偏磁测试导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374985.html",
+    "code": "DL/T",
+    "name": "2502-2022 燃煤电站烟风参数均匀性现场试验规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374984.html",
+    "code": "DL/T",
+    "name": "2501-2022 电站煤粉锅炉风冷干式排渣机性能试验方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374983.html",
+    "code": "DL/T",
+    "name": "2500-2022 电站锅炉烟气余热利用系统运行导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374982.html",
+    "code": "DL/T",
+    "name": "2499-2022 电站锅炉烟气余热利用系统技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374981.html",
+    "code": "DL/T",
+    "name": "2498-2022 循环流化床锅炉耐磨耐火材料选型导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374980.html",
+    "code": "DL/T",
+    "name": "2497-2022 燃煤机组锅炉深度调峰能力评估试验导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374979.html",
+    "code": "DL/T",
+    "name": "2494-2022 电站锅炉动力驱动泄放阀检修导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374978.html",
+    "code": "DL/T",
+    "name": "2493-2022 供热用减温减压装置运行导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374977.html",
+    "code": "DL/T",
+    "name": "2492-2022 电站汽轮机旁路阀订货与验收导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374976.html",
+    "code": "DL/T",
+    "name": "2491-2022 自动疏水器选型导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374975.html",
+    "code": "DL/T",
+    "name": "2490-2022 电站截止阀闸阀订货与验收导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374973.html",
+    "code": "DL/T",
+    "name": "880-2021 带电作业用导线软质遮蔽罩"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374974.html",
+    "code": "DL/T",
+    "name": "2489-2022 电站安全阀选型导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374972.html",
+    "code": "DZ/T",
+    "name": "0170-2020 浅层地震勘查技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374970.html",
+    "code": "GA",
+    "name": "2326-2025 警用服饰 移民管理警察国旗臂章及辅章"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374971.html",
+    "code": "DZ/T",
+    "name": "0208-2020 矿产地质勘查规范 金属矿砂类"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374969.html",
+    "code": "GA/T",
+    "name": "2323-2025 法庭科学 生物检材中硫代硫酸根离子检验 液相色谱-质谱法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374967.html",
+    "code": "GA/T",
+    "name": "2322-2025 法庭科学 超级胶加湿加热显现手印技术规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374966.html",
+    "code": "GM/T",
+    "name": "0143-2024 对称密钥管理系统检测规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374968.html",
+    "code": "GM/T",
+    "name": "0142-2024 云服务器密码机检测规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374965.html",
+    "code": "GM/T",
+    "name": "0141-2024 V2X证书认证系统检测规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374964.html",
+    "code": "GM/T",
+    "name": "0140-2024 支付系统个人可信确认密码应用技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374963.html",
+    "code": "GM/T",
+    "name": "0139-2024 信息系统密码应用安全管理体系"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374962.html",
+    "code": "GM/T",
+    "name": "0138-2024 C-V2X车联网证书策略与认证业务声明框架"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374961.html",
+    "code": "GM/T",
+    "name": "0137-2024 密码卡技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374960.html",
+    "code": "GM/T",
+    "name": "0136-2024 密码应用HTTP接口规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374959.html",
+    "code": "GM/T",
+    "name": "0135-2024 多方安全计算 技术框架"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374957.html",
+    "code": "GM/T",
+    "name": "0133-2024 关键信息基础设施密码应用要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374958.html",
+    "code": "GM/T",
+    "name": "0134-2024 密码模块安全设计指南"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374956.html",
+    "code": "GM/T",
+    "name": "0047-2024 安全电子签章密码检测规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374955.html",
+    "code": "GM/T",
+    "name": "0046-2024 金融数据密码机检测规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374954.html",
+    "code": "GM/T",
+    "name": "0043-2024 数字证书互操作检测规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374953.html",
+    "code": "GM/T",
+    "name": "0041-2024 智能IC卡密码检测规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374952.html",
+    "code": "GM/T",
+    "name": "0040-2024 射频识别标签模块密码检测规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374951.html",
+    "code": "GM/T",
+    "name": "0039-2024 密码模块安全检测要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374949.html",
+    "code": "GM/T",
+    "name": "0001.4-2024 祖冲之序列密码算法 第4部分鉴别式加密机制"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374950.html",
+    "code": "GM/T",
+    "name": "0028-2024 密码模块安全要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374948.html",
+    "code": "NB/T",
+    "name": "11571-2024 海上风力发电机组基础安全监测运行规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374947.html",
+    "code": "NB/T",
+    "name": "11570-2024 风电场智能运行技术导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374946.html",
+    "code": "NB/T",
+    "name": "31021-2024 风力发电企业科技文件归档与整理规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374945.html",
+    "code": "NB/T",
+    "name": "11583-2024 核电厂相控式消弧线圈固定补偿控制装置技术条件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374943.html",
+    "code": "NB/T",
+    "name": "11581-2024 核电厂蒸汽发生器二次侧腐蚀产物质量平衡计算导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374944.html",
+    "code": "NB/T",
+    "name": "11582-2024 核电厂常规岛大型电力变压器冷却系统控制设备技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374942.html",
+    "code": "NB/T",
+    "name": "11580-2024 风电场安防联动系统技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374941.html",
+    "code": "NB/T",
+    "name": "11576-2024 光伏发电站后评价技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374940.html",
+    "code": "NB/T",
+    "name": "11573-2024 海上风电应急演练规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374939.html",
+    "code": "NB/T",
+    "name": "11572-2024 风电场照明系统技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374938.html",
+    "code": "NB/T",
+    "name": "11579-2024 分散式风电接入配电网测试规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374937.html",
+    "code": "NB/T",
+    "name": "11578-2024 风电场并网性能测试规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374936.html",
+    "code": "NB/T",
+    "name": "11577-2024 海上风电功率预测系统功能规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374935.html",
+    "code": "HY/T",
+    "name": "0397-2024 船载海洋生态环境在线监测系统技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374934.html",
+    "code": "WS/T",
+    "name": "812-2022 病原微生物菌（毒）种国家标准株评价技术标准"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374933.html",
+    "code": "DL/T",
+    "name": "5856-2022 水电工程泄水建筑物水力学数值模拟技术规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374932.html",
+    "code": "DL/T",
+    "name": "5855-2022 水电水利工程环氧树脂类表面修补材料试验规程"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374930.html",
+    "code": "DL/T",
+    "name": "2552-2022 油浸式电力变压器用光纤测温装置技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374931.html",
+    "code": "DL/T",
+    "name": "5854-2022 水电水利工程深埋地下洞室开挖施工规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374929.html",
+    "code": "DL/T",
+    "name": "2551-2022 油浸式电力变压器用光纤测温装置试验方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374928.html",
+    "code": "DL/T",
+    "name": "2550-2022 大型油浸式电力变压器（电抗器）充气存放技术要求及评价方法"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374927.html",
+    "code": "DL/T",
+    "name": "2549-2022 电力数据脱敏实施规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374926.html",
+    "code": "DL/T",
+    "name": "2548-2022 电力行业云应用设计与技术要求"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374925.html",
+    "code": "DL/T",
+    "name": "2547-2022 交流断面失电监测装置技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374923.html",
+    "code": "DL/T",
+    "name": "2546-2022 旋转型转子接地保护装置通用技术条件"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374922.html",
+    "code": "DL/T",
+    "name": "2544-2022 继电保护装置状态检修导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374924.html",
+    "code": "DL/T",
+    "name": "2545.1-2022 发电厂继电保护及安全自动装置检验规程 第1部分：燃煤发电厂"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374921.html",
+    "code": "DL/T",
+    "name": "2543-2022 高压直流输电控制保护仿真试验规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374920.html",
+    "code": "DL/T",
+    "name": "2542-2022 同步调相机变压器组继电保护整定计算导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374918.html",
+    "code": "DL/T",
+    "name": "2541-2022 架空输电线路货运索道"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374917.html",
+    "code": "DL/T",
+    "name": "2540-2022 大面积导线压接工艺导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374919.html",
+    "code": "DL/T",
+    "name": "2539-2022 架空输电线路施工提线器"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374916.html",
+    "code": "DL/T",
+    "name": "2538-2022 架空输电线路网套连接器"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374915.html",
+    "code": "DL/T",
+    "name": "2537-2022 架空输电线路施工用纤维绳索"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374913.html",
+    "code": "DL/T",
+    "name": "2535-2022 电力用卫星遥感影像产品分类分级标准"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374914.html",
+    "code": "DL/T",
+    "name": "2536-2022 架空输电线路临时锚体"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374912.html",
+    "code": "DL/T",
+    "name": "2534-2022 电力系统安全稳定控制系统测试技术规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374911.html",
+    "code": "DL/T",
+    "name": "2533-2022 发电厂继电保护和安全自动装置现场工作安全措施规范"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374910.html",
+    "code": "DL/T",
+    "name": "2532-2022 高压直流保护装置现场试验导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374909.html",
+    "code": "DL/T",
+    "name": "2531-2022 继电保护远程智能运行管控技术导则"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374908.html",
+    "code": "DL/T",
+    "name": "2530.1-2022 电力电缆测试设备通用技术条件 第1部分：电缆故障定位电桥"
+  },
+  {
+    "url": "https://www.biaozhun.org/hangye/374907.html",
+    "code": "DL/T",
+    "name": "2529-2022 电力物联网信息模型规范"
+  }
+]
