@@ -100,35 +100,103 @@ SUPPORTED_EXTENSIONS = {'.pdf', '.docx', '.txt'} | IMAGE_EXTENSIONS | CAD_EXTENS
 
 
 def fullwidth_to_halfwidth(text):
-    """全角转半角"""
+    """全角转半角 — 覆盖所有全角字符：数字、英文字母、标点符号"""
     result = []
     for ch in text:
         code = ord(ch)
+        # 全角 ASCII 字母/数字/符号 (U+FF01 ~ U+FF5E)
         if 0xFF01 <= code <= 0xFF5E:
             result.append(chr(code - 0xFEE0))
+        # 全角空格
         elif code == 0x3000:
             result.append(' ')
+        # 全角括号、引号等 CJK 符号 (U+3000~U+303F, U+FE30~U+FE4F)
+        elif code == 0x3002:  # 。
+            result.append('.')
+        elif code == 0x3001:  # 、
+            result.append(',')
+        elif code == 0x301C:  # 〜
+            result.append('~')
+        elif code == 0x3008:  # 〈
+            result.append('<')
+        elif code == 0x3009:  # 〉
+            result.append('>')
+        elif code == 0x300A:  # 《
+            result.append('<')
+        elif code == 0x300B:  # 》
+            result.append('>')
+        elif code == 0x3010:  # 【
+            result.append('[')
+        elif code == 0x3011:  # 】
+            result.append(']')
+        elif code == 0x3014:  # 〔
+            result.append('[')
+        elif code == 0x3015:  # 〕
+            result.append(']')
+        elif code == 0x2018 or code == 0x2019:  # '' 单引号
+            result.append("'")
+        elif code == 0x201C or code == 0x201D:  # "" 双引号
+            result.append('"')
+        elif code == 0x2013 or code == 0x2014:  # –—
+            result.append('-')
+        elif code == 0x2026:  # … 省略号
+            result.append('...')
+        # 全角数字兼容区域 (U+2460~U+24FF, 圈数字等) — 映射为普通数字
+        elif 0x2460 <= code <= 0x2468:  # ①-⑨
+            result.append(str(code - 0x245F))
+        elif 0x2474 <= code <= 0x247C:  # ⑴-⑼
+            result.append(str(code - 0x2473))
+        elif 0x2488 <= code <= 0x2490:  # ⒈-⒐
+            result.append(str(code - 0x2487))
+        # 全角数字 (又一种) U+FF10-U+FF19 已在上面 U+FF01~U+FF5E 范围中处理
         else:
             result.append(ch)
     return ''.join(result)
 
 
 def normalize_for_matching(text):
-    """统一格式用于匹配"""
+    """统一格式用于匹配 — 全角转半角 + 中文标点转英文 + 空格 + OCR 修正"""
     if not text:
         return ''
     result = fullwidth_to_halfwidth(text)
     punct_map = {
+        # 中文标点 → 英文
         '\u3002': '.', '\u3001': ',', '\u301C': '~',
         '\u2014': '-', '\u2013': '-', '\u2026': '...',
         '\u201C': '"', '\u201D': '"', '\u2018': "'", '\u2019': "'",
-        '\u00D7': 'x',
+        '\u00D7': 'x',        # 乘号 × → x
+        '\u00F7': '/',        # 除号 ÷ → /
+        '\u00B7': '-',        # 中间点 · → -
+        '\u2022': '-',        # 圆点 • → -
+        '\u2032': "'",        # 分 ′ → '
+        '\u2033': '"',        # 秒 ″ → "
+        '\u3008': '<',        # 〈
+        '\u3009': '>',        # 〉
+        '\u300A': '<',        # 《
+        '\u300B': '>',        # 》
+        '\u3010': '[',        # 【
+        '\u3011': ']',        # 】
+        '\u3014': '[',        # 〔
+        '\u3015': ']',        # 〕
+        '\uFF08': '(',        # 全角 (
+        '\uFF09': ')',        # 全角 )
+        '\uFF1A': ':',        # 全角 :
+        '\uFF1B': ';',        # 全角 ;
+        '\uFF0C': ',',        # 全角 ，
+        '\u3000': ' ',        # 全角空格
     }
     for cn, en in punct_map.items():
         result = result.replace(cn, en)
     result = re.sub(r'\s+', '', result)
+    # OCR 常见识别错误修正
     result = re.sub(r'CJJJ', 'CJJ', result, flags=re.IGNORECASE)
     result = re.sub(r'DGJ(?=\d)', 'DG/TJ', result, flags=re.IGNORECASE)
+    result = re.sub(r'[LlI](?=[A-Z\d])', '1', result)  # 字母 l/I 在数字/字母前→1
+    result = re.sub(r'(?<=[A-Z\d])[LlI]', '1', result)  # 字母 l/I 在数字/字母后→1
+    result = re.sub(r'[Oo](?=\d)', '0', result)  # 字母 O 在数字前→0
+    result = re.sub(r'(?<=\d)[Oo]', '0', result)  # 字母 O 在数字后→0
+    result = result.upper()  # 统一大写
+    return result
     return result
 
 
