@@ -12,10 +12,27 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 安装 Node.js
-        uses: actions/setup-node@v4
+      - name: 安装 Python 3.12
+        uses: actions/setup-python@v5
         with:
-          node-version: 20
+          python-version: "3.12"
+          architecture: "x64"
+
+      - name: 安装 Python 依赖
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install PyMuPDF python-docx Pillow ezdxf matplotlib
+
+      - name: 验证依赖
+        shell: pwsh
+        run: |
+          python -c "import fitz; print('PyMuPDF OK')"
+          python -c "from docx import Document; print('python-docx OK')"
+          python -c "from PIL import Image; print('Pillow OK')"
+          python -c "import ezdxf; print('ezdxf OK')"
+          python -c "import matplotlib; print('matplotlib OK')"
 
       - name: 下载标准数据库
         shell: pwsh
@@ -29,19 +46,19 @@ jobs:
           7z x $GZ_FILE -y
           Write-Host "数据库大小: $((Get-Item $DB_FILE).Length / 1MB) MB"
 
-      - name: 安装依赖
-        run: npm install --registry=https://registry.npmmirror.com
+      - name: 构建可执行文件
+        shell: pwsh
+        run: |
+          python -m PyInstaller --onefile --windowed --name "LDAssistant" `
+            --add-data "standards_gov_full.db;." `
+            --hidden-import "docx" `
+            --hidden-import "ezdxf" `
+            --hidden-import "matplotlib" `
+            --hidden-import "PIL._tkinter_finder" `
+            standard_checker_v2.py
 
-      - name: 复制 file-viewer 资源到 public
-        run: node -e "const fs=require('fs'),p=require('path');function c(s,d){if(fs.statSync(s).isDirectory()){fs.mkdirSync(d,{recursive:true});fs.readdirSync(s).forEach(f=>c(p.join(s,f),p.join(d,f)))}else{try{fs.copyFileSync(s,d)}catch(e){console.error('skip',s)}}} c('node_modules/@file-viewer/web-full/dist','public/file-viewer');console.log('复制完成:'+fs.readdirSync('public/file-viewer').length+'项')"
-
-      - name: 构建安装包
-        run: npx electron-builder --win --x64
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 上传安装包
+      - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: 安装包
-          path: dist/*.exe
+          name: LDAssistant
+          path: dist/LDAssistant.exe
