@@ -788,21 +788,21 @@ class AIChatFloatingWindow:
                     cfg.after(0, lambda: status_lbl.config(text=f"❌ 连接失败: {e}", foreground="red"))
             threading.Thread(target=do_test, daemon=True).start()
 
-        def save_config():
-            new_config = {
-                "api_url": api_url_var.get().strip(),
-                "api_key": api_key_var.get().strip(),
-                "model": model_var.get().strip()
-            }
-            if _save_ai_config(new_config):
-                self.config = new_config
-                self._status_label.config(text="配置已保存")
-                cfg.destroy()
-                self.add_message("ai", f"✅ API 配置已更新\n地址: {new_config['api_url']}\n模型: {new_config['model']}")
-            else:
-                status_lbl.config(text="❌ 保存失败", foreground="red")
+            def save_config():
+                new_config = {
+                    "api_url": api_url_var.get().strip(),
+                    "api_key": api_key_var.get().strip(),
+                    "model": model_var.get().strip()
+                }
+                if _save_ai_config(new_config):
+                    self.config = new_config
+                    self._status_label.config(text="配置已保存")
+                    cfg.destroy()
+                    self.add_message("ai", f"✅ API 配置已更新\n地址: {new_config['api_url']}\n模型: {new_config['model']}")
+                else:
+                    status_lbl.config(text="❌ 保存失败", foreground="red")
 
-        btn_frame = ttk.Frame(cfg, padding=12)
+            btn_frame = ttk.Frame(cfg, padding=12)
         btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
         ttk.Button(btn_frame, text="测试连接", command=test_connection).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(btn_frame, text="保存", command=save_config).pack(side=tk.RIGHT, padx=(5, 0))
@@ -2660,20 +2660,20 @@ class App:
             if not new_config["api_url"]:
                 messagebox.showwarning("提示", "请输入 API 地址", parent=dialog)
                 return
-        if _save_ai_config(new_config):
-            self.ai_config = new_config
-            # 同步到 AI 聊天窗口
-            try:
-                if self.ai_chat is not None:
-                    self.ai_chat.config.update(self.ai_config)
-            except Exception:
-                pass
-            status_lbl.config(text="✅ 配置已保存", foreground="green")
-            dialog.after(800, dialog.destroy)
-        else:
-            status_lbl.config(text="❌ 保存失败: 请检查文件权限", foreground="red")
-            messagebox.showerror("保存失败", f"无法写入配置文件:\n{_CONFIG_FILE}\n请检查文件权限或磁盘空间。", parent=dialog)
-    
+            if _save_ai_config(new_config):
+                self.ai_config = new_config
+                # 同步到 AI 聊天窗口
+                try:
+                    if self.ai_chat is not None:
+                        self.ai_chat.config.update(self.ai_config)
+                except Exception:
+                    pass
+                status_lbl.config(text="✅ 配置已保存", foreground="green")
+                dialog.after(800, dialog.destroy)
+            else:
+                status_lbl.config(text="❌ 保存失败: 请检查文件权限", foreground="red")
+                messagebox.showerror("保存失败", "无法写入配置文件:\n" + str(_CONFIG_FILE) + "\n请检查文件权限或磁盘空间。", parent=dialog)
+
         btn_frame = ttk.Frame(dialog, padding=12)
         btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
         ttk.Button(btn_frame, text="测试连接", command=test_connection).pack(side=tk.LEFT, padx=(0, 5))
