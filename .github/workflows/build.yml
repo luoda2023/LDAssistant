@@ -1,0 +1,47 @@
+name: 构建安装包
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 下载标准数据库
+        shell: pwsh
+        run: |
+          $GZ_URL="https://github.com/luoda2023/LDAssistant/releases/download/data-v1/standards_gov_full.db.gz"
+          $DB_FILE="standards_gov_full.db"
+          $GZ_FILE="standards_gov_full.db.gz"
+          Write-Host "下载数据库..."
+          curl -L -o $GZ_FILE $GZ_URL
+          Write-Host "解压..."
+          7z x $GZ_FILE -y
+          Write-Host "数据库大小: $((Get-Item $DB_FILE).Length / 1MB) MB"
+
+      - name: 安装依赖
+        run: npm install --registry=https://registry.npmmirror.com
+
+      - name: 复制 file-viewer 资源到 public
+        run: node -e "const fs=require('fs'),p=require('path');function c(s,d){if(fs.statSync(s).isDirectory()){fs.mkdirSync(d,{recursive:true});fs.readdirSync(s).forEach(f=>c(p.join(s,f),p.join(d,f)))}else{try{fs.copyFileSync(s,d)}catch(e){console.error('skip',s)}}} c('node_modules/@file-viewer/web-full/dist','public/file-viewer');console.log('复制完成:'+fs.readdirSync('public/file-viewer').length+'项')"
+
+      - name: 构建安装包
+        run: npx electron-builder --win --x64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 上传安装包
+        uses: actions/upload-artifact@v4
+        with:
+          name: 安装包
+          path: dist/*.exe
