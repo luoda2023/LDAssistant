@@ -66,12 +66,6 @@ jobs:
           Compress-Archive -Path "dist\LDAssistant\*" -DestinationPath "dist\LDAssistant.zip" -Force
           Write-Host "压缩完成: $((Get-Item 'dist\LDAssistant.zip').Length / 1MB) MB"
 
-      - name: 删除旧的 Release 标签
-        shell: pwsh
-        run: |
-          git push origin :refs/tags/latest-build 2>$null
-          Write-Host "已删除旧标签 latest-build"
-
       - name: 上传构建产物到 Release
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -86,3 +80,4 @@ jobs:
           draft: false
           prerelease: false
           overwrite_files: true
+          allowUpdates: true
