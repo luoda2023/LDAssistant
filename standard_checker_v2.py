@@ -1193,20 +1193,26 @@ class App:
         """设置窗口图标（安全帽+芯片，蓝色背景）"""
         import tempfile, os, base64
         try:
-            ico_data = base64.b64decode(APP_ICON_B64)
-            tmp = tempfile.NamedTemporaryFile(suffix='.ico', delete=False)
-            tmp.write(ico_data)
-            tmp.close()
-            # 优先 iconphoto（更稳定），fallback iconbitmap
-            try:
-                ico = tk.PhotoImage(file=tmp.name)
-                self.root.iconphoto(True, ico)
-                self._icon_image = ico
-            except Exception:
-                self.root.iconbitmap(tmp.name)
-            self._icon_tmp = tmp.name
+            # iconphoto 只支持 PNG/GIF，不支持 ICO
+            png_data = base64.b64decode(APP_ICON_PNG_B64)
+            png_tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+            png_tmp.write(png_data)
+            png_tmp.close()
+            png_ico = tk.PhotoImage(file=png_tmp.name)
+            self.root.iconphoto(True, png_ico)
+            self._icon_image = png_ico
+            self._icon_tmp = png_tmp.name
         except Exception:
-            pass  # icon not critical
+            # fallback: 用 ICO 走 iconbitmap
+            try:
+                ico_data = base64.b64decode(APP_ICON_B64)
+                ico_tmp = tempfile.NamedTemporaryFile(suffix=".ico", delete=False)
+                ico_tmp.write(ico_data)
+                ico_tmp.close()
+                self.root.iconbitmap(ico_tmp.name)
+                self._icon_tmp = ico_tmp.name
+            except Exception:
+                pass  # icon not critical
 
     def _setup_style(self):
         style = ttk.Style()
