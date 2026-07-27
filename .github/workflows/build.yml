@@ -50,15 +50,15 @@ jobs:
         shell: pwsh
         run: |
           python -m PyInstaller --onedir --windowed --name "LDAssistant" `
-            --add-data "standards_gov_full.db;." `
-            --add-data "app_icon.ico;." `
-            --hidden-import "docx" `
-            --hidden-import "ezdxf" `
-            --hidden-import "matplotlib" `
-            --hidden-import "PIL._tkinter_finder" `
-            --exclude-module "matplotlib.tests" `
-            --exclude-module "numpy.testing" `
-            standard_checker_v2.py
+          --add-data "standards_gov_full.db;." `
+          --add-data "app_icon.ico;." `
+          --hidden-import "docx" `
+          --hidden-import "ezdxf" `
+          --hidden-import "matplotlib" `
+          --hidden-import "PIL._tkinter_finder" `
+          --exclude-module "matplotlib.tests" `
+          --exclude-module "numpy.testing" `
+          standard_checker_v2.py
 
       - name: 压缩 build 产物
         shell: pwsh
@@ -66,17 +66,23 @@ jobs:
           Compress-Archive -Path "dist\LDAssistant\*" -DestinationPath "dist\LDAssistant.zip" -Force
           Write-Host "压缩完成: $((Get-Item 'dist\LDAssistant.zip').Length / 1MB) MB"
 
-- name: 上传构建产物到 Release
-uses: softprops/action-gh-release@v1
-with:
-tag_name: latest-build
-name: LDAssistant 最新构建
-body: |
- 自动构建最新版工程助手
- commit: ${{ github.sha }}
- 构建时间: ${{ github.event.head_commit.timestamp }}
-files: dist/LDAssistant.zip
-token: ${{ secrets.GITHUB_TOKEN }}
-draft: false
-prerelease: false
-overwrite_files: true
+      - name: 删除旧的 Release 标签
+        shell: pwsh
+        run: |
+          git push origin :refs/tags/latest-build 2>$null
+          Write-Host "已删除旧标签 latest-build"
+
+      - name: 上传构建产物到 Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest-build
+          name: LDAssistant 最新构建
+          body: |
+            自动构建最新版工程助手
+            commit: ${{ github.sha }}
+          files: dist/LDAssistant.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: false
+          overwrite_files: true
