@@ -255,16 +255,34 @@ class StandardChecker:
             print(f"Data file not found: {DATA_FILE}")
             return
         print(f"Loading data from {DATA_FILE}...")
-        # Try UTF-8 first, fallback to GBK
         data = None
+        # 1) Try JSON with multiple encodings
         for enc in ['utf-8', 'utf-8-sig', 'gbk', 'gb18030']:
             try:
                 with open(DATA_FILE, 'r', encoding=enc) as f:
                     data = json.load(f)
-                print(f"  Loaded with encoding: {enc}")
+                print(f"  Loaded as JSON with encoding: {enc}")
                 break
             except (UnicodeDecodeError, json.JSONDecodeError):
                 continue
+        # 2) Fallback: treat as SQLite database
+        if data is None:
+            try:
+                import sqlite3
+                conn = sqlite3.connect(str(DATA_FILE))
+                conn.row_factory = sqlite3.Row
+                cur = conn.cursor()
+                tables = [r['name'] for r in cur.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+                print(f"  SQLite tables found: {tables}")
+                target = 'standards' if 'standards' in tables else (tables[0] if tables else None)
+                if target:
+                    cur.execute(f"SELECT * FROM {target}")
+                    data = [dict(row) for row in cur.fetchall()]
+                    print(f"  Loaded {len(data)} records from SQLite table '{target}'")
+                conn.close()
+            except Exception as e:
+                print(f"  SQLite fallback failed: {e}")
         if data is None:
             raise RuntimeError(f"Cannot decode data file: {DATA_FILE}")
         self.data = data
