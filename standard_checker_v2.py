@@ -2996,26 +2996,26 @@ class App:
         self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
         self.root.mainloop()
 
-        def _on_exit(self):
-            import os
-            icon_tmp = getattr(self, '_icon_tmp', None)
-            if icon_tmp and os.path.exists(icon_tmp):
+    def _on_exit(self):
+        import os
+        icon_tmp = getattr(self, '_icon_tmp', None)
+        if icon_tmp and os.path.exists(icon_tmp):
+            try:
+                os.unlink(icon_tmp)
+            except Exception:
+                pass
+        for img in getattr(self, 'pdf_images', []):
+            if os.path.exists(img):
                 try:
-                    os.unlink(icon_tmp)
+                    os.unlink(img)
                 except Exception:
                     pass
-            for img in getattr(self, 'pdf_images', []):
-                if os.path.exists(img):
-                    try:
-                        os.unlink(img)
-                    except Exception:
-                        pass
-            if hasattr(self, 'checker') and self.checker is not None:
-                try:
-                    self.checker.close()
-                except Exception:
-                    pass
-            self.root.destroy()
+        if hasattr(self, 'checker') and self.checker is not None:
+            try:
+                self.checker.close()
+            except Exception:
+                pass
+        self.root.destroy()
 
 
 def main():
