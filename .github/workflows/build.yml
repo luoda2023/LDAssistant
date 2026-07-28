@@ -92,5 +92,5 @@ jobs:
             commit: ${{ github.sha }}
           files: dist/LDAssistant.zip
           token: ${{ secrets.GITHUB_TOKEN }}
-  draft: false
-  prerelease: false
+          draft: false
+          prerelease: false
