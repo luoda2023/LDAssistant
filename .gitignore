@@ -1,22 +1,41 @@
-node_modules/
-_.recover.js
-_recover2.js
-_upload.js
-_upload_v2.js
-_upload_v3.js
-_push_via_api.js
-"_\351\207\207\351\233\206\350\277\233\345\272\246.txt"
-logs.zip
-_collect_work.txt
-progress*.json
-_采集*.log
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
 .venv/
 venv/
-# 数据库太50MB, 用Release方式分发,不提交到仓库
-standards.db
-standards_gov_full.db
-standards.db.bak
-standards_gov_full.db.bak
+dist/
+build/
+*.spec
+
+# Data files (delivered via Release)
+*.db
+*.json
+*.db.gz
+*.json.gz
+
+# Node
+node_modules/
+package-lock.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.exe
+*.msi
+*.zip
+*.rar
+
+# Temporary files
+logs.zip
+progress*.json
+_*.log
+_*.txt
+_*.js
 

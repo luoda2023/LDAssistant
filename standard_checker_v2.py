@@ -6,6 +6,11 @@
 """
 import matplotlib
 matplotlib.use('Agg')  # 非交互后端，PyInstaller 打包后更稳定
+
+VERSION = "2.0.0"
+APP_NAME = "LDAssistant"
+APP_TITLE = f"{APP_NAME} v{VERSION}"
+
 import sqlite3
 import os
 import sys
@@ -22,10 +27,20 @@ from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-import fitz
-from docx import Document
-from docx.shared import Pt, Inches, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+try:
+    import fitz
+    HAS_FITZ = True
+except Exception:
+    HAS_FITZ = False
+
+try:
+    from docx import Document
+    from docx.shared import Pt, Inches, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    HAS_DOCX = True
+except Exception:
+    HAS_DOCX = False
+
 
 try:
     from PIL import Image, ImageDraw, ImageFilter, ImageCms, ImageTk
@@ -38,6 +53,13 @@ try:
     USE_SQLITE = True
 except Exception:
     USE_SQLITE = False
+
+try:
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    HAS_OPENPYXL = True
+except Exception:
+    HAS_OPENPYXL = False
 
 # CAD support
 try:
@@ -62,7 +84,10 @@ except Exception:
         pass
 
 # Paths
-_APP_DIR = Path(__file__).parent.resolve()
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    _APP_DIR = Path(sys._MEIPASS).resolve()
+else:
+    _APP_DIR = Path(__file__).parent.resolve()
 
 
 def _find_portable_paths():
@@ -78,8 +103,15 @@ if _PADDLE_OCR_EXE is None or _DATA_FILE is None:
     UMI_OCR_DIR = Path(r"D:/Program Files/图片文字识别/UmiOCR-data/plugins/win7_x64_PaddleOCR-json")
     PADDLE_OCR_EXE = UMI_OCR_DIR / "PaddleOCR-json.exe"
     OCR_DIR = UMI_OCR_DIR
-    DATA_DIR = Path(r"J:/WorkBuddy-work/csres-standards")
-    DATA_FILE = DATA_DIR / "all_standards_merged_20260629_092235.json"
+    _found_data = None
+    for p in [
+        _APP_DIR / "data" / "all_standards_merged_20260629_092235.json",
+        _APP_DIR / "all_standards_merged_20260629_092235.json",
+    ]:
+        if p.exists():
+            _found_data = p
+            break
+    DATA_FILE = _found_data
 else:
     PADDLE_OCR_EXE = _PADDLE_OCR_EXE
     OCR_DIR = _OCR_DIR
@@ -363,6 +395,8 @@ class StandardChecker:
         return results[:limit]
 
     def ocr_image(self, image_path):
+        if PADDLE_OCR_EXE is None:
+            return "OCR_ERROR: PaddleOCR 未找到", []
         cmd = [str(PADDLE_OCR_EXE), f"-image_path={image_path}"]
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, cwd=str(OCR_DIR))
@@ -1238,7 +1272,7 @@ class App:
         self._rotation_angle = 0
         self.root = tk.Tk()
         self._name_index = {}
-        self.root.title("工程助手 LDAssistant v2")
+        self.root.title(APP_TITLE)
         self.root.geometry("1360x840")
         self.root.minsize(800, 600)
         # 设置窗口图标（app_icon.ico）
@@ -1332,6 +1366,7 @@ class App:
         ttk.Button(topbar, text="📋 批量处理", command=self.batch_process_all).pack(side=tk.LEFT, padx=2)
         ttk.Button(topbar, text="✅ 检查规范", command=self.check_standards, style="Primary.TButton").pack(side=tk.LEFT, padx=2)
         ttk.Button(topbar, text="📄 导出报告", command=self.export_doc).pack(side=tk.LEFT, padx=2)
+        ttk.Button(topbar, text="📊 导出 Excel", command=self.export_excel).pack(side=tk.LEFT, padx=2)
         ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
         ttk.Button(topbar, text="📊 结果面板", command=self._toggle_results_panel).pack(side=tk.LEFT, padx=2)
         ttk.Button(topbar, text="📄 缩略图", command=self._toggle_thumbnail_panel).pack(side=tk.LEFT, padx=2)
@@ -1715,7 +1750,7 @@ class App:
                     try:
                         file_type = self._detect_file_type(path)
                         code_info = {}
-                        if file_type == 'pdf':
+                        if file_type == 'pdf' and HAS_FITZ:
                             with fitz.open(path) as doc:
                                 for page_num in range(min(len(doc), 5)):
                                     page = doc.load_page(page_num)
@@ -1757,8 +1792,8 @@ class App:
                                         if norm not in code_info:
                                             code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
                         elif file_type == 'docx':
-                            with Document(path) as doc:
-                                full_text = '\n'.join([p.text for p in doc.paragraphs])
+                            doc = Document(path)
+                            full_text = '\n'.join([p.text for p in doc.paragraphs])
                             cleaned = fullwidth_to_halfwidth(full_text)
                             for c in CODE_PATTERN.findall(cleaned):
                                 norm = normalize_for_matching(c)
@@ -1910,6 +1945,8 @@ class App:
         self.pdf_canvas.config(cursor="")
 
     def _redraw_current_page(self, canvas_w=None, canvas_h=None):
+        if not HAS_FITZ:
+            return
         if not hasattr(self, '_current_base_image') or not self._current_base_image:
             return
         if not self.pdf_images:
@@ -2452,6 +2489,9 @@ class App:
             self.ai_chat.send_standard_check(self.check_results)
 
     def export_doc(self):
+        if not HAS_DOCX:
+            messagebox.showwarning("提示", "需要安装 python-docx 库才能导出 Word 报告")
+            return
         if not self.check_results:
             messagebox.showwarning("提示", "没有检查结果可导出")
             return
@@ -2510,6 +2550,84 @@ class App:
         self.status_var.set(f"报告已保存: {path}")
         messagebox.showinfo("完成", f"报告已保存到:\n{path}")
 
+
+    def export_excel(self):
+        if not HAS_OPENPYXL:
+            messagebox.showwarning("提示", "需要安装 openpyxl 库才能导出 Excel 报告")
+            return
+        if not self.check_results:
+            messagebox.showwarning("提示", "没有检查结果可导出")
+            return
+        path = filedialog.asksaveasfilename(
+            title="保存 Excel 报告",
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")])
+        if not path:
+            return
+        self.status_var.set("正在生成 Excel 报告...")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "标准规范检查报告"
+    
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_align = Alignment(horizontal="center", vertical="center")
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin'))
+    
+        ws.merge_cells('A1:F1')
+        ws['A1'] = '标准规范检查报告'
+        ws['A1'].font = Font(bold=True, size=14)
+        ws['A1'].alignment = Alignment(horizontal="center")
+    
+        total = len(self.check_results)
+        found = sum(1 for _, r in self.check_results if r.get('found'))
+        obsolete = sum(1 for _, r in self.check_results if '废止' in r.get('status', '') or '作废' in r.get('status', ''))
+        ws['A3'] = f'生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+        ws['A4'] = f'文件: {os.path.basename(self.current_path) if self.current_path else "N/A"}'
+        ws['A5'] = f'共识别 {total} 个规范编号，数据库中查询到 {found} 个，其中废止/作废 {obsolete} 个'
+    
+        headers = ['序号', '规范编号', '规范名称', '状态', '替代情况', '建议']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=7, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+            cell.border = thin_border
+    
+        for i, (code, result) in enumerate(self.check_results, 1):
+            status = result.get('status', '未找到')
+            replacement = result.get('replacement_raw', '')
+            matched_name = result.get('matched_name', result.get('matched_code', ''))
+            if result.get('found'):
+                if '废止' in status or '作废' in status:
+                    action = '需替换'
+                else:
+                    action = '现行'
+            else:
+                action = '未查询到'
+            row = i + 7
+            ws.cell(row=row, column=1, value=i).border = thin_border
+            ws.cell(row=row, column=2, value=code).border = thin_border
+            ws.cell(row=row, column=3, value=matched_name).border = thin_border
+            ws.cell(row=row, column=4, value=status).border = thin_border
+            ws.cell(row=row, column=5, value=replacement).border = thin_border
+            ws.cell(row=row, column=6, value=action).border = thin_border
+    
+        ws.column_dimensions['A'].width = 8
+        ws.column_dimensions['B'].width = 20
+        ws.column_dimensions['C'].width = 40
+        ws.column_dimensions['D'].width = 15
+        ws.column_dimensions['E'].width = 30
+        ws.column_dimensions['F'].width = 12
+    
+        wb.save(path)
+        self.progress_var.set(0)
+        self.status_var.set(f"Excel 报告已保存: {path}")
+        messagebox.showinfo("完成", f"Excel 报告已保存到:\n{path}")
     def on_check_item_selected(self, event=None):
         selected = self.check_tree.selection()
         if not selected:
@@ -2793,7 +2911,7 @@ class App:
         self.ai_chat.set_ocr_results(results)
 
     def convert_pdf_to_images(self):
-        if not self.current_path or self.file_type != 'pdf':
+        if not self.current_path or self.file_type != 'pdf' or not HAS_FITZ:
             return
         self.status_var.set("正在转换 PDF...")
         self.progress_var.set(0)
@@ -2828,7 +2946,7 @@ class App:
         self.check_tree.delete(*self.check_tree.get_children())
         self.pdf_canvas.delete('all')
         try:
-            if self.file_type == 'docx':
+            if self.file_type == 'docx' and HAS_DOCX:
                 doc = Document(self.current_path)
                 full_text = '\n'.join([p.text for p in doc.paragraphs])
                 self.ocr_results = [full_text]
@@ -2852,7 +2970,29 @@ class App:
 
     def run(self):
         self._start_periodic_redraw()
+        self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
         self.root.mainloop()
+
+        def _on_exit(self):
+            import os
+            icon_tmp = getattr(self, '_icon_tmp', None)
+            if icon_tmp and os.path.exists(icon_tmp):
+                try:
+                    os.unlink(icon_tmp)
+                except Exception:
+                    pass
+            for img in getattr(self, 'pdf_images', []):
+                if os.path.exists(img):
+                    try:
+                        os.unlink(img)
+                    except Exception:
+                        pass
+            if hasattr(self, 'checker') and self.checker is not None:
+                try:
+                    self.checker.close()
+                except Exception:
+                    pass
+            self.root.destroy()
 
 
 def main():

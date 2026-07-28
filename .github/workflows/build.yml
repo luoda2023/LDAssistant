@@ -25,7 +25,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          pip install PyMuPDF python-docx Pillow ezdxf matplotlib
+          pip install PyMuPDF python-docx Pillow openpyxl ezdxf matplotlib
 
       - name: 验证依赖
         shell: pwsh
@@ -33,6 +33,7 @@ jobs:
           python -c "import fitz; print('PyMuPDF OK')"
           python -c "from docx import Document; print('python-docx OK')"
           python -c "from PIL import Image; print('Pillow OK')"
+          python -c "import openpyxl; print('openpyxl OK')"
           python -c "import ezdxf; print('ezdxf OK')"
           python -c "import matplotlib; print('matplotlib OK')"
 
@@ -40,27 +41,39 @@ jobs:
         shell: pwsh
         run: |
           $GZ_URL="https://github.com/luoda2023/LDAssistant/releases/download/data-v1/standards_gov_full.db.gz"
-          $DB_FILE="standards_gov_full.db"
           $GZ_FILE="standards_gov_full.db.gz"
+          $JSON_FILE="all_standards_merged_20260629_092235.json"
           Write-Host "下载数据库..."
           curl -L -o $GZ_FILE $GZ_URL
           Write-Host "解压..."
           7z x $GZ_FILE -y
-          Write-Host "数据库大小: $((Get-Item $DB_FILE).Length / 1MB) MB"
+          # 解压后是 standards_gov_full.db，重命名为 JSON 文件
+          if (Test-Path "standards_gov_full.db") {
+            Move-Item -Force "standards_gov_full.db" $JSON_FILE
+          }
+          # 创建 data 目录并放入
+          New-Item -ItemType Directory -Force -Path "data"
+          Move-Item -Force $JSON_FILE "data/$JSON_FILE"
+          Write-Host "数据文件大小: $((Get-Item "data/$JSON_FILE").Length / 1MB) MB"
 
-      - name: 构建可执行文件 (onedir 模式，更快启动)
+      - name: 构建可执行文件 (onedir 模式)
         shell: pwsh
         run: |
           python -m PyInstaller --onedir --windowed --name "LDAssistant" `
-          --add-data "standards_gov_full.db;." `
-          --add-data "app_icon.ico;." `
-          --hidden-import "docx" `
-          --hidden-import "ezdxf" `
-          --hidden-import "matplotlib" `
-          --hidden-import "PIL._tkinter_finder" `
-          --exclude-module "matplotlib.tests" `
-          --exclude-module "numpy.testing" `
-          standard_checker_v2.py
+            --add-data "data/all_standards_merged_20260629_092235.json;data" `
+            --add-data "app_icon.ico;." `
+            --hidden-import "docx" `
+            --hidden-import "docx.shared" `
+            --hidden-import "docx.enum.text" `
+            --hidden-import "openpyxl" `
+            --hidden-import "openpyxl.styles" `
+            --hidden-import "ezdxf" `
+            --hidden-import "matplotlib" `
+            --hidden-import "PIL" `
+            --hidden-import "PIL._tkinter_finder" `
+            --exclude-module "matplotlib.tests" `
+            --exclude-module "numpy.testing" `
+            standard_checker_v2.py
 
       - name: 压缩 build 产物
         shell: pwsh
