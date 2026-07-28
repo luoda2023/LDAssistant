@@ -255,8 +255,19 @@ class StandardChecker:
             print(f"Data file not found: {DATA_FILE}")
             return
         print(f"Loading data from {DATA_FILE}...")
-        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            self.data = json.load(f)
+        # Try UTF-8 first, fallback to GBK
+        data = None
+        for enc in ['utf-8', 'utf-8-sig', 'gbk', 'gb18030']:
+            try:
+                with open(DATA_FILE, 'r', encoding=enc) as f:
+                    data = json.load(f)
+                print(f"  Loaded with encoding: {enc}")
+                break
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                continue
+        if data is None:
+            raise RuntimeError(f"Cannot decode data file: {DATA_FILE}")
+        self.data = data
         for r in self.data:
             code = normalize_for_matching(r.get('code', ''))
             if code:
