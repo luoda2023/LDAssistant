@@ -1320,10 +1320,8 @@ class App:
 
     def _set_app_icon(self):
         """设置窗口图标"""
-        import os
-        _app_dir = Path(__file__).parent.resolve()
-        # 优先使用 ICO（支持 iconbitmap）
-        for icon_path in [_app_dir / 'app_icon.ico', _app_dir / 'app_icon.png']:
+        # 使用全局 _APP_DIR（兼容 PyInstaller onedir 打包后的 _internal 路径）
+        for icon_path in [_APP_DIR / 'app_icon.ico', _APP_DIR / 'app_icon.png']:
             if icon_path.exists():
                 try:
                     if icon_path.suffix == '.ico':
