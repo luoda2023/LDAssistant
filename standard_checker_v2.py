@@ -576,6 +576,15 @@ def render_cad_to_image(dxf_path, dpi=150):
     if not HAS_CAD:
         return None
     try:
+        # 设置 matplotlib 中文字体，避免 DXF 中文文字显示为方框
+        import matplotlib
+        matplotlib.rcParams['font.family'] = 'sans-serif'
+        matplotlib.rcParams['font.sans-serif'] = [
+            'SimHei', 'Microsoft YaHei', 'SimSun',
+            'DejaVu Sans', 'Arial'
+        ]
+        matplotlib.rcParams['axes.unicode_minus'] = False
+
         doc = ezdxf.readfile(dxf_path)
         fig = plt.figure(figsize=(12, 9), dpi=dpi)
         ax = fig.add_axes([0, 0, 1, 1])
@@ -3650,28 +3659,31 @@ class App:
                     font_path = fp
                     break
             if font_path:
-                title_font = ImageDraw.textlength("标准文本预览",
-                    ImageFont.truetype(font_path, 20)) > 10 and ImageFont.truetype(font_path, 20) or ImageFont.load_default()
-                text_font = ImageFont.truetype(font_path, 16)
+                try:
+                    title_font = ImageFont.truetype(font_path, 20)
+                    text_font = ImageFont.truetype(font_path, 16)
+                except Exception:
+                    title_font = ImageFont.load_default()
+                    text_font = ImageFont.load_default()
             else:
                 text_font = ImageFont.load_default()
                 title_font = ImageFont.load_default()
-            draw.text((margin, 12), title, fill=(0, 51, 102), font=title_font)
-            draw.line([(margin, 40), (w - margin, 40)], fill=(0, 120, 200), width=2)
-            cy = 56
-            for ln in lines:
-                if cy + line_h > h - margin:
-                    draw.text((margin, cy), "...（内容截断，超出预览区域）", fill=(128, 128, 128), font=text_font)
-                    break
-                draw.text((margin, cy), ln, fill=(0, 0, 0), font=text_font)
-                cy += line_h
-            tmp = tempfile.mktemp(suffix='.png')
-            img.save(tmp)
-            self.pdf_images = [tmp]
-            if self.pdf_images:
-                self.show_page(0)
-            self.status_var.set(f"已加载文本内容: {title}")
-            self.page_var.set("文本预览")
+                draw.text((margin, 12), title, fill=(0, 51, 102), font=title_font)
+                draw.line([(margin, 40), (w - margin, 40)], fill=(0, 120, 200), width=2)
+                cy = 56
+                for ln in lines:
+                    if cy + line_h > h - margin:
+                        draw.text((margin, cy), "...（内容截断，超出预览区域）", fill=(128, 128, 128), font=text_font)
+                        break
+                    draw.text((margin, cy), ln, fill=(0, 0, 0), font=text_font)
+                    cy += line_h
+                tmp = tempfile.mktemp(suffix='.png')
+                img.save(tmp)
+                self.pdf_images = [tmp]
+                if self.pdf_images:
+                    self.show_page(0)
+                self.status_var.set(f"已加载文本内容: {title}")
+                self.page_var.set("文本预览")
         except Exception as e:
             print(f"text render error: {e}")
             self.status_var.set("文本渲染失败")
@@ -3701,49 +3713,49 @@ class App:
             elif self.file_type == 'txt':
                 with open(self.current_path, 'r', encoding='utf-8', errors='ignore') as f:
                     full_text = f.read()
-                self.ocr_results = [full_text]
-                title_text = f"文本文件: {Path(self.current_path).name}"
-                self._render_text_to_canvas(full_text, title_text)
-                rendered = True
+                    self.ocr_results = [full_text]
+                    title_text = f"文本文件: {Path(self.current_path).name}"
+                    self._render_text_to_canvas(full_text, title_text)
+                    rendered = True
             else:
                 messagebox.showwarning("提示", "不支持的文件格式")
                 return
             if not rendered:
                 self.page_var.set("文本预览")
-            self.progress_var.set(100)
-            self.status_var.set("文本提取完成")
-            self.ocr_text.delete('1.0', tk.END)
-            self.ocr_text.insert(tk.END, full_text)
-            self._extract_codes_from_text(full_text)
+                self.progress_var.set(100)
+                self.status_var.set("文本提取完成")
+                self.ocr_text.delete('1.0', tk.END)
+                self.ocr_text.insert(tk.END, full_text)
+                self._extract_codes_from_text(full_text)
         except Exception as e:
             messagebox.showerror("错误", f"读取文件失败: {e}")
             self.status_var.set("读取文件失败")
-
-        def run(self):
-            self._start_periodic_redraw()
-            self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
-            self.root.mainloop()
-
-        def _on_exit(self):
-            import os
-            icon_tmp = getattr(self, '_icon_tmp', None)
-            if icon_tmp and os.path.exists(icon_tmp):
+    def run(self):
+        self._start_periodic_redraw()
+    def run(self):
+        self._start_periodic_redraw()
+        self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
+        self.root.mainloop()
+    def _on_exit(self):
+        import os
+        icon_tmp = getattr(self, '_icon_tmp', None)
+        if icon_tmp and os.path.exists(icon_tmp):
+            try:
+                os.unlink(icon_tmp)
+            except Exception:
+                pass
+        for img in getattr(self, 'pdf_images', []):
+            if os.path.exists(img):
                 try:
-                    os.unlink(icon_tmp)
+                    os.unlink(img)
                 except Exception:
                     pass
-            for img in getattr(self, 'pdf_images', []):
-                if os.path.exists(img):
-                    try:
-                        os.unlink(img)
-                    except Exception:
-                        pass
-            if hasattr(self, 'checker') and self.checker is not None:
-                try:
-                    self.checker.close()
-                except Exception:
-                    pass
-            self.root.destroy()
+        if hasattr(self, 'checker') and self.checker is not None:
+            try:
+                self.checker.close()
+            except Exception:
+                pass
+        self.root.destroy()
 
 
 def main():
