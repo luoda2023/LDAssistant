@@ -44,7 +44,9 @@ jobs:
           $GZ_FILE="standards_gov_full.db.gz"
           $JSON_FILE="all_standards_merged_20260629_092235.json"
           Write-Host "下载数据库..."
-          Invoke-WebRequest -Uri $GZ_URL -OutFile $GZ_FILE -UseBasicParsing
+          $wc = [System.Net.WebClient]::new()
+          $wc.DownloadFile($GZ_URL, $GZ_FILE)
+          $wc.Dispose()
           Write-Host "解压..."
           7z x $GZ_FILE -y
           if (Test-Path "standards_gov_full.db") {
