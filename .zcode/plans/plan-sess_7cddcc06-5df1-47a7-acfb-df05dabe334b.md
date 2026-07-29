@@ -1,58 +1,79 @@
-## 全面修复 LDAssistant — 图标、DWG、PDF/Word 显示、AI导出
+## AIChatFloatingWindow 全面重构计划
 
-### 问题1：EXE 图标没改过来
-**根因**：最新 commit 0422d7f 添加了 PyInstaller `--icon` 参数并生成了多尺寸 ICO，但 EXE 图标依然没显示。原因有两条：
-- (a) `_set_app_icon()` 方法（第1321行）在 **PyInstaller onedir 模式下**把 ICO 放进 `dist/LDAssistant/` 目录，但 `tk.Toplevel` 子窗口（结果面板、缩略图、AI聊天）没用上这个图标；
-- (b) 关键：PyInstaller onedir 把 `app_icon.ico` 放在 **dist 根目录**，而 `--windowed` 的 EXE 需要 ICO 在打包时绑定。当前 build.yml 第63行 `--icon "app_icon.ico"` 是对的，但 `app_icon.ico` 是 **129KB 的多尺寸 ICO，包含 PNG 嵌入数据**，Windows 资源管理器有时取不到第一帧。需要生成一个标准 256x256 的纯 ICO。
+### 目标
+悬浮 AI 对话框 UI 美化 + 富文本气泡 + 每气泡操作图标
 
-**修复**：
-1. 用 PNG 重新生成标准 256x256 ICO（PyInstaller 取第一帧做 EXE 图标）
-2. 修复 `_set_app_icon`：不仅给主窗口，也给所有 `Toplevel`（AI聊天、结果面板、缩略图）设置图标
-3. build.yml 确认 `--icon` 参数正确
+### 现有问题
+1. **UI 简陋**：平铺式布局，无圆角、无阴影、无气泡尾
+2. **富文本不足**：现有 markdown 解析只支持 `**粗体**`、`##标题`，不支持图片内嵌、列表缩进、代码块
+3. **每气泡操作图标缺失**：虽有复制按钮但太小（font=7），缺少导出 PDF/Word 图标
+4. **导出入口单一**：仅在标题栏有 💾 按钮，不直观
 
-### 问题2：DWG 打不开
-**根因**：`ezdxf` **只能读 DXF，完全不能读 DWG**（第576行 `ezdxf.readfile()` 对 DWG 直接抛异常，被静默吞掉）。代码在 `CAD_EXTENSIONS`（第130行）和 filedialog（第1617/1622行）里假装支持 DWG。
+### 重构方案
 
-**开源直读 DWG 的实情**（我去查了所有主流库）：
-- `ezdxf`：只能 DXF，不能 DWG
-- `ocdpy`：依赖 OpenCASCADE C++ 二进制，需要系统预装 OCC，**pip 装不了，纯 Python 行不通**
-- `libredwg` Python 绑定：依赖 LibreDWG C 库，需自行编译，**Windows 没有预编译 wheel**
-- `dwg2dxf`/`teigha`：都依赖外部二进制
+#### 1. 整体 UI 美化（`_setup_ui`）
+- 标题栏：渐变背景色（#1a73e8），白色圆角标签，右对齐操作按钮
+- 消息区域：改为 `tk.Frame` + `Canvas` 滚动，每条消息气泡带圆角边框
+- 输入区域：圆角输入框，发送按钮带图标，底部状态栏显示 AI 状态
+- 窗口阴影效果：用 `tkinter.ttk.Style` 配置
 
-**结论：不存在"pip install 就能直接打开 DWG"的纯开源 Python 库。** DWG 是 Autodesk 闭源私有格式。
+#### 2. 富文本气泡引擎（`_add_text_bubble` + `_insert_formatted_text`）
+完全重写为分层渲染引擎：
 
-**最务实的修复方案**：
-1. 在 `_load_cad_file` 里判断：如果是 DWG，先调用 `ezdxf` 无法处理 → 弹窗友好提示用户"DWG 需先用 CAD 软件另存为 DXF 格式"，并给出具体操作步骤
-2. 同时在打开文件对话框把 DWG 从"CAD文件"类型中移除，避免用户误选；但保留在"所有支持"里并做检测+提示，体验更好
-3. 这样"打开DWG"不再是黑屏报错，而是清晰的引导
+| 标记 | 样式 | 当前支持 | 重构后 |
+|---|---|---|---|
+| `# 标题` | 大号粗体 + 下划线 | ✅ | ✅ 增强颜色+间距 |
+| `## 二级标题` | 中号粗体 | ✅ | ✅ |
+| `**粗体**` | 粗体 | ✅ | ✅ |
+| `*斜体*` | 斜体 | ❌ | ✅ 新增 |
+| `` `代码` `` | 等宽字体 + 高亮背景 | ✅ | ✅ 增加 bg 高亮 |
+| ` ```代码块``` ` | 等宽字体 + 灰底框 | ✅ 单行 | ✅ 多行块 |
+| `- 列表` | 缩进列表 | ✅ | ✅ 增加缩进级别 |
+| `1. 有序列表` | 编号列表 | ❌ | ✅ 新增 |
+| `> 引用` | 灰底斜体 | ❌ | ✅ 新增 |
+| `---` 分割线 | 灰色横线 | ❌ | ✅ 新增 |
+| `![图片]()` | 内嵌图片 | ❌ | ✅ 新增（PIL 缩略图） |
+| 表格 `\|` | 表格渲染 | ✅ 单独函数 | ✅ 合并到行内渲染 |
+| 链接 `[text](url)` | 可点击链接 | ❌ | ✅ 新增（蓝色下划线） |
+| 颜色标记 | ⚠️✅❌ 等 | ✅ | ✅ 保留 |
 
-### 问题3：PDF / Word 打开后窗口空白
-- **PDF**（`convert_pdf_to_images` 第2936行）：依赖 PyMuPDF（`fitz`），已验证 PyMuPDF 1.28.0 已安装 ✓，**这应该能工作**。如果空白，可能是 onedir 模式下 `_set_app_icon` 之类副作用。需确认。
-- **Word**（`extract_text_file` 第2959行）：**设计上就不渲染到画布**——它只把文字抽出来放进"OCR文本"标签页，并把 `pdf_canvas` 清空。所以 Word 打开后主预览区必然是空白，只有结果面板有文字。
+#### 3. 每气泡操作图标（`add_message` 底部）
+每个气泡底部增加操作栏（水平排列）：
 
-**修复**：
-1. Word 文件打开后在预览区用 `tk.Text` 显示提取的文字内容（带边框、可滚动），而不是空白
-2. PDF 增加错误兜底：若 PyMuPDF 不可用则明确报错
+```
+[气泡内容]
+─────────────────
+📋 复制  📄 Word  📕 PDF
+```
 
-### 问题4：AI 对话框缺少保存按钮
-用户说 AI 对话框里要有"导出 WORD 和 PDF"的功能按钮。当前 AI 窗口标题栏只有 📌 ⚙️ 🗑 — ✕，没有导出按钮。
+- **📋 复制**：复制该条消息文本到剪贴板
+- **📄 Word**：导出该条消息到 Word（单条导出）
+- **📕 PDF**：导出该条消息到 PDF（单条导出）
 
-**修复**：
-1. 在 AI 聊天窗口标题栏添加 "💾 导出" 按钮（或 "📥"）
-2. 点击后弹出选项：导出为 Word（.docx）/ 导出为 PDF（.pdf）
-3. 导出内容 = 当前 AI 对话历史（`self._messages`）
-4. PDF 导出需要 `reportlab` 或 `fpdf2` —— 会加入 requirements.txt 和 build.yml
+#### 4. 气泡样式美化
+- 用户气泡：蓝色背景 (#1a73e8) + 白色文字 + 右侧圆角尾
+- AI 气泡：白色背景 + 灰色边框 + 左侧圆角尾
+- 固定最大宽度（70% 容器宽度）
+- 消息间间距 8px
 
----
+#### 5. 导出增强
+- 标题栏 💾 按钮保留（全量导出）
+- 每气泡新增 📄/📕 按钮（单条导出）
+- 导出格式：Word 带格式（粗体/颜色/表格），PDF 带角色颜色区分
 
-### 实施顺序
-1. 生成标准 256x256 ICO 并修复 `_set_app_icon` 对所有窗口生效
-2. 修复 DWG：友好提示 + 引导转 DXF
-3. 修复 Word 预览显示
-4. AI 聊天加导出按钮（Word + PDF）
-5. 更新 requirements.txt，确保 reportlab/fpdf2 在 CI 安装
-6. 确认 build.yml 图标参数
+### 涉及文件
+仅修改 `standard_checker_v2.py` 中的 `AIChatFloatingWindow` 类（约 650 行）。
 
-### 风险与取舍
-- DWG 直读因技术限制无法纯开源实现，采用"提示转 DXF"是业界标准做法
-- PDF 导出引入 reportlab（成熟稳定），fpdf2 作为备选
+### 具体修改方法
+- `_setup_ui()` → 重写布局
+- `_add_text_bubble()` → 重写为富文本引擎
+- `_insert_formatted_text()` → 重写为完整 markdown 解析器
+- `add_message()` → 底部增加操作栏
+- 新增 `_add_action_bar()` → 每气泡操作图标
+- 新增 `_add_code_block()` → 代码块渲染
+- 新增 `_add_quote_block()` → 引用渲染
+- 新增 `_export_single_message()` → 单条导出
+- 其他方法保持不动
+
+### 不回滚的承诺
+本次只修改 `AIChatFloatingWindow` 类内部（L751-L1400），不触碰 `App`、`StandardChecker` 等任何其他类。结构不变。

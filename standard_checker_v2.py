@@ -756,7 +756,7 @@ def __init__(self, master, config=None):
     self.config = config or _load_ai_config()
     self.window = tk.Toplevel(master)
     self.window.title("AI 助手")
-    self.window.geometry("400x500")
+    self.window.geometry("420x560")
     self.window.minsize(300, 350)
     # 设置 AI 窗口图标
     self._set_ai_icon()
@@ -766,6 +766,7 @@ def __init__(self, master, config=None):
     self._offset_x = 0
     self._offset_y = 0
     self._messages = []
+    self._links = []
     self._setup_ui()
     self._setup_drag()
     self.add_message("ai", "你好！我是标准查询 AI 助手。\n发送标准号或关键词，我可以帮你查询国家标准。\n\nOCR 识别的结果会自动显示在这里。")
@@ -786,61 +787,85 @@ def _set_ai_icon(self):
             except Exception:
                 continue
 
-    def _setup_ui(self):
-        titlebar = ttk.Frame(self.window)
-        titlebar.pack(side=tk.TOP, fill=tk.X)
-        titlebar.bind('<ButtonPress-1>', self._start_drag)
-        titlebar.bind('<B1-Motion>', self._on_drag)
-        self._title_label = ttk.Label(titlebar, text="🤖 AI 助手", font=("SimSun", 10, "bold"))
-        self._title_label.pack(side=tk.LEFT, padx=8)
-        self._title_label.bind('<ButtonPress-1>', self._start_drag)
-        self._title_label.bind('<B1-Motion>', self._on_drag)
+def _setup_ui(self):
+    """美化后的 AI 对话 UI"""
+    # ── 标题栏 ──
+    titlebar = tk.Frame(self.window, bg="#1a73e8", height=36)
+    titlebar.pack(side=tk.TOP, fill=tk.X)
+    titlebar.pack_propagate(False)
+    titlebar.bind('<ButtonPress-1>', self._start_drag)
+    titlebar.bind('<B1-Motion>', self._on_drag)
+    self._title_label = tk.Label(titlebar, text="🤖 AI 助手",
+                                 font=("Microsoft YaHei", 10, "bold"),
+                                 bg="#1a73e8", fg="white")
+    self._title_label.pack(side=tk.LEFT, padx=10)
+    self._title_label.bind('<ButtonPress-1>', self._start_drag)
+    self._title_label.bind('<B1-Motion>', self._on_drag)
 
-        quick_frame = ttk.Frame(titlebar)
-        quick_frame.pack(side=tk.RIGHT, padx=4)
-        self._pin_btn = ttk.Button(quick_frame, text=self._pin_icon, command=self._toggle_pin, width=2)
-        self._pin_btn.pack(side=tk.LEFT, padx=1)
-        self._cfg_btn = ttk.Button(quick_frame, text="⚙️", command=self._open_config, width=2)
-        self._cfg_btn.pack(side=tk.LEFT, padx=1)
-        ttk.Button(quick_frame, text="🗑", command=self._clear_chat, width=2).pack(side=tk.LEFT, padx=1)
-        ttk.Button(quick_frame, text="💾", command=self._export_chat, width=2).pack(side=tk.LEFT, padx=1)
-        ttk.Button(quick_frame, text="—", command=self._minimize, width=2).pack(side=tk.LEFT, padx=1)
-        ttk.Button(quick_frame, text="✕", command=self._close, width=2).pack(side=tk.LEFT, padx=1)
+    # 标题栏右侧按钮
+    btn_frame = tk.Frame(titlebar, bg="#1a73e8")
+    btn_frame.pack(side=tk.RIGHT, padx=4)
+    for txt, cmd in [(self._pin_icon, self._toggle_pin),
+                     ("⚙️", self._open_config),
+                     ("🗑", self._clear_chat),
+                     ("💾", self._export_chat),
+                     ("—", self._minimize),
+                     ("✕", self._close)]:
+        b = tk.Label(btn_frame, text=txt, font=("SimSun", 9),
+                     bg="#1a73e8", fg="white", cursor="hand2", padx=3)
+        b.pack(side=tk.LEFT, padx=1)
+        b.bind('<Button-1>', lambda e, c=cmd: c())
+    self._pin_btn = btn_frame.winfo_children()[0]
 
-        quick_row = ttk.Frame(self.window)
-        quick_row.pack(side=tk.TOP, fill=tk.X, padx=4, pady=2)
-        for txt, q in [("🏗️ 混凝土", "混凝土结构"), ("🔥 防火", "建筑防火"),
-                       ("📋 GB 50068", "GB 50068"), ("🔍 最新", "最新发布")]:
-            btn = tk.Button(quick_row, text=txt, font=("SimSun", 8),
-                           bd=0, bg="#f0f0f0", padx=4, pady=1,
-                           command=lambda query=q: self._send_query(query))
-            btn.pack(side=tk.LEFT, padx=2)
+    # ── 快捷查询行 ──
+    quick_row = tk.Frame(self.window, bg="#f0f4f8")
+    quick_row.pack(side=tk.TOP, fill=tk.X, padx=6, pady=4)
+    for txt, q in [("🏗️ 混凝土", "混凝土结构"), ("🔥 防火", "建筑防火"),
+                   ("📋 GB 50068", "GB 50068"), ("🔍 最新", "最新发布")]:
+        btn = tk.Label(quick_row, text=txt, font=("Microsoft YaHei", 8),
+                       bg="#e8edf2", fg="#333", padx=6, pady=2,
+                       cursor="hand2", relief="flat")
+        btn.pack(side=tk.LEFT, padx=3)
+        btn.bind('<Button-1>', lambda e, query=q: self._send_query(query))
 
-        msg_frame = ttk.Frame(self.window)
-        msg_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=4, pady=2)
-        self._msg_canvas = tk.Canvas(msg_frame, bg="#f8f9fa", highlightthickness=0)
-        msg_scroll = ttk.Scrollbar(msg_frame, orient=tk.VERTICAL, command=self._msg_canvas.yview)
-        self._msg_canvas.configure(yscrollcommand=msg_scroll.set)
-        msg_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self._msg_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self._msg_inner = ttk.Frame(self._msg_canvas)
-        self._msg_window = self._msg_canvas.create_window(
-            (0, 0), window=self._msg_inner, anchor='nw', width=360)
-        self._msg_inner.bind('<Configure>', self._on_msg_configure)
+    # ── 消息区域 ──
+    msg_frame = tk.Frame(self.window, bg="#eef2f7")
+    msg_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
+    self._msg_canvas = tk.Canvas(msg_frame, bg="#eef2f7", highlightthickness=0, bd=0)
+    msg_scroll = ttk.Scrollbar(msg_frame, orient=tk.VERTICAL, command=self._msg_canvas.yview)
+    self._msg_canvas.configure(yscrollcommand=msg_scroll.set)
+    msg_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+    self._msg_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    self._msg_inner = tk.Frame(self._msg_canvas, bg="#eef2f7")
+    self._msg_window = self._msg_canvas.create_window(
+        (0, 0), window=self._msg_inner, anchor='nw', width=380)
+    self._msg_inner.bind('<Configure>', self._on_msg_configure)
 
-        input_frame = ttk.Frame(self.window)
-        input_frame.pack(side=tk.TOP, fill=tk.X, padx=4, pady=4)
-        self._input_entry = tk.Text(input_frame, height=2, font=("SimSun", 10), wrap=tk.WORD)
-        self._input_entry.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
-        self._input_entry.bind('<Return>', self._on_input_enter)
-        self._send_btn = ttk.Button(input_frame, text="➤", command=self._send_input, width=3)
-        self._send_btn.pack(side=tk.RIGHT)
+    # ── 输入区域 ──
+    input_frame = tk.Frame(self.window, bg="#f0f4f8", bd=0)
+    input_frame.pack(side=tk.TOP, fill=tk.X, padx=6, pady=(0, 6))
+    entry_bg = tk.Frame(input_frame, bg="white", bd=1, relief="solid")
+    entry_bg.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
+    self._input_entry = tk.Text(entry_bg, height=2, font=("Microsoft YaHei", 10),
+                                wrap=tk.WORD, bd=0, padx=6, pady=4,
+                                bg="white", fg="#333")
+    self._input_entry.pack(fill=tk.BOTH, expand=True)
+    self._input_entry.bind('<Return>', self._on_input_enter)
+    self._send_btn = tk.Label(input_frame, text="➤ 发送",
+                              font=("Microsoft YaHei", 9, "bold"),
+                              bg="#1a73e8", fg="white", padx=12, pady=4,
+                              cursor="hand2")
+    self._send_btn.pack(side=tk.RIGHT)
+    self._send_btn.bind('<Button-1>', lambda e: self._send_input())
 
-        self._status_label = ttk.Label(self.window, text="就绪", foreground="#888", font=("SimSun", 8))
-        self._status_label.pack(side=tk.BOTTOM, anchor=tk.W, padx=6, pady=2)
+    # ── 状态栏 ──
+    self._status_label = tk.Label(self.window, text="就绪 ✨",
+                                  font=("Microsoft YaHei", 8), fg="#888",
+                                  bg="#eef2f7", anchor=tk.W)
+    self._status_label.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=2)
 
-        self.window.protocol("WM_DELETE_WINDOW", self._close)
-        self.window.bind('<Escape>', lambda e: self._minimize())
+    self.window.protocol("WM_DELETE_WINDOW", self._close)
+    self.window.bind('<Escape>', lambda e: self._minimize())
 
     def _setup_drag(self):
         self.window.bind('<ButtonPress-1>', self._start_drag)
@@ -878,11 +903,12 @@ def _set_ai_icon(self):
         self.window.deiconify()
         self.window.lift()
 
-    def _clear_chat(self):
-        self._messages = []
-        for w in self._msg_inner.winfo_children():
-            w.destroy()
-        self.add_message("ai", "对话已清空，可以重新开始提问。")
+def _clear_chat(self):
+    self._messages = []
+    self._links = []
+    for w in self._msg_inner.winfo_children():
+        w.destroy()
+    self.add_message("ai", "对话已清空，可以重新开始提问。")
 
     def _export_chat(self):
         """导出 AI 对话记录为 Word 或 PDF"""
@@ -1151,118 +1177,384 @@ def _do_export_chat_pdf(self):
         self.add_message("ai", reply)
         self._status_label.config(text="就绪")
 
-    def add_message(self, role, content, msg_type='text', extra=None):
-        """添加一条消息到聊天界面
-        msg_type: 'text' | 'table' | 'image' | 'file'
-        extra: for table -> list of (header, rows)
-               for image -> image path or PhotoImage
-               for file -> {'name': str, 'size': str, 'path': str}
-        """
-        self._messages.append({"role": role, "content": content})
-        outer = ttk.Frame(self._msg_inner)
-        outer.pack(fill=tk.X, padx=4, pady=4, anchor='e' if role == 'user' else 'w')
+def add_message(self, role, content, msg_type='text', extra=None):
+    """添加一条消息到聊天界面，底部带操作栏"""
+    self._messages.append({"role": role, "content": content})
 
-        # Header
-        hdr = ttk.Label(outer, text="你" if role == 'user' else "AI",
-                       font=("SimSun", 8, "bold"),
-                       foreground="#1a73e8" if role == 'ai' else "#333")
-        hdr.pack(anchor='e' if role == 'user' else 'w', pady=(0, 2))
+    # ── 外层容器（对齐） ──
+    outer = tk.Frame(self._msg_inner, bg="#eef2f7")
+    outer.pack(fill=tk.X, padx=8, pady=(4, 2), anchor='e' if role == 'user' else 'w')
 
-        if msg_type == 'text':
-            self._add_text_bubble(outer, content, role)
-        elif msg_type == 'table':
-            self._add_table_widget(outer, extra or [])
-            if content:
-                self._add_text_bubble(outer, content, role, small=True)
-        elif msg_type == 'image':
-            self._add_image_widget(outer, extra)
-            if content:
-                self._add_text_bubble(outer, content, role, small=True)
-        elif msg_type == 'file':
-            self._add_file_widget(outer, extra or {})
-            if content:
-                self._add_text_bubble(outer, content, role, small=True)
+    # ── 角色标签 ──
+    hdr = tk.Label(outer, text="你" if role == 'user' else "AI",
+                   font=("Microsoft YaHei", 8, "bold"),
+                   bg="#eef2f7",
+                   fg="#1a73e8" if role == 'ai' else "#555")
+    hdr.pack(anchor='e' if role == 'user' else 'w', pady=(0, 2))
+
+    # ── 气泡内容 ──
+    if msg_type == 'text':
+        bubble = self._add_text_bubble(outer, content, role)
+    elif msg_type == 'table':
+        self._add_table_widget(outer, extra or [])
+        if content:
+            bubble = self._add_text_bubble(outer, content, role, small=True)
         else:
-            self._add_text_bubble(outer, content, role)
+            bubble = None
+    elif msg_type == 'image':
+        self._add_image_widget(outer, extra)
+        if content:
+            bubble = self._add_text_bubble(outer, content, role, small=True)
+        else:
+            bubble = None
+    elif msg_type == 'file':
+        self._add_file_widget(outer, extra or {})
+        if content:
+            bubble = self._add_text_bubble(outer, content, role, small=True)
+        else:
+            bubble = None
+    else:
+        bubble = self._add_text_bubble(outer, content, role)
 
-        # Copy button
-        def copy_msg():
-            self.window.clipboard_clear()
-            self.window.clipboard_append(content)
-            self._status_label.config(text="已复制")
+    # ── 操作栏（每个气泡底部） ──
+    self._add_action_bar(outer, content, role)
 
-        ft_frame = ttk.Frame(outer)
-        ft_frame.pack(anchor='e' if role == 'user' else 'w', pady=(2, 0))
-        tk.Button(ft_frame, text="📋", font=("SimSun", 7),
-                  bd=0, bg="#f0f0f0", command=copy_msg).pack(side=tk.RIGHT)
+    self._msg_canvas.after(50, self._on_msg_configure)
 
-        self._msg_canvas.after(50, self._on_msg_configure)
+def _add_action_bar(self, parent, content, role):
+    """每个气泡底部的操作图标栏"""
+    bar = tk.Frame(parent, bg="#eef2f7", height=22)
+    bar.pack(fill=tk.X, pady=(0, 0), anchor='e' if role == 'user' else 'w')
+    bar.pack_propagate(False)
 
-    def _add_text_bubble(self, parent, text, role, small=False):
-        """富文本气泡，支持不同大小和格式"""
-        font_size = 9 if small else 10
-        bg = "#1a73e8" if role == 'user' else "#ffffff"
-        fg = "#ffffff" if role == 'user' else "#1a1a1a"
+    # 固定内容用于闭包
+    msg_content = content
 
-        bubble = tk.Text(parent, wrap=tk.WORD, font=("SimSun", font_size),
-                        bg=bg, fg=fg, bd=0, padx=10, pady=6,
-                        height=max(2, min(20, text.count('\n') + 2)),
-                        width=42 if not small else 50, highlightthickness=0)
+    def do_copy():
+        parent.window.clipboard_clear()
+        parent.window.clipboard_append(msg_content)
+        self._status_label.config(text="📋 已复制")
 
-        # Parse markdown-like formatting
-        self._insert_formatted_text(bubble, text, fg, role == 'user')
+    def do_export_single_docx():
+        """导出单条消息为 Word"""
+        if not HAS_DOCX:
+            messagebox.showwarning("提示", "需要安装 python-docx", parent=self.window)
+            return
+        from docx import Document
+        from docx.shared import Pt, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        try:
+            role_label = "AI" if role == "ai" else "用户"
+            path = filedialog.asksaveasfilename(
+                title=f"保存 {role_label} 消息",
+                defaultextension=".docx",
+                filetypes=[("Word 文档", "*.docx"), ("所有文件", "*.*")])
+            if not path:
+                return
+            doc = Document()
+            p = doc.add_paragraph()
+            run = p.add_run(f"[{role_label}]")
+            run.bold = True
+            run.font.size = Pt(11)
+            run.font.name = "SimSun"
+            if role == "ai":
+                run.font.color.rgb = RGBColor(0x1a, 0x73, 0xe8)
+            p2 = doc.add_paragraph(msg_content)
+            for run in p2.runs:
+                run.font.name = "SimSun"
+                run.font.size = Pt(11)
+            doc.save(path)
+            self._status_label.config(text="✅ 已导出 Word")
+        except Exception as e:
+            messagebox.showerror("错误", f"导出失败: {e}", parent=self.window)
 
-        bubble.config(state=tk.DISABLED)
-        bubble.pack(fill=tk.X, anchor='e' if role == 'user' else 'w')
-        return bubble
+    def do_export_single_pdf():
+        """导出单条消息为 PDF"""
+        try:
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import cm
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib import colors
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        except Exception:
+            messagebox.showwarning("提示", "需要安装 reportlab", parent=self.window)
+            return
+        try:
+            pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+            role_label = "AI" if role == "ai" else "用户"
+            path = filedialog.asksaveasfilename(
+                title=f"保存 {role_label} 消息",
+                defaultextension=".pdf",
+                filetypes=[("PDF 文档", "*.pdf"), ("所有文件", "*.*")])
+            if not path:
+                return
+            doc = SimpleDocTemplate(path, pagesize=A4,
+                                    leftMargin=2*cm, rightMargin=2*cm,
+                                    topMargin=2*cm, bottomMargin=2*cm)
+            styles = getSampleStyleSheet()
+            role_style = ParagraphStyle('Role', parent=styles['Normal'],
+                                        fontName='STSong-Light', fontSize=12,
+                                        textColor=colors.HexColor('#1a73e8' if role == 'ai' else '#333'),
+                                        spaceAfter=8)
+            content_style = ParagraphStyle('Content', parent=styles['Normal'],
+                                           fontName='STSong-Light', fontSize=10,
+                                           spaceAfter=12)
+            c = msg_content.replace("\n", "<br/>").replace("**", "").replace("•", "- ")
+            story = [Paragraph(f"<b>{role_label}：</b>", role_style),
+                     Paragraph(c, content_style)]
+            doc.build(story)
+            self._status_label.config(text="✅ 已导出 PDF")
+        except Exception as e:
+            messagebox.showerror("错误", f"导出 PDF 失败: {e}", parent=self.window)
 
-    def _insert_formatted_text(self, widget, text, default_fg, is_user):
-        """在 Text 中插入带格式的文本（粗体、标题、代码等）"""
-        import re
-        widget.tag_config('bold', font=("SimSun", 10, "bold"), foreground=default_fg)
-        widget.tag_config('h1', font=("SimSun", 14, "bold"), foreground=default_fg)
-        widget.tag_config('h2', font=("SimSun", 12, "bold"), foreground=default_fg)
-        widget.tag_config('code', font=("Consolas", 9), foreground="#c00000" if not is_user else "#ffcccc")
-        widget.tag_config('small', font=("SimSun", 8), foreground=default_fg)
-        widget.tag_config('red', foreground="#ff4444")
-        widget.tag_config('green', foreground="#00aa00")
-        widget.tag_config('blue', foreground="#1a73e8")
+    # 操作按钮
+    for txt, tooltip, cmd in [("📋", "复制", do_copy),
+                               ("📄", "导出 Word", do_export_single_docx),
+                               ("📕", "导出 PDF", do_export_single_pdf)]:
+        btn = tk.Label(bar, text=txt, font=("SimSun", 8),
+                       bg="#eef2f7", fg="#666", cursor="hand2", padx=3)
+        btn.pack(side=tk.LEFT, padx=1)
+        btn.bind('<Button-1>', lambda e, c=cmd: c())
+        # 悬停效果
+        btn.bind('<Enter>', lambda e, b=btn: b.config(fg="#1a73e8"))
+        btn.bind('<Leave>', lambda e, b=btn: b.config(fg="#666"))
 
-        # Simple markdown parsing
-        lines = text.split('\n')
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith('# '):
-                widget.insert(tk.END, stripped[2:], 'h1')
-            elif stripped.startswith('## '):
-                widget.insert(tk.END, stripped[3:], 'h2')
-            elif stripped.startswith('- ') or stripped.startswith('• '):
-                content = stripped[2:]
-                widget.insert(tk.END, '• ', 'small')
-                self._insert_inline_format(widget, content, default_fg, is_user)
-            elif '```' in stripped:
-                widget.insert(tk.END, stripped, 'code')
+def _add_text_bubble(self, parent, text, role, small=False):
+    """富文本气泡，带圆角风格"""
+    font_size = 9 if small else 10
+    if role == 'user':
+        bg = "#d2e3fc"
+        fg = "#1a1a1a"
+        max_width = 60
+    else:
+        bg = "#ffffff"
+        fg = "#1a1a1a"
+        max_width = 60
+
+    # 计算合适高度
+    line_count = text.count('\n') + 1
+    est_height = min(18, max(2, line_count))
+
+    bubble = tk.Text(parent, wrap=tk.WORD, font=("Microsoft YaHei", font_size),
+                     bg=bg, fg=fg, bd=0, padx=10, pady=8,
+                     height=est_height,
+                     width=max_width, highlightthickness=0,
+                     relief="flat")
+
+    # 解析富文本
+    self._insert_formatted_text(bubble, text, fg, role == 'user')
+
+    bubble.config(state=tk.DISABLED)
+    bubble.pack(fill=tk.X, pady=(0, 0), anchor='e' if role == 'user' else 'w')
+    return bubble
+
+def _insert_formatted_text(self, widget, text, default_fg, is_user):
+    """完整 Markdown 解析引擎，插入到 Text 组件中"""
+    import re
+    # ── 注册 tag ──
+    widget.tag_config('bold', font=("Microsoft YaHei", 10, "bold"), foreground=default_fg)
+    widget.tag_config('italic', font=("Microsoft YaHei", 10, "italic"), foreground=default_fg)
+    widget.tag_config('h1', font=("Microsoft YaHei", 14, "bold"), foreground="#1a73e8", spacing1=6, spacing3=4)
+    widget.tag_config('h2', font=("Microsoft YaHei", 12, "bold"), foreground="#2c3e50", spacing1=4, spacing3=2)
+    widget.tag_config('h3', font=("Microsoft YaHei", 11, "bold"), foreground="#34495e", spacing1=3, spacing3=2)
+    widget.tag_config('code', font=("Consolas", 9), foreground="#c00000" if not is_user else "#ffcccc",
+                      bg="#f5f5f5" if not is_user else "#3a3a3a")
+    widget.tag_config('code_block', font=("Consolas", 9), foreground="#333",
+                      bg="#f0f0f0", lmargin1=12, lmargin2=12, rmargin=12,
+                      spacing1=4, spacing3=4)
+    widget.tag_config('small', font=("Microsoft YaHei", 8), foreground=default_fg)
+    widget.tag_config('red', foreground="#ff4444")
+    widget.tag_config('green', foreground="#00aa00")
+    widget.tag_config('blue', foreground="#1a73e8")
+    widget.tag_config('quote', font=("Microsoft YaHei", 9, "italic"), foreground="#666",
+                      bg="#f8f8f8", lmargin1=16, lmargin2=16, spacing1=2, spacing3=2)
+    widget.tag_config('link', foreground="#1a73e8", underline=True)
+    widget.tag_config('bullet', lmargin1=12, lmargin2=24)
+    widget.tag_config('ordered', lmargin1=12, lmargin2=24)
+    widget.tag_config('hr', foreground="#ccc", font=("SimSun", 6))
+
+    lines = text.split('\n')
+    code_block = False
+    code_buffer = []
+    ordered_counter = 0
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+
+        # ── 代码块 ──
+        if stripped.startswith('```'):
+            if code_block:
+                # 结束代码块
+                code_text = '\n'.join(code_buffer)
+                widget.insert(tk.END, code_text + '\n', 'code_block')
+                code_buffer = []
+                code_block = False
             else:
-                self._insert_inline_format(widget, line, default_fg, is_user)
+                code_block = True
+                code_buffer = []
+            i += 1
+            continue
+        if code_block:
+            code_buffer.append(line)
+            i += 1
+            continue
+
+        # ── 空行 ──
+        if not stripped:
             widget.insert(tk.END, '\n')
+            i += 1
+            continue
 
-    def _insert_inline_format(self, widget, text, default_fg, is_user):
-        """插入行内格式（粗体、代码、颜色标记）"""
-        import re
-        parts = re.split(r'(\*\*.*?\*\*|`.*?`|⚠️|✅|❌|📋|📄|📊|🏗️|🔥|📋|🔍)', text)
-        for part in parts:
-            if part.startswith('**') and part.endswith('**'):
-                widget.insert(tk.END, part[2:-2], 'bold')
-            elif part.startswith('`') and part.endswith('`'):
-                widget.insert(tk.END, part[1:-1], 'code')
-            elif part in ['⚠️', '❌']:
-                widget.insert(tk.END, part, 'red')
-            elif part in ['✅']:
-                widget.insert(tk.END, part, 'green')
-            elif part in ['📄', '📊', '🔍']:
-                widget.insert(tk.END, part, 'blue')
-            else:
-                widget.insert(tk.END, part)
+        # ── 分割线 ──
+        if re.match(r'^-{3,}$', stripped) or re.match(r'^\*{3,}$', stripped):
+            widget.insert(tk.END, '─' * 40 + '\n', 'hr')
+            i += 1
+            continue
+
+        # ── 标题 ──
+        if stripped.startswith('# '):
+            widget.insert(tk.END, stripped[2:] + '\n', 'h1')
+            i += 1
+            continue
+        if stripped.startswith('## '):
+            widget.insert(tk.END, stripped[3:] + '\n', 'h2')
+            i += 1
+            continue
+        if stripped.startswith('### '):
+            widget.insert(tk.END, stripped[4:] + '\n', 'h3')
+            i += 1
+            continue
+
+        # ── 引用 ──
+        if stripped.startswith('> '):
+            widget.insert(tk.END, stripped[2:] + '\n', 'quote')
+            i += 1
+            continue
+
+        # ── 有序列表 ──
+        ordered_match = re.match(r'^(\d+)\.\s+(.*)', stripped)
+        if ordered_match:
+            num = ordered_match.group(1)
+            content = ordered_match.group(2)
+            self._insert_inline_format(widget, f"{num}. {content}", default_fg, is_user, tag='ordered')
+            widget.insert(tk.END, '\n')
+            i += 1
+            continue
+
+        # ── 无序列表 ──
+        if stripped.startswith('- ') or stripped.startswith('• ') or stripped.startswith('* '):
+            content = stripped[2:]
+            widget.insert(tk.END, '•  ', 'small')
+            self._insert_inline_format(widget, content, default_fg, is_user, tag='bullet')
+            widget.insert(tk.END, '\n')
+            i += 1
+            continue
+
+        # ── 普通段落 ──
+        self._insert_inline_format(widget, line, default_fg, is_user)
+        widget.insert(tk.END, '\n')
+        i += 1
+
+    if code_buffer:
+        widget.insert(tk.END, '\n'.join(code_buffer) + '\n', 'code_block')
+
+def _insert_inline_format(self, widget, text, default_fg, is_user, tag=None):
+    """行内格式解析：粗体、斜体、代码、链接、图片、内联表格、颜色标记"""
+    import re
+    # 合并多行模式匹配：按优先级匹配
+    pattern = r'(\*\*.*?\*\*|\*.*?\*|`.*?`|\!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\|.*?\|)'
+    parts = re.split(pattern, text)
+
+    # 特殊颜色标记
+    color_map = {'⚠️': 'red', '❌': 'red', '✅': 'green', '📄': 'blue',
+                 '📊': 'blue', '🔍': 'blue', '🏗️': 'blue', '🔥': 'blue',
+                 '📋': 'blue', '💡': 'blue'}
+
+    for part in parts:
+        if not part:
+            continue
+
+        # 粗体 **text**
+        if part.startswith('**') and part.endswith('**'):
+            widget.insert(tk.END, part[2:-2], 'bold')
+
+        # 斜体 *text*
+        elif part.startswith('*') and part.endswith('*') and not part.startswith('**'):
+            widget.insert(tk.END, part[1:-1], 'italic')
+
+        # 行内代码 `text`
+        elif part.startswith('`') and part.endswith('`'):
+            widget.insert(tk.END, part[1:-1], 'code')
+
+        # 图片 ![alt](url)
+        elif part.startswith('![') and part.endswith(')'):
+            self._insert_inline_image(widget, part)
+
+        # 链接 [text](url)
+        elif part.startswith('[') and part.endswith(')'):
+            m = re.match(r'\[(.*?)\]\((.*?)\)', part)
+            if m:
+                link_text = m.group(1)
+                link_url = m.group(2)
+                # 用蓝色显示链接文本
+                widget.insert(tk.END, link_text, 'link')
+                # 保存链接信息（点击事件）
+                if hasattr(self, '_links'):
+                    self._links.append((widget, link_text, link_url))
+
+        # 内联表格 |col1|col2|
+        elif part.startswith('|') and part.endswith('|'):
+            cells = [c.strip() for c in part.split('|') if c.strip()]
+            display = ' | '.join(cells)
+            widget.insert(tk.END, f' {display} ', 'code')
+
+        # 颜色标记
+        else:
+            # 逐字符检查颜色标记
+            remaining = part
+            while remaining:
+                found = False
+                for sym, tag_name in color_map.items():
+                    if remaining.startswith(sym):
+                        widget.insert(tk.END, sym, tag_name)
+                        remaining = remaining[len(sym):]
+                        found = True
+                        break
+                if not found:
+                    # 普通文本，按段插入
+                    widget.insert(tk.END, remaining)
+                    break
+
+def _insert_inline_image(self, widget, markdown):
+    """在 Text 中插入内嵌图片（缩略图）"""
+    import re
+    m = re.match(r'!\[(.*?)\]\((.*?)\)', markdown)
+    if not m:
+        return
+    alt = m.group(1)
+    path = m.group(2)
+    if not HAS_PIL:
+        widget.insert(tk.END, f'[图片: {alt}]', 'small')
+        return
+    try:
+        if os.path.exists(path):
+            img = Image.open(path)
+            img.thumbnail((120, 90), Image.Resampling.LANCZOS)
+            # 用 PhotoImage 嵌入
+            photo = ImageTk.PhotoImage(img)
+            widget.image_create(tk.END, image=photo)
+            # 保持引用避免 GC
+            if not hasattr(self, '_inline_images'):
+                self._inline_images = []
+            self._inline_images.append(photo)
+        else:
+            widget.insert(tk.END, f'[图片: {alt}]', 'small')
+    except Exception:
+        widget.insert(tk.END, f'[图片: {alt}]', 'small')
 
     def _add_table_widget(self, parent, table_data):
         """在聊天中显示表格
@@ -2715,43 +3007,46 @@ def _load_cad_with_acmecad(self):
             while self._ocr_queue:
                 item = self._ocr_queue.pop(0)
                 kind = item[0]
-                if kind == 'page':
-                    _, page_no, total, text = item
-                    self.ocr_text.insert(tk.END, f"--- 第{page_no}页 ---\n{text}\n\n")
-                    self.ocr_text.see(tk.END)
-                    self.progress_var.set(page_no / total * 100)
-                    self.status_var.set(f"OCR 识别中: {page_no}/{total}")
-                elif kind == 'status':
-                    _, msg = item
-                    self.status_var.set(msg)
-                elif kind == 'codes':
-                    codes = item[1]
-                    self.list_tree.delete(*self.list_tree.get_children())
-                    if codes:
-                        for i, code in enumerate(codes, 1):
-                            info = self.extracted_code_info.get(normalize_for_matching(code), {})
-                            name = info.get('name', '')
-                            self.list_tree.insert('', tk.END, values=(i, code, name, ''))
-                        self.notebook.select(self.list_tree.master)
-                        self.status_var.set(f"OCR 完成: 识别到 {len(codes)} 个规范编号")
-                        self._push_ocr_to_ai()
+            if kind == 'page':
+                _, page_no, total, text = item
+                self.ocr_text.insert(tk.END, f"--- 第{page_no}页 ---\n{text}\n\n")
+                self.ocr_text.see(tk.END)
+                self.progress_var.set(page_no / total * 100)
+                self.status_var.set(f"OCR 识别中: {page_no}/{total}")
+                # 每页作为一个单独的 AI 气泡显示
+                if self.ai_chat:
+                    self.ai_chat.add_message("ai", f"📄 OCR 第{page_no}/{total}页\n\n{text}")
+            elif kind == 'status':
+                _, msg = item
+                self.status_var.set(msg)
+            elif kind == 'codes':
+                codes = item[1]
+                self.list_tree.delete(*self.list_tree.get_children())
+                if codes:
+                    for i, code in enumerate(codes, 1):
+                        info = self.extracted_code_info.get(normalize_for_matching(code), {})
+                        name = info.get('name', '')
+                        self.list_tree.insert('', tk.END, values=(i, code, name, ''))
+                    self.notebook.select(self.list_tree.master)
+                    self.status_var.set(f"OCR 完成: 识别到 {len(codes)} 个规范编号")
+                    self._push_ocr_to_ai()
+                else:
+                    sample = '\n'.join(self.ocr_results[:3])
+                    self.list_tree.insert('', tk.END, values=(1, '【未识别到规范编号】'))
+                    self.list_tree.insert('', tk.END, values=(2, '请查看 OCR 识别文本 确认内容'))
+                    if sample.strip():
+                        self.list_tree.insert('', tk.END, values=(3, sample[:120].replace('\n', ' ')))
+                    self.notebook.select(self.list_tree.master)
+                    self.status_var.set("OCR 完成，但未识别到规范编号")
+                self.progress_var.set(100)
+                if self.pdf_images:
+                    self.show_page(self.current_display_index)
+                    if not self._ocr_done or self._ocr_queue:
+                        self.root.after(50, process_queue)
                     else:
-                        sample = '\n'.join(self.ocr_results[:3])
-                        self.list_tree.insert('', tk.END, values=(1, '【未识别到规范编号】'))
-                        self.list_tree.insert('', tk.END, values=(2, '请查看 OCR 识别文本 确认内容'))
-                        if sample.strip():
-                            self.list_tree.insert('', tk.END, values=(3, sample[:120].replace('\n', ' ')))
-                        self.notebook.select(self.list_tree.master)
-                        self.status_var.set("OCR 完成，但未识别到规范编号")
-                    self.progress_var.set(100)
-                    if self.pdf_images:
-                        self.show_page(self.current_display_index)
-            if not self._ocr_done or self._ocr_queue:
-                self.root.after(50, process_queue)
-            else:
-                self._ocr_queue = []
-                self._ocr_done = False
-
+                        self._ocr_queue = []
+                        self._ocr_done = False
+    
         threading.Thread(target=do_ocr, daemon=True).start()
         self.root.after(50, process_queue)
 
