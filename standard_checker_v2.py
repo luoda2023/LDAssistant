@@ -751,121 +751,121 @@ def _save_ai_config(config):
 class AIChatFloatingWindow:
     """AI 聊天悬浮窗"""
 
-def __init__(self, master, config=None):
-    self.master = master
-    self.config = config or _load_ai_config()
-    self.window = tk.Toplevel(master)
-    self.window.title("AI 助手")
-    self.window.geometry("420x560")
-    self.window.minsize(300, 350)
-    # 设置 AI 窗口图标
-    self._set_ai_icon()
-    self._floating = True
-    self._pin_icon = "📌"
-    self._float_icon = "💠"
-    self._offset_x = 0
-    self._offset_y = 0
-    self._messages = []
-    self._links = []
-    self._setup_ui()
-    self._setup_drag()
-    self.add_message("ai", "你好！我是标准查询 AI 助手。\n发送标准号或关键词，我可以帮你查询国家标准。\n\nOCR 识别的结果会自动显示在这里。")
+    def __init__(self, master, config=None):
+        self.master = master
+        self.config = config or _load_ai_config()
+        self.window = tk.Toplevel(master)
+        self.window.title("AI 助手")
+        self.window.geometry("420x560")
+        self.window.minsize(300, 350)
+        # 设置 AI 窗口图标
+        self._set_ai_icon()
+        self._floating = True
+        self._pin_icon = "📌"
+        self._float_icon = "💠"
+        self._offset_x = 0
+        self._offset_y = 0
+        self._messages = []
+        self._links = []
+        self._setup_ui()
+        self._setup_drag()
+        self.add_message("ai", "你好！我是标准查询 AI 助手。\n发送标准号或关键词，我可以帮你查询国家标准。\n\nOCR 识别的结果会自动显示在这里。")
 
-def _set_ai_icon(self):
-    """给 AI 聊天窗口设置图标（兼容 PyInstaller onedir 路径）"""
-    for p in [_APP_DIR / 'app_icon.ico', _APP_DIR / 'app_icon.png']:
-        if p.exists():
-            try:
-                if p.suffix == '.ico':
-                    self.window.iconbitmap(str(p))
-                    return
-                else:
-                    img = tk.PhotoImage(file=str(p))
-                    self.window.iconphoto(True, img)
-                    self._icon_image = img
-                    return
-            except Exception:
-                continue
+    def _set_ai_icon(self):
+        """给 AI 聊天窗口设置图标（兼容 PyInstaller onedir 路径）"""
+        for p in [_APP_DIR / 'app_icon.ico', _APP_DIR / 'app_icon.png']:
+            if p.exists():
+                try:
+                    if p.suffix == '.ico':
+                        self.window.iconbitmap(str(p))
+                        return
+                    else:
+                        img = tk.PhotoImage(file=str(p))
+                        self.window.iconphoto(True, img)
+                        self._icon_image = img
+                        return
+                except Exception:
+                    continue
 
-def _setup_ui(self):
-    """美化后的 AI 对话 UI"""
-    # ── 标题栏 ──
-    titlebar = tk.Frame(self.window, bg="#1a73e8", height=36)
-    titlebar.pack(side=tk.TOP, fill=tk.X)
-    titlebar.pack_propagate(False)
-    titlebar.bind('<ButtonPress-1>', self._start_drag)
-    titlebar.bind('<B1-Motion>', self._on_drag)
-    self._title_label = tk.Label(titlebar, text="🤖 AI 助手",
-                                 font=("Microsoft YaHei", 10, "bold"),
-                                 bg="#1a73e8", fg="white")
-    self._title_label.pack(side=tk.LEFT, padx=10)
-    self._title_label.bind('<ButtonPress-1>', self._start_drag)
-    self._title_label.bind('<B1-Motion>', self._on_drag)
+    def _setup_ui(self):
+        """美化后的 AI 对话 UI"""
+        # ── 标题栏 ──
+        titlebar = tk.Frame(self.window, bg="#1a73e8", height=36)
+        titlebar.pack(side=tk.TOP, fill=tk.X)
+        titlebar.pack_propagate(False)
+        titlebar.bind('<ButtonPress-1>', self._start_drag)
+        titlebar.bind('<B1-Motion>', self._on_drag)
+        self._title_label = tk.Label(titlebar, text="🤖 AI 助手",
+                                     font=("Microsoft YaHei", 10, "bold"),
+                                     bg="#1a73e8", fg="white")
+        self._title_label.pack(side=tk.LEFT, padx=10)
+        self._title_label.bind('<ButtonPress-1>', self._start_drag)
+        self._title_label.bind('<B1-Motion>', self._on_drag)
 
-    # 标题栏右侧按钮
-    btn_frame = tk.Frame(titlebar, bg="#1a73e8")
-    btn_frame.pack(side=tk.RIGHT, padx=4)
-    for txt, cmd in [(self._pin_icon, self._toggle_pin),
-                     ("⚙️", self._open_config),
-                     ("🗑", self._clear_chat),
-                     ("💾", self._export_chat),
-                     ("—", self._minimize),
-                     ("✕", self._close)]:
-        b = tk.Label(btn_frame, text=txt, font=("SimSun", 9),
-                     bg="#1a73e8", fg="white", cursor="hand2", padx=3)
-        b.pack(side=tk.LEFT, padx=1)
-        b.bind('<Button-1>', lambda e, c=cmd: c())
-    self._pin_btn = btn_frame.winfo_children()[0]
+        # 标题栏右侧按钮
+        btn_frame = tk.Frame(titlebar, bg="#1a73e8")
+        btn_frame.pack(side=tk.RIGHT, padx=4)
+        for txt, cmd in [(self._pin_icon, self._toggle_pin),
+                         ("⚙️", self._open_config),
+                         ("🗑", self._clear_chat),
+                         ("💾", self._export_chat),
+                         ("—", self._minimize),
+                         ("✕", self._close)]:
+            b = tk.Label(btn_frame, text=txt, font=("SimSun", 9),
+                         bg="#1a73e8", fg="white", cursor="hand2", padx=3)
+            b.pack(side=tk.LEFT, padx=1)
+            b.bind('<Button-1>', lambda e, c=cmd: c())
+        self._pin_btn = btn_frame.winfo_children()[0]
 
-    # ── 快捷查询行 ──
-    quick_row = tk.Frame(self.window, bg="#f0f4f8")
-    quick_row.pack(side=tk.TOP, fill=tk.X, padx=6, pady=4)
-    for txt, q in [("🏗️ 混凝土", "混凝土结构"), ("🔥 防火", "建筑防火"),
-                   ("📋 GB 50068", "GB 50068"), ("🔍 最新", "最新发布")]:
-        btn = tk.Label(quick_row, text=txt, font=("Microsoft YaHei", 8),
-                       bg="#e8edf2", fg="#333", padx=6, pady=2,
-                       cursor="hand2", relief="flat")
-        btn.pack(side=tk.LEFT, padx=3)
-        btn.bind('<Button-1>', lambda e, query=q: self._send_query(query))
+        # ── 快捷查询行 ──
+        quick_row = tk.Frame(self.window, bg="#f0f4f8")
+        quick_row.pack(side=tk.TOP, fill=tk.X, padx=6, pady=4)
+        for txt, q in [("🏗️ 混凝土", "混凝土结构"), ("🔥 防火", "建筑防火"),
+                       ("📋 GB 50068", "GB 50068"), ("🔍 最新", "最新发布")]:
+            btn = tk.Label(quick_row, text=txt, font=("Microsoft YaHei", 8),
+                           bg="#e8edf2", fg="#333", padx=6, pady=2,
+                           cursor="hand2", relief="flat")
+            btn.pack(side=tk.LEFT, padx=3)
+            btn.bind('<Button-1>', lambda e, query=q: self._send_query(query))
 
-    # ── 消息区域 ──
-    msg_frame = tk.Frame(self.window, bg="#eef2f7")
-    msg_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
-    self._msg_canvas = tk.Canvas(msg_frame, bg="#eef2f7", highlightthickness=0, bd=0)
-    msg_scroll = ttk.Scrollbar(msg_frame, orient=tk.VERTICAL, command=self._msg_canvas.yview)
-    self._msg_canvas.configure(yscrollcommand=msg_scroll.set)
-    msg_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-    self._msg_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-    self._msg_inner = tk.Frame(self._msg_canvas, bg="#eef2f7")
-    self._msg_window = self._msg_canvas.create_window(
-        (0, 0), window=self._msg_inner, anchor='nw', width=380)
-    self._msg_inner.bind('<Configure>', self._on_msg_configure)
+        # ── 消息区域 ──
+        msg_frame = tk.Frame(self.window, bg="#eef2f7")
+        msg_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
+        self._msg_canvas = tk.Canvas(msg_frame, bg="#eef2f7", highlightthickness=0, bd=0)
+        msg_scroll = ttk.Scrollbar(msg_frame, orient=tk.VERTICAL, command=self._msg_canvas.yview)
+        self._msg_canvas.configure(yscrollcommand=msg_scroll.set)
+        msg_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self._msg_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._msg_inner = tk.Frame(self._msg_canvas, bg="#eef2f7")
+        self._msg_window = self._msg_canvas.create_window(
+            (0, 0), window=self._msg_inner, anchor='nw', width=380)
+        self._msg_inner.bind('<Configure>', self._on_msg_configure)
 
-    # ── 输入区域 ──
-    input_frame = tk.Frame(self.window, bg="#f0f4f8", bd=0)
-    input_frame.pack(side=tk.TOP, fill=tk.X, padx=6, pady=(0, 6))
-    entry_bg = tk.Frame(input_frame, bg="white", bd=1, relief="solid")
-    entry_bg.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
-    self._input_entry = tk.Text(entry_bg, height=2, font=("Microsoft YaHei", 10),
-                                wrap=tk.WORD, bd=0, padx=6, pady=4,
-                                bg="white", fg="#333")
-    self._input_entry.pack(fill=tk.BOTH, expand=True)
-    self._input_entry.bind('<Return>', self._on_input_enter)
-    self._send_btn = tk.Label(input_frame, text="➤ 发送",
-                              font=("Microsoft YaHei", 9, "bold"),
-                              bg="#1a73e8", fg="white", padx=12, pady=4,
-                              cursor="hand2")
-    self._send_btn.pack(side=tk.RIGHT)
-    self._send_btn.bind('<Button-1>', lambda e: self._send_input())
+        # ── 输入区域 ──
+        input_frame = tk.Frame(self.window, bg="#f0f4f8", bd=0)
+        input_frame.pack(side=tk.TOP, fill=tk.X, padx=6, pady=(0, 6))
+        entry_bg = tk.Frame(input_frame, bg="white", bd=1, relief="solid")
+        entry_bg.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
+        self._input_entry = tk.Text(entry_bg, height=2, font=("Microsoft YaHei", 10),
+                                    wrap=tk.WORD, bd=0, padx=6, pady=4,
+                                    bg="white", fg="#333")
+        self._input_entry.pack(fill=tk.BOTH, expand=True)
+        self._input_entry.bind('<Return>', self._on_input_enter)
+        self._send_btn = tk.Label(input_frame, text="➤ 发送",
+                                  font=("Microsoft YaHei", 9, "bold"),
+                                  bg="#1a73e8", fg="white", padx=12, pady=4,
+                                  cursor="hand2")
+        self._send_btn.pack(side=tk.RIGHT)
+        self._send_btn.bind('<Button-1>', lambda e: self._send_input())
 
-    # ── 状态栏 ──
-    self._status_label = tk.Label(self.window, text="就绪 ✨",
-                                  font=("Microsoft YaHei", 8), fg="#888",
-                                  bg="#eef2f7", anchor=tk.W)
-    self._status_label.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=2)
+        # ── 状态栏 ──
+        self._status_label = tk.Label(self.window, text="就绪 ✨",
+                                      font=("Microsoft YaHei", 8), fg="#888",
+                                      bg="#eef2f7", anchor=tk.W)
+        self._status_label.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=2)
 
-    self.window.protocol("WM_DELETE_WINDOW", self._close)
-    self.window.bind('<Escape>', lambda e: self._minimize())
+        self.window.protocol("WM_DELETE_WINDOW", self._close)
+        self.window.bind('<Escape>', lambda e: self._minimize())
 
     def _setup_drag(self):
         self.window.bind('<ButtonPress-1>', self._start_drag)
@@ -903,12 +903,12 @@ def _setup_ui(self):
         self.window.deiconify()
         self.window.lift()
 
-def _clear_chat(self):
-    self._messages = []
-    self._links = []
-    for w in self._msg_inner.winfo_children():
-        w.destroy()
-    self.add_message("ai", "对话已清空，可以重新开始提问。")
+    def _clear_chat(self):
+        self._messages = []
+        self._links = []
+        for w in self._msg_inner.winfo_children():
+            w.destroy()
+        self.add_message("ai", "对话已清空，可以重新开始提问。")
 
     def _export_chat(self):
         """导出 AI 对话记录为 Word 或 PDF"""
@@ -972,50 +972,50 @@ def _clear_chat(self):
         except Exception as e:
             messagebox.showerror("错误", f"导出失败: {e}", parent=self.window)
 
-def _do_export_chat_pdf(self):
-    """导出对话为 PDF 文档"""
-    try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import cm
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-        from reportlab.lib import colors
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-    except Exception:
-        messagebox.showwarning("提示", "需要安装 reportlab 库才能导出 PDF，请在命令行执行:\npip install reportlab",
-                               parent=self.window)
-        return
-    try:
-        pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
-        title, body = self._build_chat_text()
-        path = filedialog.asksaveasfilename(
-            title="保存对话记录 (PDF)",
-            defaultextension=".pdf",
-            filetypes=[("PDF 文档", "*.pdf"), ("所有文件", "*.*")])
-        if not path:
+    def _do_export_chat_pdf(self):
+        """导出对话为 PDF 文档"""
+        try:
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import cm
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib import colors
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        except Exception:
+            messagebox.showwarning("提示", "需要安装 reportlab 库才能导出 PDF，请在命令行执行:\npip install reportlab",
+                                   parent=self.window)
             return
-        doc = SimpleDocTemplate(path, pagesize=A4,
-                                leftMargin=2*cm, rightMargin=2*cm,
-                                topMargin=2*cm, bottomMargin=2*cm)
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle('Title', parent=styles['Title'], fontName='STSong-Light', fontSize=16, spaceAfter=20, alignment=1)
-        story = [Paragraph(title, title_style), Spacer(1, 0.3*cm)]
-        ai_style = ParagraphStyle('AI', parent=styles['Normal'], fontName='STSong-Light', fontSize=10, spaceAfter=8, textColor=colors.HexColor('#1a73e8'))
-        user_style = ParagraphStyle('User', parent=styles['Normal'], fontName='STSong-Light', fontSize=10, spaceAfter=8, textColor=colors.HexColor('#333333'))
-        for m in self._messages:
-            role = m.get("role")
-            role_label = "🤖 AI" if role == "ai" else "👤 用户"
-            style = ai_style if role == "ai" else user_style
-            content = m.get("content", "").replace("\n", "<br/>")
-            content = content.replace("**", "").replace("•", "- ")
-            story.append(Paragraph(f"<b>{role_label}：</b>", style))
-            story.append(Paragraph(content, style))
-            story.append(Spacer(1, 0.2*cm))
-        doc.build(story)
-        messagebox.showinfo("完成", f"对话已导出:\n{path}", parent=self.window)
-    except Exception as e:
-        messagebox.showerror("错误", f"导出 PDF 失败: {e}", parent=self.window)
+        try:
+            pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+            title, body = self._build_chat_text()
+            path = filedialog.asksaveasfilename(
+                title="保存对话记录 (PDF)",
+                defaultextension=".pdf",
+                filetypes=[("PDF 文档", "*.pdf"), ("所有文件", "*.*")])
+            if not path:
+                return
+            doc = SimpleDocTemplate(path, pagesize=A4,
+                                    leftMargin=2*cm, rightMargin=2*cm,
+                                    topMargin=2*cm, bottomMargin=2*cm)
+            styles = getSampleStyleSheet()
+            title_style = ParagraphStyle('Title', parent=styles['Title'], fontName='STSong-Light', fontSize=16, spaceAfter=20, alignment=1)
+            story = [Paragraph(title, title_style), Spacer(1, 0.3*cm)]
+            ai_style = ParagraphStyle('AI', parent=styles['Normal'], fontName='STSong-Light', fontSize=10, spaceAfter=8, textColor=colors.HexColor('#1a73e8'))
+            user_style = ParagraphStyle('User', parent=styles['Normal'], fontName='STSong-Light', fontSize=10, spaceAfter=8, textColor=colors.HexColor('#333333'))
+            for m in self._messages:
+                role = m.get("role")
+                role_label = "🤖 AI" if role == "ai" else "👤 用户"
+                style = ai_style if role == "ai" else user_style
+                content = m.get("content", "").replace("\n", "<br/>")
+                content = content.replace("**", "").replace("•", "- ")
+                story.append(Paragraph(f"<b>{role_label}：</b>", style))
+                story.append(Paragraph(content, style))
+                story.append(Spacer(1, 0.2*cm))
+            doc.build(story)
+            messagebox.showinfo("完成", f"对话已导出:\n{path}", parent=self.window)
+        except Exception as e:
+            messagebox.showerror("错误", f"导出 PDF 失败: {e}", parent=self.window)
 
     def _open_config(self):
         """打开AI API配置对话框"""
@@ -1177,384 +1177,384 @@ def _do_export_chat_pdf(self):
         self.add_message("ai", reply)
         self._status_label.config(text="就绪")
 
-def add_message(self, role, content, msg_type='text', extra=None):
-    """添加一条消息到聊天界面，底部带操作栏"""
-    self._messages.append({"role": role, "content": content})
+    def add_message(self, role, content, msg_type='text', extra=None):
+        """添加一条消息到聊天界面，底部带操作栏"""
+        self._messages.append({"role": role, "content": content})
 
-    # ── 外层容器（对齐） ──
-    outer = tk.Frame(self._msg_inner, bg="#eef2f7")
-    outer.pack(fill=tk.X, padx=8, pady=(4, 2), anchor='e' if role == 'user' else 'w')
+        # ── 外层容器（对齐） ──
+        outer = tk.Frame(self._msg_inner, bg="#eef2f7")
+        outer.pack(fill=tk.X, padx=8, pady=(4, 2), anchor='e' if role == 'user' else 'w')
 
-    # ── 角色标签 ──
-    hdr = tk.Label(outer, text="你" if role == 'user' else "AI",
-                   font=("Microsoft YaHei", 8, "bold"),
-                   bg="#eef2f7",
-                   fg="#1a73e8" if role == 'ai' else "#555")
-    hdr.pack(anchor='e' if role == 'user' else 'w', pady=(0, 2))
+        # ── 角色标签 ──
+        hdr = tk.Label(outer, text="你" if role == 'user' else "AI",
+                       font=("Microsoft YaHei", 8, "bold"),
+                       bg="#eef2f7",
+                       fg="#1a73e8" if role == 'ai' else "#555")
+        hdr.pack(anchor='e' if role == 'user' else 'w', pady=(0, 2))
 
-    # ── 气泡内容 ──
-    if msg_type == 'text':
-        bubble = self._add_text_bubble(outer, content, role)
-    elif msg_type == 'table':
-        self._add_table_widget(outer, extra or [])
-        if content:
-            bubble = self._add_text_bubble(outer, content, role, small=True)
+        # ── 气泡内容 ──
+        if msg_type == 'text':
+            bubble = self._add_text_bubble(outer, content, role)
+        elif msg_type == 'table':
+            self._add_table_widget(outer, extra or [])
+            if content:
+                bubble = self._add_text_bubble(outer, content, role, small=True)
+            else:
+                bubble = None
+        elif msg_type == 'image':
+            self._add_image_widget(outer, extra)
+            if content:
+                bubble = self._add_text_bubble(outer, content, role, small=True)
+            else:
+                bubble = None
+        elif msg_type == 'file':
+            self._add_file_widget(outer, extra or {})
+            if content:
+                bubble = self._add_text_bubble(outer, content, role, small=True)
+            else:
+                bubble = None
         else:
-            bubble = None
-    elif msg_type == 'image':
-        self._add_image_widget(outer, extra)
-        if content:
-            bubble = self._add_text_bubble(outer, content, role, small=True)
-        else:
-            bubble = None
-    elif msg_type == 'file':
-        self._add_file_widget(outer, extra or {})
-        if content:
-            bubble = self._add_text_bubble(outer, content, role, small=True)
-        else:
-            bubble = None
-    else:
-        bubble = self._add_text_bubble(outer, content, role)
+            bubble = self._add_text_bubble(outer, content, role)
 
-    # ── 操作栏（每个气泡底部） ──
-    self._add_action_bar(outer, content, role)
+        # ── 操作栏（每个气泡底部） ──
+        self._add_action_bar(outer, content, role)
 
-    self._msg_canvas.after(50, self._on_msg_configure)
+        self._msg_canvas.after(50, self._on_msg_configure)
 
-def _add_action_bar(self, parent, content, role):
-    """每个气泡底部的操作图标栏"""
-    bar = tk.Frame(parent, bg="#eef2f7", height=22)
-    bar.pack(fill=tk.X, pady=(0, 0), anchor='e' if role == 'user' else 'w')
-    bar.pack_propagate(False)
+    def _add_action_bar(self, parent, content, role):
+        """每个气泡底部的操作图标栏"""
+        bar = tk.Frame(parent, bg="#eef2f7", height=22)
+        bar.pack(fill=tk.X, pady=(0, 0), anchor='e' if role == 'user' else 'w')
+        bar.pack_propagate(False)
 
-    # 固定内容用于闭包
-    msg_content = content
+        # 固定内容用于闭包
+        msg_content = content
 
-    def do_copy():
-        parent.window.clipboard_clear()
-        parent.window.clipboard_append(msg_content)
-        self._status_label.config(text="📋 已复制")
+        def do_copy():
+            self.window.clipboard_clear()
+            self.window.clipboard_append(msg_content)
+            self._status_label.config(text="📋 已复制")
 
-    def do_export_single_docx():
-        """导出单条消息为 Word"""
-        if not HAS_DOCX:
-            messagebox.showwarning("提示", "需要安装 python-docx", parent=self.window)
-            return
-        from docx import Document
-        from docx.shared import Pt, RGBColor
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
-        try:
-            role_label = "AI" if role == "ai" else "用户"
-            path = filedialog.asksaveasfilename(
-                title=f"保存 {role_label} 消息",
-                defaultextension=".docx",
-                filetypes=[("Word 文档", "*.docx"), ("所有文件", "*.*")])
-            if not path:
+        def do_export_single_docx():
+            """导出单条消息为 Word"""
+            if not HAS_DOCX:
+                messagebox.showwarning("提示", "需要安装 python-docx", parent=self.window)
                 return
-            doc = Document()
-            p = doc.add_paragraph()
-            run = p.add_run(f"[{role_label}]")
-            run.bold = True
-            run.font.size = Pt(11)
-            run.font.name = "SimSun"
-            if role == "ai":
-                run.font.color.rgb = RGBColor(0x1a, 0x73, 0xe8)
-            p2 = doc.add_paragraph(msg_content)
-            for run in p2.runs:
-                run.font.name = "SimSun"
+            from docx import Document
+            from docx.shared import Pt, RGBColor
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+            try:
+                role_label = "AI" if role == "ai" else "用户"
+                path = filedialog.asksaveasfilename(
+                    title=f"保存 {role_label} 消息",
+                    defaultextension=".docx",
+                    filetypes=[("Word 文档", "*.docx"), ("所有文件", "*.*")])
+                if not path:
+                    return
+                doc = Document()
+                p = doc.add_paragraph()
+                run = p.add_run(f"[{role_label}]")
+                run.bold = True
                 run.font.size = Pt(11)
-            doc.save(path)
-            self._status_label.config(text="✅ 已导出 Word")
-        except Exception as e:
-            messagebox.showerror("错误", f"导出失败: {e}", parent=self.window)
+                run.font.name = "SimSun"
+                if role == "ai":
+                    run.font.color.rgb = RGBColor(0x1a, 0x73, 0xe8)
+                p2 = doc.add_paragraph(msg_content)
+                for run in p2.runs:
+                    run.font.name = "SimSun"
+                    run.font.size = Pt(11)
+                doc.save(path)
+                self._status_label.config(text="✅ 已导出 Word")
+            except Exception as e:
+                messagebox.showerror("错误", f"导出失败: {e}", parent=self.window)
 
-    def do_export_single_pdf():
-        """导出单条消息为 PDF"""
-        try:
-            from reportlab.lib.pagesizes import A4
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib.units import cm
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-            from reportlab.lib import colors
-            from reportlab.pdfbase import pdfmetrics
-            from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-        except Exception:
-            messagebox.showwarning("提示", "需要安装 reportlab", parent=self.window)
-            return
-        try:
-            pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
-            role_label = "AI" if role == "ai" else "用户"
-            path = filedialog.asksaveasfilename(
-                title=f"保存 {role_label} 消息",
-                defaultextension=".pdf",
-                filetypes=[("PDF 文档", "*.pdf"), ("所有文件", "*.*")])
-            if not path:
+        def do_export_single_pdf():
+            """导出单条消息为 PDF"""
+            try:
+                from reportlab.lib.pagesizes import A4
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib.units import cm
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+                from reportlab.lib import colors
+                from reportlab.pdfbase import pdfmetrics
+                from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+            except Exception:
+                messagebox.showwarning("提示", "需要安装 reportlab", parent=self.window)
                 return
-            doc = SimpleDocTemplate(path, pagesize=A4,
-                                    leftMargin=2*cm, rightMargin=2*cm,
-                                    topMargin=2*cm, bottomMargin=2*cm)
-            styles = getSampleStyleSheet()
-            role_style = ParagraphStyle('Role', parent=styles['Normal'],
-                                        fontName='STSong-Light', fontSize=12,
-                                        textColor=colors.HexColor('#1a73e8' if role == 'ai' else '#333'),
-                                        spaceAfter=8)
-            content_style = ParagraphStyle('Content', parent=styles['Normal'],
-                                           fontName='STSong-Light', fontSize=10,
-                                           spaceAfter=12)
-            c = msg_content.replace("\n", "<br/>").replace("**", "").replace("•", "- ")
-            story = [Paragraph(f"<b>{role_label}：</b>", role_style),
-                     Paragraph(c, content_style)]
-            doc.build(story)
-            self._status_label.config(text="✅ 已导出 PDF")
-        except Exception as e:
-            messagebox.showerror("错误", f"导出 PDF 失败: {e}", parent=self.window)
+            try:
+                pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+                role_label = "AI" if role == "ai" else "用户"
+                path = filedialog.asksaveasfilename(
+                    title=f"保存 {role_label} 消息",
+                    defaultextension=".pdf",
+                    filetypes=[("PDF 文档", "*.pdf"), ("所有文件", "*.*")])
+                if not path:
+                    return
+                doc = SimpleDocTemplate(path, pagesize=A4,
+                                        leftMargin=2*cm, rightMargin=2*cm,
+                                        topMargin=2*cm, bottomMargin=2*cm)
+                styles = getSampleStyleSheet()
+                role_style = ParagraphStyle('Role', parent=styles['Normal'],
+                                            fontName='STSong-Light', fontSize=12,
+                                            textColor=colors.HexColor('#1a73e8' if role == 'ai' else '#333'),
+                                            spaceAfter=8)
+                content_style = ParagraphStyle('Content', parent=styles['Normal'],
+                                               fontName='STSong-Light', fontSize=10,
+                                               spaceAfter=12)
+                c = msg_content.replace("\n", "<br/>").replace("**", "").replace("•", "- ")
+                story = [Paragraph(f"<b>{role_label}：</b>", role_style),
+                         Paragraph(c, content_style)]
+                doc.build(story)
+                self._status_label.config(text="✅ 已导出 PDF")
+            except Exception as e:
+                messagebox.showerror("错误", f"导出 PDF 失败: {e}", parent=self.window)
 
-    # 操作按钮
-    for txt, tooltip, cmd in [("📋", "复制", do_copy),
+        # 操作按钮
+        for txt, tooltip, cmd in [("📋", "复制", do_copy),
                                ("📄", "导出 Word", do_export_single_docx),
                                ("📕", "导出 PDF", do_export_single_pdf)]:
-        btn = tk.Label(bar, text=txt, font=("SimSun", 8),
+            btn = tk.Label(bar, text=txt, font=("SimSun", 8),
                        bg="#eef2f7", fg="#666", cursor="hand2", padx=3)
-        btn.pack(side=tk.LEFT, padx=1)
-        btn.bind('<Button-1>', lambda e, c=cmd: c())
-        # 悬停效果
-        btn.bind('<Enter>', lambda e, b=btn: b.config(fg="#1a73e8"))
-        btn.bind('<Leave>', lambda e, b=btn: b.config(fg="#666"))
+            btn.pack(side=tk.LEFT, padx=1)
+            btn.bind('<Button-1>', lambda e, c=cmd: c())
+            # 悬停效果
+            btn.bind('<Enter>', lambda e, b=btn: b.config(fg="#1a73e8"))
+            btn.bind('<Leave>', lambda e, b=btn: b.config(fg="#666"))
 
-def _add_text_bubble(self, parent, text, role, small=False):
-    """富文本气泡，带圆角风格"""
-    font_size = 9 if small else 10
-    if role == 'user':
-        bg = "#d2e3fc"
-        fg = "#1a1a1a"
-        max_width = 60
-    else:
-        bg = "#ffffff"
-        fg = "#1a1a1a"
-        max_width = 60
+    def _add_text_bubble(self, parent, text, role, small=False):
+        """富文本气泡，带圆角风格"""
+        font_size = 9 if small else 10
+        if role == 'user':
+            bg = "#d2e3fc"
+            fg = "#1a1a1a"
+            max_width = 60
+        else:
+            bg = "#ffffff"
+            fg = "#1a1a1a"
+            max_width = 60
 
-    # 计算合适高度
-    line_count = text.count('\n') + 1
-    est_height = min(18, max(2, line_count))
+        # 计算合适高度
+        line_count = text.count('\n') + 1
+        est_height = min(18, max(2, line_count))
 
-    bubble = tk.Text(parent, wrap=tk.WORD, font=("Microsoft YaHei", font_size),
-                     bg=bg, fg=fg, bd=0, padx=10, pady=8,
-                     height=est_height,
-                     width=max_width, highlightthickness=0,
-                     relief="flat")
+        bubble = tk.Text(parent, wrap=tk.WORD, font=("Microsoft YaHei", font_size),
+                         bg=bg, fg=fg, bd=0, padx=10, pady=8,
+                         height=est_height,
+                         width=max_width, highlightthickness=0,
+                         relief="flat")
 
-    # 解析富文本
-    self._insert_formatted_text(bubble, text, fg, role == 'user')
+        # 解析富文本
+        self._insert_formatted_text(bubble, text, fg, role == 'user')
 
-    bubble.config(state=tk.DISABLED)
-    bubble.pack(fill=tk.X, pady=(0, 0), anchor='e' if role == 'user' else 'w')
-    return bubble
+        bubble.config(state=tk.DISABLED)
+        bubble.pack(fill=tk.X, pady=(0, 0), anchor='e' if role == 'user' else 'w')
+        return bubble
 
-def _insert_formatted_text(self, widget, text, default_fg, is_user):
-    """完整 Markdown 解析引擎，插入到 Text 组件中"""
-    import re
-    # ── 注册 tag ──
-    widget.tag_config('bold', font=("Microsoft YaHei", 10, "bold"), foreground=default_fg)
-    widget.tag_config('italic', font=("Microsoft YaHei", 10, "italic"), foreground=default_fg)
-    widget.tag_config('h1', font=("Microsoft YaHei", 14, "bold"), foreground="#1a73e8", spacing1=6, spacing3=4)
-    widget.tag_config('h2', font=("Microsoft YaHei", 12, "bold"), foreground="#2c3e50", spacing1=4, spacing3=2)
-    widget.tag_config('h3', font=("Microsoft YaHei", 11, "bold"), foreground="#34495e", spacing1=3, spacing3=2)
-    widget.tag_config('code', font=("Consolas", 9), foreground="#c00000" if not is_user else "#ffcccc",
-                      bg="#f5f5f5" if not is_user else "#3a3a3a")
-    widget.tag_config('code_block', font=("Consolas", 9), foreground="#333",
-                      bg="#f0f0f0", lmargin1=12, lmargin2=12, rmargin=12,
+    def _insert_formatted_text(self, widget, text, default_fg, is_user):
+        """完整 Markdown 解析引擎，插入到 Text 组件中"""
+        import re
+        # ── 注册 tag ──
+        widget.tag_config('bold', font=("Microsoft YaHei", 10, "bold"), foreground=default_fg)
+        widget.tag_config('italic', font=("Microsoft YaHei", 10, "italic"), foreground=default_fg)
+        widget.tag_config('h1', font=("Microsoft YaHei", 14, "bold"), foreground="#1a73e8", spacing1=6, spacing3=4)
+        widget.tag_config('h2', font=("Microsoft YaHei", 12, "bold"), foreground="#2c3e50", spacing1=4, spacing3=2)
+        widget.tag_config('h3', font=("Microsoft YaHei", 11, "bold"), foreground="#34495e", spacing1=3, spacing3=2)
+        widget.tag_config('code', font=("Consolas", 9), foreground="#c00000" if not is_user else "#ffcccc",
+                       background="#f5f5f5" if not is_user else "#3a3a3a")
+        widget.tag_config('code_block', font=("Consolas", 9), foreground="#333",
+                      background="#f0f0f0", lmargin1=12, lmargin2=12, rmargin=12,
                       spacing1=4, spacing3=4)
-    widget.tag_config('small', font=("Microsoft YaHei", 8), foreground=default_fg)
-    widget.tag_config('red', foreground="#ff4444")
-    widget.tag_config('green', foreground="#00aa00")
-    widget.tag_config('blue', foreground="#1a73e8")
-    widget.tag_config('quote', font=("Microsoft YaHei", 9, "italic"), foreground="#666",
-                      bg="#f8f8f8", lmargin1=16, lmargin2=16, spacing1=2, spacing3=2)
-    widget.tag_config('link', foreground="#1a73e8", underline=True)
-    widget.tag_config('bullet', lmargin1=12, lmargin2=24)
-    widget.tag_config('ordered', lmargin1=12, lmargin2=24)
-    widget.tag_config('hr', foreground="#ccc", font=("SimSun", 6))
+        widget.tag_config('small', font=("Microsoft YaHei", 8), foreground=default_fg)
+        widget.tag_config('red', foreground="#ff4444")
+        widget.tag_config('green', foreground="#00aa00")
+        widget.tag_config('blue', foreground="#1a73e8")
+        widget.tag_config('quote', font=("Microsoft YaHei", 9, "italic"), foreground="#666",
+                      background="#f8f8f8", lmargin1=16, lmargin2=16, spacing1=2, spacing3=2)
+        widget.tag_config('link', foreground="#1a73e8", underline=True)
+        widget.tag_config('bullet', lmargin1=12, lmargin2=24)
+        widget.tag_config('ordered', lmargin1=12, lmargin2=24)
+        widget.tag_config('hr', foreground="#ccc", font=("SimSun", 6))
 
-    lines = text.split('\n')
-    code_block = False
-    code_buffer = []
-    ordered_counter = 0
+        lines = text.split('\n')
+        code_block = False
+        code_buffer = []
+        ordered_counter = 0
 
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        stripped = line.strip()
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            stripped = line.strip()
 
-        # ── 代码块 ──
-        if stripped.startswith('```'):
+            # ── 代码块 ──
+            if stripped.startswith('```'):
+                if code_block:
+                    # 结束代码块
+                    code_text = '\n'.join(code_buffer)
+                    widget.insert(tk.END, code_text + '\n', 'code_block')
+                    code_buffer = []
+                    code_block = False
+                else:
+                    code_block = True
+                    code_buffer = []
+                i += 1
+                continue
             if code_block:
-                # 结束代码块
-                code_text = '\n'.join(code_buffer)
-                widget.insert(tk.END, code_text + '\n', 'code_block')
-                code_buffer = []
-                code_block = False
+                code_buffer.append(line)
+                i += 1
+                continue
+
+            # ── 空行 ──
+            if not stripped:
+                widget.insert(tk.END, '\n')
+                i += 1
+                continue
+
+            # ── 分割线 ──
+            if re.match(r'^-{3,}$', stripped) or re.match(r'^\*{3,}$', stripped):
+                widget.insert(tk.END, '─' * 40 + '\n', 'hr')
+                i += 1
+                continue
+
+            # ── 标题 ──
+            if stripped.startswith('# '):
+                widget.insert(tk.END, stripped[2:] + '\n', 'h1')
+                i += 1
+                continue
+            if stripped.startswith('## '):
+                widget.insert(tk.END, stripped[3:] + '\n', 'h2')
+                i += 1
+                continue
+            if stripped.startswith('### '):
+                widget.insert(tk.END, stripped[4:] + '\n', 'h3')
+                i += 1
+                continue
+
+            # ── 引用 ──
+            if stripped.startswith('> '):
+                widget.insert(tk.END, stripped[2:] + '\n', 'quote')
+                i += 1
+                continue
+
+            # ── 有序列表 ──
+            ordered_match = re.match(r'^(\d+)\.\s+(.*)', stripped)
+            if ordered_match:
+                num = ordered_match.group(1)
+                content = ordered_match.group(2)
+                self._insert_inline_format(widget, f"{num}. {content}", default_fg, is_user, tag='ordered')
+                widget.insert(tk.END, '\n')
+                i += 1
+                continue
+
+            # ── 无序列表 ──
+            if stripped.startswith('- ') or stripped.startswith('• ') or stripped.startswith('* '):
+                content = stripped[2:]
+                widget.insert(tk.END, '•  ', 'small')
+                self._insert_inline_format(widget, content, default_fg, is_user, tag='bullet')
+                widget.insert(tk.END, '\n')
+                i += 1
+                continue
+
+            # ── 普通段落 ──
+            self._insert_inline_format(widget, line, default_fg, is_user)
+            widget.insert(tk.END, '\n')
+            i += 1
+
+        if code_buffer:
+            widget.insert(tk.END, '\n'.join(code_buffer) + '\n', 'code_block')
+
+    def _insert_inline_format(self, widget, text, default_fg, is_user, tag=None):
+        """行内格式解析：粗体、斜体、代码、链接、图片、内联表格、颜色标记"""
+        import re
+        # 合并多行模式匹配：按优先级匹配
+        pattern = r'(\*\*.*?\*\*|\*.*?\*|`.*?`|\!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\|.*?\|)'
+        parts = re.split(pattern, text)
+
+        # 特殊颜色标记
+        color_map = {'⚠️': 'red', '❌': 'red', '✅': 'green', '📄': 'blue',
+                     '📊': 'blue', '🔍': 'blue', '🏗️': 'blue', '🔥': 'blue',
+                     '📋': 'blue', '💡': 'blue'}
+
+        for part in parts:
+            if not part:
+                continue
+
+            # 粗体 **text**
+            if part.startswith('**') and part.endswith('**'):
+                widget.insert(tk.END, part[2:-2], 'bold')
+
+            # 斜体 *text*
+            elif part.startswith('*') and part.endswith('*') and not part.startswith('**'):
+                widget.insert(tk.END, part[1:-1], 'italic')
+
+            # 行内代码 `text`
+            elif part.startswith('`') and part.endswith('`'):
+                widget.insert(tk.END, part[1:-1], 'code')
+
+            # 图片 ![alt](url)
+            elif part.startswith('![') and part.endswith(')'):
+                self._insert_inline_image(widget, part)
+
+            # 链接 [text](url)
+            elif part.startswith('[') and part.endswith(')'):
+                m = re.match(r'\[(.*?)\]\((.*?)\)', part)
+                if m:
+                    link_text = m.group(1)
+                    link_url = m.group(2)
+                    # 用蓝色显示链接文本
+                    widget.insert(tk.END, link_text, 'link')
+                    # 保存链接信息（点击事件）
+                    if hasattr(self, '_links'):
+                        self._links.append((widget, link_text, link_url))
+
+            # 内联表格 |col1|col2|
+            elif part.startswith('|') and part.endswith('|'):
+                cells = [c.strip() for c in part.split('|') if c.strip()]
+                display = ' | '.join(cells)
+                widget.insert(tk.END, f' {display} ', 'code')
+
+            # 颜色标记
             else:
-                code_block = True
-                code_buffer = []
-            i += 1
-            continue
-        if code_block:
-            code_buffer.append(line)
-            i += 1
-            continue
-
-        # ── 空行 ──
-        if not stripped:
-            widget.insert(tk.END, '\n')
-            i += 1
-            continue
-
-        # ── 分割线 ──
-        if re.match(r'^-{3,}$', stripped) or re.match(r'^\*{3,}$', stripped):
-            widget.insert(tk.END, '─' * 40 + '\n', 'hr')
-            i += 1
-            continue
-
-        # ── 标题 ──
-        if stripped.startswith('# '):
-            widget.insert(tk.END, stripped[2:] + '\n', 'h1')
-            i += 1
-            continue
-        if stripped.startswith('## '):
-            widget.insert(tk.END, stripped[3:] + '\n', 'h2')
-            i += 1
-            continue
-        if stripped.startswith('### '):
-            widget.insert(tk.END, stripped[4:] + '\n', 'h3')
-            i += 1
-            continue
-
-        # ── 引用 ──
-        if stripped.startswith('> '):
-            widget.insert(tk.END, stripped[2:] + '\n', 'quote')
-            i += 1
-            continue
-
-        # ── 有序列表 ──
-        ordered_match = re.match(r'^(\d+)\.\s+(.*)', stripped)
-        if ordered_match:
-            num = ordered_match.group(1)
-            content = ordered_match.group(2)
-            self._insert_inline_format(widget, f"{num}. {content}", default_fg, is_user, tag='ordered')
-            widget.insert(tk.END, '\n')
-            i += 1
-            continue
-
-        # ── 无序列表 ──
-        if stripped.startswith('- ') or stripped.startswith('• ') or stripped.startswith('* '):
-            content = stripped[2:]
-            widget.insert(tk.END, '•  ', 'small')
-            self._insert_inline_format(widget, content, default_fg, is_user, tag='bullet')
-            widget.insert(tk.END, '\n')
-            i += 1
-            continue
-
-        # ── 普通段落 ──
-        self._insert_inline_format(widget, line, default_fg, is_user)
-        widget.insert(tk.END, '\n')
-        i += 1
-
-    if code_buffer:
-        widget.insert(tk.END, '\n'.join(code_buffer) + '\n', 'code_block')
-
-def _insert_inline_format(self, widget, text, default_fg, is_user, tag=None):
-    """行内格式解析：粗体、斜体、代码、链接、图片、内联表格、颜色标记"""
-    import re
-    # 合并多行模式匹配：按优先级匹配
-    pattern = r'(\*\*.*?\*\*|\*.*?\*|`.*?`|\!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|\|.*?\|)'
-    parts = re.split(pattern, text)
-
-    # 特殊颜色标记
-    color_map = {'⚠️': 'red', '❌': 'red', '✅': 'green', '📄': 'blue',
-                 '📊': 'blue', '🔍': 'blue', '🏗️': 'blue', '🔥': 'blue',
-                 '📋': 'blue', '💡': 'blue'}
-
-    for part in parts:
-        if not part:
-            continue
-
-        # 粗体 **text**
-        if part.startswith('**') and part.endswith('**'):
-            widget.insert(tk.END, part[2:-2], 'bold')
-
-        # 斜体 *text*
-        elif part.startswith('*') and part.endswith('*') and not part.startswith('**'):
-            widget.insert(tk.END, part[1:-1], 'italic')
-
-        # 行内代码 `text`
-        elif part.startswith('`') and part.endswith('`'):
-            widget.insert(tk.END, part[1:-1], 'code')
-
-        # 图片 ![alt](url)
-        elif part.startswith('![') and part.endswith(')'):
-            self._insert_inline_image(widget, part)
-
-        # 链接 [text](url)
-        elif part.startswith('[') and part.endswith(')'):
-            m = re.match(r'\[(.*?)\]\((.*?)\)', part)
-            if m:
-                link_text = m.group(1)
-                link_url = m.group(2)
-                # 用蓝色显示链接文本
-                widget.insert(tk.END, link_text, 'link')
-                # 保存链接信息（点击事件）
-                if hasattr(self, '_links'):
-                    self._links.append((widget, link_text, link_url))
-
-        # 内联表格 |col1|col2|
-        elif part.startswith('|') and part.endswith('|'):
-            cells = [c.strip() for c in part.split('|') if c.strip()]
-            display = ' | '.join(cells)
-            widget.insert(tk.END, f' {display} ', 'code')
-
-        # 颜色标记
-        else:
-            # 逐字符检查颜色标记
-            remaining = part
-            while remaining:
-                found = False
-                for sym, tag_name in color_map.items():
-                    if remaining.startswith(sym):
-                        widget.insert(tk.END, sym, tag_name)
-                        remaining = remaining[len(sym):]
-                        found = True
+                # 逐字符检查颜色标记
+                remaining = part
+                while remaining:
+                    found = False
+                    for sym, tag_name in color_map.items():
+                        if remaining.startswith(sym):
+                            widget.insert(tk.END, sym, tag_name)
+                            remaining = remaining[len(sym):]
+                            found = True
+                            break
+                    if not found:
+                        # 普通文本，按段插入
+                        widget.insert(tk.END, remaining)
                         break
-                if not found:
-                    # 普通文本，按段插入
-                    widget.insert(tk.END, remaining)
-                    break
 
-def _insert_inline_image(self, widget, markdown):
-    """在 Text 中插入内嵌图片（缩略图）"""
-    import re
-    m = re.match(r'!\[(.*?)\]\((.*?)\)', markdown)
-    if not m:
-        return
-    alt = m.group(1)
-    path = m.group(2)
-    if not HAS_PIL:
-        widget.insert(tk.END, f'[图片: {alt}]', 'small')
-        return
-    try:
-        if os.path.exists(path):
-            img = Image.open(path)
-            img.thumbnail((120, 90), Image.Resampling.LANCZOS)
-            # 用 PhotoImage 嵌入
-            photo = ImageTk.PhotoImage(img)
-            widget.image_create(tk.END, image=photo)
-            # 保持引用避免 GC
-            if not hasattr(self, '_inline_images'):
-                self._inline_images = []
-            self._inline_images.append(photo)
-        else:
+    def _insert_inline_image(self, widget, markdown):
+        """在 Text 中插入内嵌图片（缩略图）"""
+        import re
+        m = re.match(r'!\[(.*?)\]\((.*?)\)', markdown)
+        if not m:
+            return
+        alt = m.group(1)
+        path = m.group(2)
+        if not HAS_PIL:
             widget.insert(tk.END, f'[图片: {alt}]', 'small')
-    except Exception:
-        widget.insert(tk.END, f'[图片: {alt}]', 'small')
+            return
+        try:
+            if os.path.exists(path):
+                img = Image.open(path)
+                img.thumbnail((120, 90), Image.Resampling.LANCZOS)
+                # 用 PhotoImage 嵌入
+                photo = ImageTk.PhotoImage(img)
+                widget.image_create(tk.END, image=photo)
+                # 保持引用避免 GC
+                if not hasattr(self, '_inline_images'):
+                    self._inline_images = []
+                self._inline_images.append(photo)
+            else:
+                widget.insert(tk.END, f'[图片: {alt}]', 'small')
+        except Exception:
+            widget.insert(tk.END, f'[图片: {alt}]', 'small')
 
     def _add_table_widget(self, parent, table_data):
         """在聊天中显示表格
@@ -1619,7 +1619,7 @@ def _insert_inline_image(self, widget, markdown):
         """在聊天中显示文件附件"""
         if not file_info:
             return
-        frame = ttk.Frame(parent, relief="solid", bd=1, bg="#f0f6ff")
+        frame = tk.Frame(parent, relief="solid", bd=1, bg="#f0f6ff")
         frame.pack(fill=tk.X, pady=4, padx=2)
 
         name = file_info.get('name', 'unknown')
@@ -1629,66 +1629,66 @@ def _insert_inline_image(self, widget, markdown):
         icon_lbl = tk.Label(frame, text="📎", font=("SimSun", 14), bg="#f0f6ff")
         icon_lbl.pack(side=tk.LEFT, padx=8, pady=6)
 
-        info_frame = ttk.Frame(frame)
+        info_frame = tk.Frame(frame)
         info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=6, pady=4)
         tk.Label(info_frame, text=name, font=("SimSun", 9, "bold"), bg="#f0f6ff", anchor=tk.W).pack(fill=tk.X)
         if size:
             tk.Label(info_frame, text=size, font=("SimSun", 8), fg="#666", bg="#f0f6ff", anchor=tk.W).pack(fill=tk.X)
 
-        def open_file():
-            import subprocess
-            try:
-                if os.path.exists(fpath):
-                    subprocess.run(['explorer', '/select,', fpath])
-                else:
-                    messagebox.showinfo("文件", f"文件路径:\n{fpath}\n\n(文件可能已被清理)")
-            except Exception as e:
-                messagebox.showerror("错误", f"无法打开文件: {e}")
+            def open_file():
+                import subprocess
+                try:
+                    if os.path.exists(fpath):
+                        subprocess.run(['explorer', '/select,', fpath])
+                    else:
+                        messagebox.showinfo("文件", f"文件路径:\n{fpath}\n\n(文件可能已被清理)")
+                except Exception as e:
+                    messagebox.showerror("错误", f"无法打开文件: {e}")
 
         tk.Button(frame, text="📂", command=open_file, font=("SimSun", 10),
-                 bd=0, bg="#e8f0fe", padx=6).pack(side=tk.RIGHT, padx=6, pady=4)
+                  bd=0, bg="#e8f0fe", padx=6).pack(side=tk.RIGHT, padx=6, pady=4)
 
-    def set_ocr_results(self, results):
-            """从外部设置 OCR 识别结果，以表格形式显示"""
-            if not results:
+        def set_ocr_results(self, results):
+                """从外部设置 OCR 识别结果，以表格形式显示"""
+                if not results:
+                    return
+                headers = ['规范编号', '名称', '来源', '状态']
+                rows = []
+                for item in results:
+                    code = item.get('code', item.get('original', ''))
+                    name = item.get('name', '')[:25]
+                    source = item.get('source', '')[:20]
+                    status = '已查'
+                    if item.get('found') is True:
+                        status = '✅ 现行' if '废止' not in item.get('status', '') else '⚠️ 废止'
+                    elif item.get('found') is False:
+                        status = '❌ 未查到'
+                    rows.append([code, name or '-', source or '-', status])
+                self.add_message("ai", "📄 识别到的规范结果：", msg_type='table', extra=[headers, rows])
+                self.show()
+
+        def send_standard_check(self, codes_info):
+            """发送规范检查结果到 AI 进行分析"""
+            if not codes_info:
                 return
-            headers = ['规范编号', '名称', '来源', '状态']
+            headers = ['规范编号', '状态', '建议']
             rows = []
-            for item in results:
-                code = item.get('code', item.get('original', ''))
-                name = item.get('name', '')[:25]
-                source = item.get('source', '')[:20]
-                status = '已查'
-                if item.get('found') is True:
-                    status = '✅ 现行' if '废止' not in item.get('status', '') else '⚠️ 废止'
-                elif item.get('found') is False:
-                    status = '❌ 未查到'
-                rows.append([code, name or '-', source or '-', status])
-            self.add_message("ai", "📄 识别到的规范结果：", msg_type='table', extra=[headers, rows])
-            self.show()
-
-    def send_standard_check(self, codes_info):
-        """发送规范检查结果到 AI 进行分析"""
-        if not codes_info:
-            return
-        headers = ['规范编号', '状态', '建议']
-        rows = []
-        for code, result in codes_info:
-            status = result.get('status', '未知')
-            found = result.get('found', False)
-            if found:
-                if '废止' in status or '作废' in status:
-                    replacement = result.get('replacement_raw', '')
-                    action = f'需替换 → {replacement[:20]}'
+            for code, result in codes_info:
+                status = result.get('status', '未知')
+                found = result.get('found', False)
+                if found:
+                    if '废止' in status or '作废' in status:
+                        replacement = result.get('replacement_raw', '')
+                        action = f'需替换 → {replacement[:20]}'
+                    else:
+                        action = '✅ 现行，可用'
+                    if result.get('dual_match'):
+                        action += ' (双重确认)'
                 else:
-                    action = '✅ 现行，可用'
-                if result.get('dual_match'):
-                    action += ' (双重确认)'
-            else:
-                action = '❌ 未查询到，建议人工核实'
-            rows.append([code, status, action])
-        self.add_message("ai", "📊 规范检查结果分析：", msg_type='table', extra=[headers, rows])
-        self.show()
+                    action = '❌ 未查询到，建议人工核实'
+                rows.append([code, status, action])
+            self.add_message("ai", "📊 规范检查结果分析：", msg_type='table', extra=[headers, rows])
+            self.show()
 
 
 # ===== 主应用 =====
@@ -1742,2008 +1742,2008 @@ class App:
         self._check_ai_config()
 
 
-def _set_app_icon(self):
-    """设置窗口图标（主窗口 + 所有 Toplevel 子窗口）"""
-    # 兼容 PyInstaller onedir 打包后的路径
-    icon_path = _APP_DIR / 'app_icon.ico'
-    png_path = _APP_DIR / 'app_icon.png'
-    if not icon_path.exists() and not png_path.exists():
-        # 退回到脚本所在目录
-        icon_path = Path(__file__).parent / 'app_icon.ico'
-        png_path = Path(__file__).parent / 'app_icon.png'
+    def _set_app_icon(self):
+        """设置窗口图标（主窗口 + 所有 Toplevel 子窗口）"""
+        # 兼容 PyInstaller onedir 打包后的路径
+        icon_path = _APP_DIR / 'app_icon.ico'
+        png_path = _APP_DIR / 'app_icon.png'
+        if not icon_path.exists() and not png_path.exists():
+            # 退回到脚本所在目录
+            icon_path = Path(__file__).parent / 'app_icon.ico'
+            png_path = Path(__file__).parent / 'app_icon.png'
 
-    if icon_path.exists():
-        try:
-            self.root.iconbitmap(str(icon_path))
-            self._icon_path = str(icon_path)
-            print(f'Icon set: {icon_path.name}')
-            return
-        except Exception as e:
-            print(f'Failed iconbitmap from {icon_path}: {e}')
-
-    if png_path.exists():
-        try:
-            png_ico = tk.PhotoImage(file=str(png_path))
-            self.root.iconphoto(True, png_ico)
-            self._icon_image = png_ico
-            print(f'Icon set: {png_path.name}')
-            return
-        except Exception as e:
-            print(f'Failed iconphoto from {png_path}: {e}')
-
-    print('No icon file found, using default')
-
-def _set_icon_for_toplevel(self, win):
-    """给任意 Toplevel 窗口设置图标"""
-    if hasattr(self, '_icon_path') and self._icon_path:
-        try:
-            win.iconbitmap(self._icon_path)
-            return
-        except Exception:
-            pass
-    if hasattr(self, '_icon_image'):
-        try:
-            win.iconphoto(True, self._icon_image)
-            return
-        except Exception:
-            pass
-
-
-    def _setup_style(self):
-        style = ttk.Style()
-        try:
-            style.theme_use("vista")
-        except Exception:
+        if icon_path.exists():
             try:
-                style.theme_use("xpnative")
+                self.root.iconbitmap(str(icon_path))
+                self._icon_path = str(icon_path)
+                print(f'Icon set: {icon_path.name}')
+                return
+            except Exception as e:
+                print(f'Failed iconbitmap from {icon_path}: {e}')
+
+        if png_path.exists():
+            try:
+                png_ico = tk.PhotoImage(file=str(png_path))
+                self.root.iconphoto(True, png_ico)
+                self._icon_image = png_ico
+                print(f'Icon set: {png_path.name}')
+                return
+            except Exception as e:
+                print(f'Failed iconphoto from {png_path}: {e}')
+
+        print('No icon file found, using default')
+
+    def _set_icon_for_toplevel(self, win):
+        """给任意 Toplevel 窗口设置图标"""
+        if hasattr(self, '_icon_path') and self._icon_path:
+            try:
+                win.iconbitmap(self._icon_path)
+                return
             except Exception:
-                style.theme_use("default")
-        default_font = ("SimSun", 10)
-        header_font = ("SimSun", 11, "bold")
-        title_font = ("SimSun", 16, "bold")
-        style.configure(".", font=default_font)
-        style.configure("TLabel", font=default_font, padding=4)
-        style.configure("TButton", font=default_font, padding=6)
-        style.configure("TFrame", padding=8)
-        style.configure("Header.TLabel", font=header_font)
-        style.configure("Title.TLabel", font=title_font, foreground="#1f1f1f")
-        style.configure("Primary.TButton", font=("SimSun", 10, "bold"))
-        style.configure("Action.TButton", padding=8)
-        style.configure("Treeview", rowheight=26, font=default_font)
-        style.configure("Treeview.Heading", font=header_font)
-        style.configure("Status.TLabel", background="#f0f0f0", relief="sunken", anchor="w", padding=6)
-
-    def setup_ui(self):
-        # 顶部工具栏
-        topbar = ttk.Frame(self.root)
-        topbar.pack(side=tk.TOP, fill=tk.X)
-
-        ttk.Button(topbar, text="📂 打开文件", command=self.open_file).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="📁 打开文件夹", command=self.open_folder).pack(side=tk.LEFT, padx=2)
-        ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
-        ttk.Button(topbar, text="⬆ 上一页", command=self._prev_page, width=6).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="⬇ 下一页", command=self._next_page, width=6).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="🔍+", command=self._zoom_in, width=4).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="🔍-", command=self._zoom_out, width=4).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="↻", command=self._rotate_cw, width=3).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="↺", command=self._rotate_ccw, width=3).pack(side=tk.LEFT, padx=2)
-        ttk.Radiobutton(topbar, text="适应页面", variable=self._fit_mode,
-                        value='fit_page', command=self._redraw_current_page).pack(side=tk.LEFT, padx=2)
-        ttk.Radiobutton(topbar, text="适应宽度", variable=self._fit_mode,
-                        value='fit_width', command=self._redraw_current_page).pack(side=tk.LEFT, padx=2)
-        ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
-        ttk.Button(topbar, text="⬜ 选择区域", command=self.start_selection).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="❌ 清除区域", command=self.clear_region).pack(side=tk.LEFT, padx=2)
-        ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
-        ttk.Button(topbar, text="🔍 OCR", command=self.start_ocr, style="Primary.TButton").pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="📋 批量处理", command=self.batch_process_all).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="✅ 检查规范", command=self.check_standards, style="Primary.TButton").pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="📄 导出报告", command=self.export_doc).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="📊 导出 Excel", command=self.export_excel).pack(side=tk.LEFT, padx=2)
-        ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
-        ttk.Button(topbar, text="📊 结果面板", command=self._toggle_results_panel).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="📄 缩略图", command=self._toggle_thumbnail_panel).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="🤖 AI", command=self._toggle_ai_chat, style="Primary.TButton").pack(side=tk.LEFT, padx=2)
-
-        self.page_var = tk.StringVar(value="第 0 / 0 页")
-        ttk.Label(topbar, textvariable=self.page_var).pack(side=tk.RIGHT, padx=8)
-        self._preview_name_var = tk.StringVar(value="")
-        ttk.Label(topbar, textvariable=self._preview_name_var,
-                  foreground="#c00000", font=("SimSun", 10, "bold")).pack(side=tk.RIGHT, padx=8)
-
-        # 主预览区域（全窗口）
-        preview_container = ttk.Frame(self.root)
-        preview_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-
-        self.pdf_canvas = tk.Canvas(preview_container, bg="#f3f3f3", highlightthickness=0)
-        self.pdf_canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        self.pdf_canvas.bind('<Configure>', self._on_canvas_resize)
-        self.pdf_canvas.bind('<MouseWheel>', self._on_mouse_wheel)
-        self.pdf_canvas.bind('<ButtonPress-2>', self._on_pan_start)
-        self.pdf_canvas.bind('<B2-Motion>', self._on_pan_drag)
-        self.pdf_canvas.bind('<ButtonRelease-2>', self._on_pan_end)
-        self._resize_after_id = None
-
-        # 底部状态栏
-        bottombar = ttk.Frame(self.root)
-        bottombar.pack(side=tk.BOTTOM, fill=tk.X)
-
-        queue_frame = ttk.Frame(bottombar)
-        queue_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4, pady=2)
-        self.queue_listbox = tk.Listbox(queue_frame, height=1, font=("SimSun", 8), exportselection=False, bg="#f8f8f8")
-        self.queue_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
-        self.queue_listbox.bind('<<ListboxSelect>>', self._on_queue_select)
-        self.queue_count_label = ttk.Label(queue_frame, text="0 个文件", foreground="#888", font=("SimSun", 8))
-        self.queue_count_label.pack(side=tk.RIGHT)
-
-        self.progress_var = tk.DoubleVar(value=0.0)
-        self.progress_bar = ttk.Progressbar(bottombar, variable=self.progress_var, maximum=100, length=150)
-        self.progress_bar.pack(side=tk.RIGHT, padx=4, pady=2)
-
-        self.region_var = tk.StringVar(value="识别区域：未设置（全页识别）")
-        ttk.Label(bottombar, textvariable=self.region_var, foreground="#555555", font=("SimSun", 8)).pack(side=tk.RIGHT, padx=8)
-
-        self.status_var = tk.StringVar(value="就绪")
-        statusbar = ttk.Label(self.root, textvariable=self.status_var, style="Status.TLabel", font=("SimSun", 8))
-        statusbar.pack(side=tk.BOTTOM, fill=tk.X)
-
-        self.selector = RegionSelector(self.pdf_canvas, None, self._on_region_selected)
-
-    # 悬浮面板：结果面板
-def _toggle_results_panel(self):
-    if self._results_panel is None:
-        self._results_panel = tk.Toplevel(self.root)
-        self._results_panel.title("OCR / 规范列表 / 检查结果")
-        self._set_icon_for_toplevel(self._results_panel)
-        self._results_panel.geometry("500x400")
-        self._results_panel.attributes('-topmost', True)
-        self._setup_results_panel_ui()
-    if self._results_visible:
-        self._results_panel.withdraw()
-        self._results_visible = False
-    else:
-        self._results_panel.deiconify()
-        self._results_panel.lift()
-        self._results_visible = True
-
-    def _setup_results_panel_ui(self):
-        panel = self._results_panel
-        nb = ttk.Notebook(panel)
-        nb.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        self.notebook = nb
-
-        ocr_frame = ttk.Frame(nb)
-        nb.add(ocr_frame, text="OCR 文本")
-        self.ocr_text = tk.Text(ocr_frame, wrap=tk.WORD, font=("SimSun", 9))
-        ocr_scroll = ttk.Scrollbar(ocr_frame, orient=tk.VERTICAL, command=self.ocr_text.yview)
-        self.ocr_text.configure(yscrollcommand=ocr_scroll.set)
-        ocr_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.ocr_text.pack(fill=tk.BOTH, expand=True)
-
-        list_frame = ttk.Frame(nb)
-        nb.add(list_frame, text="规范列表")
-        list_toolbar = ttk.Frame(list_frame)
-        list_toolbar.pack(side=tk.TOP, fill=tk.X)
-        ttk.Label(list_toolbar, text="双击移除，单击定位").pack(side=tk.LEFT)
-        list_columns = ('no', 'code', 'name', 'source')
-        self.list_tree = ttk.Treeview(list_frame, columns=list_columns, show='headings', selectmode='extended')
-        self.list_tree.heading('no', text='序号')
-        self.list_tree.heading('code', text='规范编号')
-        self.list_tree.heading('name', text='规范名称')
-        self.list_tree.heading('source', text='来源文件')
-        self.list_tree.column('no', width=40, anchor=tk.CENTER)
-        self.list_tree.column('code', width=120, anchor=tk.W)
-        self.list_tree.column('name', width=180, anchor=tk.W)
-        self.list_tree.column('source', width=80, anchor=tk.W)
-        list_scroll = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.list_tree.yview)
-        self.list_tree.configure(yscrollcommand=list_scroll.set)
-        list_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.list_tree.pack(fill=tk.BOTH, expand=True)
-        self.list_tree.bind('<Double-Button-1>', self.remove_selected_code)
-        self.list_tree.bind('<<TreeviewSelect>>', self.on_code_selected)
-
-        check_frame = ttk.Frame(nb)
-        nb.add(check_frame, text="检查结果")
-        columns = ('code', 'name', 'status', 'replacement', 'action')
-        self.check_tree = ttk.Treeview(check_frame, columns=columns, show='tree headings', selectmode='extended')
-        self.check_tree.heading('#0', text='序号')
-        self.check_tree.heading('code', text='规范编号')
-        self.check_tree.heading('name', text='规范名称')
-        self.check_tree.heading('status', text='状态')
-        self.check_tree.heading('replacement', text='替代情况')
-        self.check_tree.heading('action', text='建议')
-        self.check_tree.column('#0', width=40, anchor=tk.CENTER)
-        self.check_tree.column('code', width=120)
-        self.check_tree.column('name', width=180)
-        self.check_tree.column('status', width=70)
-        self.check_tree.column('replacement', width=140)
-        self.check_tree.column('action', width=70)
-        check_scroll = ttk.Scrollbar(check_frame, orient=tk.VERTICAL, command=self.check_tree.yview)
-        self.check_tree.configure(yscrollcommand=check_scroll.set)
-        check_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.check_tree.pack(fill=tk.BOTH, expand=True)
-        self.check_tree.bind('<Double-Button-1>', self.on_check_item_double_click)
-        self.check_tree.bind('<<TreeviewSelect>>', self.on_check_item_selected)
-
-    # 悬浮面板：缩略图
-def _toggle_thumbnail_panel(self):
-    if self._thumb_panel is None:
-        self._thumb_panel = tk.Toplevel(self.root)
-        self._thumb_panel.title("文件缩略图")
-        self._set_icon_for_toplevel(self._thumb_panel)
-        self._thumb_panel.geometry("120x500")
-        self._thumb_panel.attributes('-topmost', True)
-        self.thumb_canvas = tk.Canvas(self._thumb_panel, bg="#e8e8e8", highlightthickness=0, width=110)
-        self.thumb_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        thumb_scroll = ttk.Scrollbar(self._thumb_panel, orient=tk.VERTICAL, command=self.thumb_canvas.yview)
-        thumb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.thumb_canvas.configure(yscrollcommand=thumb_scroll.set)
-        self.thumb_frame = ttk.Frame(self.thumb_canvas)
-        self.thumb_scroll_window = self.thumb_canvas.create_window(
-            (0, 0), window=self.thumb_frame, anchor='nw', width=110)
-        self.thumb_frame.bind('<Configure>',
-            lambda e: self.thumb_canvas.configure(scrollregion=self.thumb_canvas.bbox('all')))
-    if self._thumb_visible:
-        self._thumb_panel.withdraw()
-        self._thumb_visible = False
-    else:
-        self._thumb_panel.deiconify()
-        self._thumb_panel.lift()
-        self._thumb_visible = True
-        self._update_thumbnails()
-
-    def _detect_file_type(self, path):
-        ext = Path(path).suffix.lower()
-        if ext == '.pdf':
-            return 'pdf'
-        elif ext == '.docx':
-            return 'docx'
-        elif ext == '.txt':
-            return 'txt'
-        elif ext in IMAGE_EXTENSIONS:
-            return 'image'
-        elif ext in CAD_EXTENSIONS:
-            return 'cad'
-        elif ext == '.ofd':
-            return 'ofd'
-        return 'unknown'
-
-    def _load_file(self, path):
-        self.current_path = path
-        self.file_type = self._detect_file_type(path)
-        if self.file_type == 'unknown':
-            self.status_var.set(f"不支持的文件格式: {Path(path).suffix}")
-            return False
-        self.ocr_results = []
-        self.extracted_codes = []
-        self.code_locations = []
-        self.list_tree.delete(*self.list_tree.get_children())
-        self.check_tree.delete(*self.check_tree.get_children())
-        self.ocr_text.delete('1.0', tk.END)
-        self._rotation_angle = 0
-        if self.file_type == 'pdf':
-            self.convert_pdf_to_images()
-        elif self.file_type == 'image':
-            self._load_image_file()
-        elif self.file_type == 'cad':
-            self._load_cad_file()
-        else:
-            self.extract_text_file()
-        return True
-
-    def _load_image_file(self):
-        if not self.current_path or self.file_type != 'image':
-            return
-        self.status_var.set("正在加载图片...")
-        self.pdf_images = []
-        self.pdf_images.append(self.current_path)
-        self.status_var.set(f"已加载图片: {Path(self.current_path).name}")
-    self.page_var.set("第 1 / 1 页")
-    if self.pdf_images:
-        self.show_page(0)
-
-    # 加载 CAD 图纸（DWG → AcmeCAD 嵌入; DXF → ezdxf 渲染）
-    def _load_cad_file(self):
-        if not self.current_path or self.file_type != 'cad':
-            return
-        ext = Path(self.current_path).suffix.lower()
-
-        # DWG → 启动 AcmeCAD 嵌入到预览区
-        if ext == '.dwg':
-            self._load_cad_with_acmecad()
-            return
-
-        # DXF → ezdxf 渲染
-        self.status_var.set("正在渲染 CAD 图纸 (DXF)...")
-        self.pdf_images = []
-        if not HAS_CAD:
-            self.status_var.set("CAD 渲染不可用")
-            messagebox.showwarning("CAD 不可用", "需要安装 ezdxf 和 matplotlib")
-            return
-        img_path = render_cad_to_image(self.current_path)
-        if img_path:
-            self.pdf_images.append(img_path)
-            self.status_var.set(f"CAD 已渲染: {Path(self.current_path).name}")
-            self.page_var.set("第 1 / 1 页")
-            if self.pdf_images:
-                self.show_page(0)
-        else:
-            self.status_var.set("CAD 渲染失败")
-            messagebox.showerror("CAD 错误", f"无法渲染 CAD 文件:\n{self.current_path}")
-
-def _load_cad_with_acmecad(self):
-    """用 AcmeCAD 打开 DWG 并嵌入到预览区。只保留中间黑色绘图区，
-    菜单栏、工具栏、状态栏全部隐藏，窗口充满整个预览画布。"""
-    acme_path = r"D:/Program Files/AcmeCAD2023-v8.10.6.1560-Chs.exe"
-    if not Path(acme_path).exists():
-        messagebox.showwarning("CAD 错误",
-            f"找不到 AcmeCAD:\n{acme_path}\n\n"
-            "请先安装 AcmeCAD，再打开 DWG 文件。")
-        return
-
-    self.status_var.set("正在启动 AcmeCAD 打开 DWG...")
-    try:
-        import win32gui
-        import win32con
-    except Exception as e:
-        messagebox.showerror("错误", f"缺少 pywin32:\n{e}")
-        return
-
-    # 清理旧的 AcmeCAD 残留
-    self._close_acmecad()
-    try:
-        # 清除画布上旧的图片，避免与嵌入窗口重叠
-        self.pdf_canvas.delete('all')
-        self.current_img = None
-        self.pdf_images = []
-
-        # 启动 AcmeCAD 打开目标 DWG（CREATE_NO_WINDOW 只针对控制台窗口）
-        proc = subprocess.Popen([acme_path, str(self.current_path)])
-        self._acme_proc = proc
-
-        def _hide_acme_ui(acme_main, try_count=0):
-            """把 AcmeCAD 的菜单栏、工具栏、状态栏、文件标签栏全部隐藏"""
+                pass
+        if hasattr(self, '_icon_image'):
             try:
-                # 去掉菜单栏
-                menu = win32gui.GetMenu(acme_main)
-                if menu:
-                    win32gui.SetMenu(acme_main, 0)
-                    win32gui.DestroyMenu(menu)
-                # 隐藏所有子窗口中的 UI 元素（工具栏、状态栏、底部面板、左侧树形面板）
-                ui_keywords = [
-                    'toolbar', 'status', 'msctls_statusbar',
-                    'tree', 'listview', 'explorer', 'panel',
-                    'ribbon', 'quicklaunch', 'tabcontrol'
-                ]
-                def _hide_cb(hwnd):
-                    cls = win32gui.GetClassName(hwnd)
-                    title = win32gui.GetWindowText(hwnd)
-                    low = (cls + title).lower()
-                    # 状态栏
-                    if cls == 'msctls_statusbar32' or 'status' in cls.lower():
-                        win32gui.ShowWindow(hwnd, 0)
-                        return
-                    # 工具栏
-                    if 'toolbar' in low or 'tool' in cls.lower():
-                        win32gui.ShowWindow(hwnd, 0)
-                        return
-                    # 左侧文件树/属性面板
-                    if 'tree' in cls.lower() or 'explorer' in cls.lower():
-                        win32gui.ShowWindow(hwnd, 0)
-                        return
-                    # 有标题的工具/文件标签栏（文件列表 tab）
-                    title_u = title.upper()
-                    if ('文件' in title_u or 'FILE' in title_u or '打开' in title_u
-                            or 'OPEN' in title_u):
-                        win32gui.ShowWindow(hwnd, 0)
-                        return
-                    # 底部命令栏/图层栏
-                    if any(k in low for k in ui_keywords):
-                        r = win32gui.GetWindowRect(hwnd)
-                        area = (r[2] - r[0]) * (r[3] - r[1])
-                        if area > 0 and area < 3000000:  # 过滤大绘图区
-                            win32gui.ShowWindow(hwnd, 0)
-                win32gui.EnumChildWindows(acme_main, _hide_cb, [])
-                # 最大化 AcmeCAD 窗口（让绘图区占满）
-                win32gui.SendMessage(acme_main, win32con.WM_SYSCOMMAND,
-                                    win32con.SC_MAXIMIZE, 0)
-                # 去掉窗口样式：边框、标题栏、最大最小化按钮
-                style = win32gui.GetWindowLong(acme_main, win32con.GWL_STYLE)
-                style &= ~win32con.WS_CAPTION
-                style &= ~win32con.WS_THICKFRAME
-                style &= ~win32con.WS_MINIMIZEBOX
-                style &= ~win32con.WS_MAXIMIZEBOX
-                style &= ~win32con.WS_SYSMENU
-                style &= ~win32con.WS_BORDER
-                win32gui.SetWindowLong(acme_main, win32con.GWL_STYLE, style)
-                # 让窗口重新计算布局
-                win32gui.SetWindowPos(acme_main, 0, 0, 0, 0, 0,
-                    win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
-                    win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED)
-                # 让 AcmeCAD 重绘内部布局
-                win32gui.InvalidateRect(acme_main, None, True)
-                win32gui.RedrawWindow(acme_main, None, None,
-                    win32con.RDW_INVALIDATE | win32con.RDW_UPDATENOW)
-                # 重新枚举，把还没隐藏的小 UI 也藏掉（二次清理）
-                win32gui.EnumChildWindows(acme_main, _hide_cb, [])
-                if try_count < 5:
-                    self.root.after(150, lambda: _hide_acme_ui(acme_main, try_count + 1))
-            except Exception as e:
-                print(f"_hide_acme_ui error: {e}")
+                win.iconphoto(True, self._icon_image)
+                return
+            except Exception:
+                pass
 
-        def _embed_acme(acme_main, try_count=0):
-            """把 AcmeCAD 嵌入到我们预览区，定位到画布尺寸"""
+
+        def _setup_style(self):
+            style = ttk.Style()
             try:
-                # 取当前画布尺寸
-                ww = self.pdf_canvas.winfo_width()
-                hh = self.pdf_canvas.winfo_height()
-                if ww <= 10 or hh <= 10:
-                    ww, hh = 900, 500
-                # 获取我们的容器窗口
-                parent_hwnd = int(str(self.pdf_canvas.master.winfo_id()))
-                # 设为子窗口（嵌入）
-                win32gui.SetParent(acme_main, parent_hwnd)
-                # 去 WS_CHILD 后再设 WS_CHILD，避免 WS_POPUP 残留
-                style = win32gui.GetWindowLong(acme_main, win32con.GWL_STYLE)
-                style &= ~win32con.WS_POPUP
-                style |= win32con.WS_CHILD
-                win32gui.SetWindowLong(acme_main, win32con.GWL_STYLE, style)
-                # 移进画布区域（坐标相对于 parent）
-                win32gui.MoveWindow(acme_main, 0, 0, ww, hh, 1)
-                # 显示并置顶
-                win32gui.SetWindowPos(acme_main, win32con.HWND_TOP, 0, 0,
-                    ww, hh,
-                    win32con.SWP_NOZORDER)
-                win32gui.ShowWindow(acme_main, 1)
-                win32gui.SetForegroundWindow(acme_main)
-                self._acme_main_hwnd = acme_main
-                self.status_var.set(f"已用 AcmeCAD 打开 DWG: {Path(self.current_path).name}")
-                self.page_var.set("CAD 预览")
-            except Exception as e:
-                print(f"_embed_acme error (try {try_count}): {e}")
-                if try_count < 6:
-                    self.root.after(200, lambda: _embed_acme(acme_main, try_count + 1))
+                style.theme_use("vista")
+            except Exception:
+                try:
+                    style.theme_use("xpnative")
+                except Exception:
+                    style.theme_use("default")
+            default_font = ("SimSun", 10)
+            header_font = ("SimSun", 11, "bold")
+            title_font = ("SimSun", 16, "bold")
+            style.configure(".", font=default_font)
+            style.configure("TLabel", font=default_font, padding=4)
+            style.configure("TButton", font=default_font, padding=6)
+            style.configure("TFrame", padding=8)
+            style.configure("Header.TLabel", font=header_font)
+            style.configure("Title.TLabel", font=title_font, foreground="#1f1f1f")
+            style.configure("Primary.TButton", font=("SimSun", 10, "bold"))
+            style.configure("Action.TButton", padding=8)
+            style.configure("Treeview", rowheight=26, font=default_font)
+            style.configure("Treeview.Heading", font=header_font)
+            style.configure("Status.TLabel", background="#f0f0f0", relief="sunken", anchor="w", padding=6)
 
-        def _find_and_init():
-            """搜索 AcmeCAD 主窗口，找到后隐藏 UI 并嵌入"""
-            found = []
-            def _search(hwnd, lst):
-                title = win32gui.GetWindowText(hwnd)
-                title_l = title.lower()
-                if 'acmecad' in title_l or 'ACME' in title.upper():
-                    lst.append(hwnd)
-            win32gui.EnumWindows(_search, found)
-            if found:
-                acme_main = found[-1]
-                self.root.after(300, lambda: _hide_acme_ui(acme_main))
-                self.root.after(1500, lambda: _embed_acme(acme_main))
+        def setup_ui(self):
+            # 顶部工具栏
+            topbar = ttk.Frame(self.root)
+            topbar.pack(side=tk.TOP, fill=tk.X)
+
+            ttk.Button(topbar, text="📂 打开文件", command=self.open_file).pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="📁 打开文件夹", command=self.open_folder).pack(side=tk.LEFT, padx=2)
+            ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
+            ttk.Button(topbar, text="⬆ 上一页", command=self._prev_page, width=6).pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="⬇ 下一页", command=self._next_page, width=6).pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="🔍+", command=self._zoom_in, width=4).pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="🔍-", command=self._zoom_out, width=4).pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="↻", command=self._rotate_cw, width=3).pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="↺", command=self._rotate_ccw, width=3).pack(side=tk.LEFT, padx=2)
+            ttk.Radiobutton(topbar, text="适应页面", variable=self._fit_mode,
+                            value='fit_page', command=self._redraw_current_page).pack(side=tk.LEFT, padx=2)
+            ttk.Radiobutton(topbar, text="适应宽度", variable=self._fit_mode,
+                            value='fit_width', command=self._redraw_current_page).pack(side=tk.LEFT, padx=2)
+            ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
+            ttk.Button(topbar, text="⬜ 选择区域", command=self.start_selection).pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="❌ 清除区域", command=self.clear_region).pack(side=tk.LEFT, padx=2)
+            ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
+            ttk.Button(topbar, text="🔍 OCR", command=self.start_ocr, style="Primary.TButton").pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="📋 批量处理", command=self.batch_process_all).pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="✅ 检查规范", command=self.check_standards, style="Primary.TButton").pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="📄 导出报告", command=self.export_doc).pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="📊 导出 Excel", command=self.export_excel).pack(side=tk.LEFT, padx=2)
+            ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
+            ttk.Button(topbar, text="📊 结果面板", command=self._toggle_results_panel).pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="📄 缩略图", command=self._toggle_thumbnail_panel).pack(side=tk.LEFT, padx=2)
+            ttk.Button(topbar, text="🤖 AI", command=self._toggle_ai_chat, style="Primary.TButton").pack(side=tk.LEFT, padx=2)
+
+            self.page_var = tk.StringVar(value="第 0 / 0 页")
+            ttk.Label(topbar, textvariable=self.page_var).pack(side=tk.RIGHT, padx=8)
+            self._preview_name_var = tk.StringVar(value="")
+            ttk.Label(topbar, textvariable=self._preview_name_var,
+                      foreground="#c00000", font=("SimSun", 10, "bold")).pack(side=tk.RIGHT, padx=8)
+
+            # 主预览区域（全窗口）
+            preview_container = ttk.Frame(self.root)
+            preview_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+            self.pdf_canvas = tk.Canvas(preview_container, bg="#f3f3f3", highlightthickness=0)
+            self.pdf_canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+            self.pdf_canvas.bind('<Configure>', self._on_canvas_resize)
+            self.pdf_canvas.bind('<MouseWheel>', self._on_mouse_wheel)
+            self.pdf_canvas.bind('<ButtonPress-2>', self._on_pan_start)
+            self.pdf_canvas.bind('<B2-Motion>', self._on_pan_drag)
+            self.pdf_canvas.bind('<ButtonRelease-2>', self._on_pan_end)
+            self._resize_after_id = None
+
+            # 底部状态栏
+            bottombar = ttk.Frame(self.root)
+            bottombar.pack(side=tk.BOTTOM, fill=tk.X)
+
+            queue_frame = ttk.Frame(bottombar)
+            queue_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4, pady=2)
+            self.queue_listbox = tk.Listbox(queue_frame, height=1, font=("SimSun", 8), exportselection=False, bg="#f8f8f8")
+            self.queue_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
+            self.queue_listbox.bind('<<ListboxSelect>>', self._on_queue_select)
+            self.queue_count_label = ttk.Label(queue_frame, text="0 个文件", foreground="#888", font=("SimSun", 8))
+            self.queue_count_label.pack(side=tk.RIGHT)
+
+            self.progress_var = tk.DoubleVar(value=0.0)
+            self.progress_bar = ttk.Progressbar(bottombar, variable=self.progress_var, maximum=100, length=150)
+            self.progress_bar.pack(side=tk.RIGHT, padx=4, pady=2)
+
+            self.region_var = tk.StringVar(value="识别区域：未设置（全页识别）")
+            ttk.Label(bottombar, textvariable=self.region_var, foreground="#555555", font=("SimSun", 8)).pack(side=tk.RIGHT, padx=8)
+
+            self.status_var = tk.StringVar(value="就绪")
+            statusbar = ttk.Label(self.root, textvariable=self.status_var, style="Status.TLabel", font=("SimSun", 8))
+            statusbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+            self.selector = RegionSelector(self.pdf_canvas, None, self._on_region_selected)
+
+        # 悬浮面板：结果面板
+    def _toggle_results_panel(self):
+        if self._results_panel is None:
+            self._results_panel = tk.Toplevel(self.root)
+            self._results_panel.title("OCR / 规范列表 / 检查结果")
+            self._set_icon_for_toplevel(self._results_panel)
+            self._results_panel.geometry("500x400")
+            self._results_panel.attributes('-topmost', True)
+            self._setup_results_panel_ui()
+        if self._results_visible:
+            self._results_panel.withdraw()
+            self._results_visible = False
+        else:
+            self._results_panel.deiconify()
+            self._results_panel.lift()
+            self._results_visible = True
+
+        def _setup_results_panel_ui(self):
+            panel = self._results_panel
+            nb = ttk.Notebook(panel)
+            nb.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+            self.notebook = nb
+
+            ocr_frame = ttk.Frame(nb)
+            nb.add(ocr_frame, text="OCR 文本")
+            self.ocr_text = tk.Text(ocr_frame, wrap=tk.WORD, font=("SimSun", 9))
+            ocr_scroll = ttk.Scrollbar(ocr_frame, orient=tk.VERTICAL, command=self.ocr_text.yview)
+            self.ocr_text.configure(yscrollcommand=ocr_scroll.set)
+            ocr_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+            self.ocr_text.pack(fill=tk.BOTH, expand=True)
+
+            list_frame = ttk.Frame(nb)
+            nb.add(list_frame, text="规范列表")
+            list_toolbar = ttk.Frame(list_frame)
+            list_toolbar.pack(side=tk.TOP, fill=tk.X)
+            ttk.Label(list_toolbar, text="双击移除，单击定位").pack(side=tk.LEFT)
+            list_columns = ('no', 'code', 'name', 'source')
+            self.list_tree = ttk.Treeview(list_frame, columns=list_columns, show='headings', selectmode='extended')
+            self.list_tree.heading('no', text='序号')
+            self.list_tree.heading('code', text='规范编号')
+            self.list_tree.heading('name', text='规范名称')
+            self.list_tree.heading('source', text='来源文件')
+            self.list_tree.column('no', width=40, anchor=tk.CENTER)
+            self.list_tree.column('code', width=120, anchor=tk.W)
+            self.list_tree.column('name', width=180, anchor=tk.W)
+            self.list_tree.column('source', width=80, anchor=tk.W)
+            list_scroll = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.list_tree.yview)
+            self.list_tree.configure(yscrollcommand=list_scroll.set)
+            list_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+            self.list_tree.pack(fill=tk.BOTH, expand=True)
+            self.list_tree.bind('<Double-Button-1>', self.remove_selected_code)
+            self.list_tree.bind('<<TreeviewSelect>>', self.on_code_selected)
+
+            check_frame = ttk.Frame(nb)
+            nb.add(check_frame, text="检查结果")
+            columns = ('code', 'name', 'status', 'replacement', 'action')
+            self.check_tree = ttk.Treeview(check_frame, columns=columns, show='tree headings', selectmode='extended')
+            self.check_tree.heading('#0', text='序号')
+            self.check_tree.heading('code', text='规范编号')
+            self.check_tree.heading('name', text='规范名称')
+            self.check_tree.heading('status', text='状态')
+            self.check_tree.heading('replacement', text='替代情况')
+            self.check_tree.heading('action', text='建议')
+            self.check_tree.column('#0', width=40, anchor=tk.CENTER)
+            self.check_tree.column('code', width=120)
+            self.check_tree.column('name', width=180)
+            self.check_tree.column('status', width=70)
+            self.check_tree.column('replacement', width=140)
+            self.check_tree.column('action', width=70)
+            check_scroll = ttk.Scrollbar(check_frame, orient=tk.VERTICAL, command=self.check_tree.yview)
+            self.check_tree.configure(yscrollcommand=check_scroll.set)
+            check_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+            self.check_tree.pack(fill=tk.BOTH, expand=True)
+            self.check_tree.bind('<Double-Button-1>', self.on_check_item_double_click)
+            self.check_tree.bind('<<TreeviewSelect>>', self.on_check_item_selected)
+
+        # 悬浮面板：缩略图
+    def _toggle_thumbnail_panel(self):
+        if self._thumb_panel is None:
+            self._thumb_panel = tk.Toplevel(self.root)
+            self._thumb_panel.title("文件缩略图")
+            self._set_icon_for_toplevel(self._thumb_panel)
+            self._thumb_panel.geometry("120x500")
+            self._thumb_panel.attributes('-topmost', True)
+            self.thumb_canvas = tk.Canvas(self._thumb_panel, bg="#e8e8e8", highlightthickness=0, width=110)
+            self.thumb_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            thumb_scroll = ttk.Scrollbar(self._thumb_panel, orient=tk.VERTICAL, command=self.thumb_canvas.yview)
+            thumb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+            self.thumb_canvas.configure(yscrollcommand=thumb_scroll.set)
+            self.thumb_frame = ttk.Frame(self.thumb_canvas)
+            self.thumb_scroll_window = self.thumb_canvas.create_window(
+                (0, 0), window=self.thumb_frame, anchor='nw', width=110)
+            self.thumb_frame.bind('<Configure>',
+                lambda e: self.thumb_canvas.configure(scrollregion=self.thumb_canvas.bbox('all')))
+        if self._thumb_visible:
+            self._thumb_panel.withdraw()
+            self._thumb_visible = False
+        else:
+            self._thumb_panel.deiconify()
+            self._thumb_panel.lift()
+            self._thumb_visible = True
+            self._update_thumbnails()
+
+        def _detect_file_type(self, path):
+            ext = Path(path).suffix.lower()
+            if ext == '.pdf':
+                return 'pdf'
+            elif ext == '.docx':
+                return 'docx'
+            elif ext == '.txt':
+                return 'txt'
+            elif ext in IMAGE_EXTENSIONS:
+                return 'image'
+            elif ext in CAD_EXTENSIONS:
+                return 'cad'
+            elif ext == '.ofd':
+                return 'ofd'
+            return 'unknown'
+
+        def _load_file(self, path):
+            self.current_path = path
+            self.file_type = self._detect_file_type(path)
+            if self.file_type == 'unknown':
+                self.status_var.set(f"不支持的文件格式: {Path(path).suffix}")
+                return False
+            self.ocr_results = []
+            self.extracted_codes = []
+            self.code_locations = []
+            self.list_tree.delete(*self.list_tree.get_children())
+            self.check_tree.delete(*self.check_tree.get_children())
+            self.ocr_text.delete('1.0', tk.END)
+            self._rotation_angle = 0
+            if self.file_type == 'pdf':
+                self.convert_pdf_to_images()
+            elif self.file_type == 'image':
+                self._load_image_file()
+            elif self.file_type == 'cad':
+                self._load_cad_file()
             else:
-                if self._acme_find_count < 40:
-                    self._acme_find_count += 1
-                    self.root.after(250, _find_and_init)
-                else:
-                    messagebox.showerror("CAD 错误",
-                        "无法获取 AcmeCAD 窗口，请确认 AcmeCAD 已正确安装。\n\n"
-                        "提示：请关闭任何正在运行的 AcmeCAD 后再试。")
-                    self._acme_proc.terminate()
-                    self._acme_find_count = 0
+                self.extract_text_file()
+            return True
 
-            self._acme_find_count = 0
-            self.root.after(400, _find_and_init)
+        def _load_image_file(self):
+            if not self.current_path or self.file_type != 'image':
+                return
+            self.status_var.set("正在加载图片...")
+            self.pdf_images = []
+            self.pdf_images.append(self.current_path)
+            self.status_var.set(f"已加载图片: {Path(self.current_path).name}")
+        self.page_var.set("第 1 / 1 页")
+        if self.pdf_images:
+            self.show_page(0)
 
-    except Exception as e:
-        messagebox.showerror("CAD 错误", f"打开 DWG 失败:\n{e}")
-    self.status_var.set("打开 DWG 失败")
+        # 加载 CAD 图纸（DWG → AcmeCAD 嵌入; DXF → ezdxf 渲染）
+        def _load_cad_file(self):
+            if not self.current_path or self.file_type != 'cad':
+                return
+            ext = Path(self.current_path).suffix.lower()
 
-    def _close_acmecad(self):
-        """关闭嵌入的 AcmeCAD 实例"""
+            # DWG → 启动 AcmeCAD 嵌入到预览区
+            if ext == '.dwg':
+                self._load_cad_with_acmecad()
+                return
+
+            # DXF → ezdxf 渲染
+            self.status_var.set("正在渲染 CAD 图纸 (DXF)...")
+            self.pdf_images = []
+            if not HAS_CAD:
+                self.status_var.set("CAD 渲染不可用")
+                messagebox.showwarning("CAD 不可用", "需要安装 ezdxf 和 matplotlib")
+                return
+            img_path = render_cad_to_image(self.current_path)
+            if img_path:
+                self.pdf_images.append(img_path)
+                self.status_var.set(f"CAD 已渲染: {Path(self.current_path).name}")
+                self.page_var.set("第 1 / 1 页")
+                if self.pdf_images:
+                    self.show_page(0)
+            else:
+                self.status_var.set("CAD 渲染失败")
+                messagebox.showerror("CAD 错误", f"无法渲染 CAD 文件:\n{self.current_path}")
+
+    def _load_cad_with_acmecad(self):
+        """用 AcmeCAD 打开 DWG 并嵌入到预览区。只保留中间黑色绘图区，
+        菜单栏、工具栏、状态栏全部隐藏，窗口充满整个预览画布。"""
+        acme_path = r"D:/Program Files/AcmeCAD2023-v8.10.6.1560-Chs.exe"
+        if not Path(acme_path).exists():
+            messagebox.showwarning("CAD 错误",
+                f"找不到 AcmeCAD:\n{acme_path}\n\n"
+                "请先安装 AcmeCAD，再打开 DWG 文件。")
+            return
+
+        self.status_var.set("正在启动 AcmeCAD 打开 DWG...")
         try:
             import win32gui
-        except Exception:
-            pass
-        if self._acme_main_hwnd:
-            try:
-                win32gui.SetParent(self._acme_main_hwnd, 0)
-            except Exception:
-                pass
-            self._acme_main_hwnd = None
-        if self._acme_proc:
-            try:
-                self._acme_proc.terminate()
-                self._acme_proc.wait(timeout=3)
-            except Exception:
-                pass
-            self._acme_proc = None
+            import win32con
+        except Exception as e:
+            messagebox.showerror("错误", f"缺少 pywin32:\n{e}")
+            return
+
+        # 清理旧的 AcmeCAD 残留
+        self._close_acmecad()
         try:
+            # 清除画布上旧的图片，避免与嵌入窗口重叠
             self.pdf_canvas.delete('all')
-        except Exception:
-            pass
-        self.current_img = None
-        self.pdf_images = []
+            self.current_img = None
+            self.pdf_images = []
 
-    def open_file(self):
-        paths = filedialog.askopenfilenames(
-            title="选择文件",
-            filetypes=[
-                ("所有支持的文件", "*.pdf *.docx *.txt *.png *.jpg *.jpeg *.bmp *.tiff *.tif *.webp *.dxf *.dwg"),
-                ("PDF文件", "*.pdf"),
-                ("Word文件", "*.docx"),
-                ("文本文件", "*.txt"),
-                ("图片文件", "*.png *.jpg *.jpeg *.bmp *.tiff *.tif *.webp"),
-                ("CAD文件", "*.dxf *.dwg"),
-                ("所有文件", "*.*")
-            ])
-        if not paths:
-            return
-        self.pdf_paths = list(paths)
-        self._update_file_queue()
-        if self.pdf_paths:
-            self._load_file(self.pdf_paths[0])
-            self._highlight_queue_item(0)
-            self.status_var.set(f"已打开 {len(self.pdf_paths)} 个文件，当前: {Path(self.current_path).name}")
+            # 启动 AcmeCAD 打开目标 DWG（CREATE_NO_WINDOW 只针对控制台窗口）
+            proc = subprocess.Popen([acme_path, str(self.current_path)])
+            self._acme_proc = proc
 
-    def open_folder(self):
-        folder = filedialog.askdirectory(title="选择文件夹（自动扫描所有支持的文件）")
-        if not folder:
-            return
-        supported = []
-        for ext in SUPPORTED_EXTENSIONS:
-            for f in Path(folder).rglob(f'*{ext}'):
-                supported.append(str(f))
-        supported.sort()
-        if not supported:
-            messagebox.showinfo("提示", "文件夹中没有找到支持的文件")
-            return
-        self.pdf_paths = supported
-        self._update_file_queue()
-        if self.pdf_paths:
-            self._load_file(self.pdf_paths[0])
-            self._highlight_queue_item(0)
-            self.status_var.set(f"已扫描文件夹，找到 {len(self.pdf_paths)} 个支持的文件")
+            def _hide_acme_ui(acme_main, try_count=0):
+                """把 AcmeCAD 的菜单栏、工具栏、状态栏、文件标签栏全部隐藏"""
+                try:
+                    # 去掉菜单栏
+                    menu = win32gui.GetMenu(acme_main)
+                    if menu:
+                        win32gui.SetMenu(acme_main, 0)
+                        win32gui.DestroyMenu(menu)
+                    # 隐藏所有子窗口中的 UI 元素（工具栏、状态栏、底部面板、左侧树形面板）
+                    ui_keywords = [
+                        'toolbar', 'status', 'msctls_statusbar',
+                        'tree', 'listview', 'explorer', 'panel',
+                        'ribbon', 'quicklaunch', 'tabcontrol'
+                    ]
+                    def _hide_cb(hwnd):
+                        cls = win32gui.GetClassName(hwnd)
+                        title = win32gui.GetWindowText(hwnd)
+                        low = (cls + title).lower()
+                        # 状态栏
+                        if cls == 'msctls_statusbar32' or 'status' in cls.lower():
+                            win32gui.ShowWindow(hwnd, 0)
+                            return
+                        # 工具栏
+                        if 'toolbar' in low or 'tool' in cls.lower():
+                            win32gui.ShowWindow(hwnd, 0)
+                            return
+                        # 左侧文件树/属性面板
+                        if 'tree' in cls.lower() or 'explorer' in cls.lower():
+                            win32gui.ShowWindow(hwnd, 0)
+                            return
+                        # 有标题的工具/文件标签栏（文件列表 tab）
+                        title_u = title.upper()
+                        if ('文件' in title_u or 'FILE' in title_u or '打开' in title_u
+                                or 'OPEN' in title_u):
+                            win32gui.ShowWindow(hwnd, 0)
+                            return
+                        # 底部命令栏/图层栏
+                        if any(k in low for k in ui_keywords):
+                            r = win32gui.GetWindowRect(hwnd)
+                            area = (r[2] - r[0]) * (r[3] - r[1])
+                            if area > 0 and area < 3000000:  # 过滤大绘图区
+                                win32gui.ShowWindow(hwnd, 0)
+                    win32gui.EnumChildWindows(acme_main, _hide_cb, [])
+                    # 最大化 AcmeCAD 窗口（让绘图区占满）
+                    win32gui.SendMessage(acme_main, win32con.WM_SYSCOMMAND,
+                                        win32con.SC_MAXIMIZE, 0)
+                    # 去掉窗口样式：边框、标题栏、最大最小化按钮
+                    style = win32gui.GetWindowLong(acme_main, win32con.GWL_STYLE)
+                    style &= ~win32con.WS_CAPTION
+                    style &= ~win32con.WS_THICKFRAME
+                    style &= ~win32con.WS_MINIMIZEBOX
+                    style &= ~win32con.WS_MAXIMIZEBOX
+                    style &= ~win32con.WS_SYSMENU
+                    style &= ~win32con.WS_BORDER
+                    win32gui.SetWindowLong(acme_main, win32con.GWL_STYLE, style)
+                    # 让窗口重新计算布局
+                    win32gui.SetWindowPos(acme_main, 0, 0, 0, 0, 0,
+                        win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
+                        win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED)
+                    # 让 AcmeCAD 重绘内部布局
+                    win32gui.InvalidateRect(acme_main, None, True)
+                    win32gui.RedrawWindow(acme_main, None, None,
+                        win32con.RDW_INVALIDATE | win32con.RDW_UPDATENOW)
+                    # 重新枚举，把还没隐藏的小 UI 也藏掉（二次清理）
+                    win32gui.EnumChildWindows(acme_main, _hide_cb, [])
+                    if try_count < 5:
+                        self.root.after(150, lambda: _hide_acme_ui(acme_main, try_count + 1))
+                except Exception as e:
+                    print(f"_hide_acme_ui error: {e}")
 
-    def _update_file_queue(self):
-        self.queue_listbox.delete(0, tk.END)
-        for i, p in enumerate(self.pdf_paths):
-            name = Path(p).name
-            self.queue_listbox.insert(tk.END, f"  {i+1}. {name}")
-        self.queue_count_label.config(text=f"{len(self.pdf_paths)} 个文件")
-        self._update_thumbnails()
+            def _embed_acme(acme_main, try_count=0):
+                """把 AcmeCAD 嵌入到我们预览区，定位到画布尺寸"""
+                try:
+                    # 取当前画布尺寸
+                    ww = self.pdf_canvas.winfo_width()
+                    hh = self.pdf_canvas.winfo_height()
+                    if ww <= 10 or hh <= 10:
+                        ww, hh = 900, 500
+                    # 获取我们的容器窗口
+                    parent_hwnd = int(str(self.pdf_canvas.master.winfo_id()))
+                    # 设为子窗口（嵌入）
+                    win32gui.SetParent(acme_main, parent_hwnd)
+                    # 去 WS_CHILD 后再设 WS_CHILD，避免 WS_POPUP 残留
+                    style = win32gui.GetWindowLong(acme_main, win32con.GWL_STYLE)
+                    style &= ~win32con.WS_POPUP
+                    style |= win32con.WS_CHILD
+                    win32gui.SetWindowLong(acme_main, win32con.GWL_STYLE, style)
+                    # 移进画布区域（坐标相对于 parent）
+                    win32gui.MoveWindow(acme_main, 0, 0, ww, hh, 1)
+                    # 显示并置顶
+                    win32gui.SetWindowPos(acme_main, win32con.HWND_TOP, 0, 0,
+                        ww, hh,
+                        win32con.SWP_NOZORDER)
+                    win32gui.ShowWindow(acme_main, 1)
+                    win32gui.SetForegroundWindow(acme_main)
+                    self._acme_main_hwnd = acme_main
+                    self.status_var.set(f"已用 AcmeCAD 打开 DWG: {Path(self.current_path).name}")
+                    self.page_var.set("CAD 预览")
+                except Exception as e:
+                    print(f"_embed_acme error (try {try_count}): {e}")
+                    if try_count < 6:
+                        self.root.after(200, lambda: _embed_acme(acme_main, try_count + 1))
 
-    def _highlight_queue_item(self, idx):
-        self.queue_listbox.selection_clear(0, tk.END)
-        if 0 <= idx < len(self.pdf_paths):
-            self.queue_listbox.selection_set(idx)
-            self.queue_listbox.see(idx)
+            def _find_and_init():
+                """搜索 AcmeCAD 主窗口，找到后隐藏 UI 并嵌入"""
+                found = []
+                def _search(hwnd, lst):
+                    title = win32gui.GetWindowText(hwnd)
+                    title_l = title.lower()
+                    if 'acmecad' in title_l or 'ACME' in title.upper():
+                        lst.append(hwnd)
+                win32gui.EnumWindows(_search, found)
+                if found:
+                    acme_main = found[-1]
+                    self.root.after(300, lambda: _hide_acme_ui(acme_main))
+                    self.root.after(1500, lambda: _embed_acme(acme_main))
+                else:
+                    if self._acme_find_count < 40:
+                        self._acme_find_count += 1
+                        self.root.after(250, _find_and_init)
+                    else:
+                        messagebox.showerror("CAD 错误",
+                            "无法获取 AcmeCAD 窗口，请确认 AcmeCAD 已正确安装。\n\n"
+                            "提示：请关闭任何正在运行的 AcmeCAD 后再试。")
+                        self._acme_proc.terminate()
+                        self._acme_find_count = 0
 
-    def _on_queue_select(self, event):
-        sel = self.queue_listbox.curselection()
-        if sel:
-            idx = sel[0]
+                self._acme_find_count = 0
+                self.root.after(400, _find_and_init)
+
+        except Exception as e:
+            messagebox.showerror("CAD 错误", f"打开 DWG 失败:\n{e}")
+        self.status_var.set("打开 DWG 失败")
+
+        def _close_acmecad(self):
+            """关闭嵌入的 AcmeCAD 实例"""
+            try:
+                import win32gui
+            except Exception:
+                pass
+            if self._acme_main_hwnd:
+                try:
+                    win32gui.SetParent(self._acme_main_hwnd, 0)
+                except Exception:
+                    pass
+                self._acme_main_hwnd = None
+            if self._acme_proc:
+                try:
+                    self._acme_proc.terminate()
+                    self._acme_proc.wait(timeout=3)
+                except Exception:
+                    pass
+                self._acme_proc = None
+            try:
+                self.pdf_canvas.delete('all')
+            except Exception:
+                pass
+            self.current_img = None
+            self.pdf_images = []
+
+        def open_file(self):
+            paths = filedialog.askopenfilenames(
+                title="选择文件",
+                filetypes=[
+                    ("所有支持的文件", "*.pdf *.docx *.txt *.png *.jpg *.jpeg *.bmp *.tiff *.tif *.webp *.dxf *.dwg"),
+                    ("PDF文件", "*.pdf"),
+                    ("Word文件", "*.docx"),
+                    ("文本文件", "*.txt"),
+                    ("图片文件", "*.png *.jpg *.jpeg *.bmp *.tiff *.tif *.webp"),
+                    ("CAD文件", "*.dxf *.dwg"),
+                    ("所有文件", "*.*")
+                ])
+            if not paths:
+                return
+            self.pdf_paths = list(paths)
+            self._update_file_queue()
+            if self.pdf_paths:
+                self._load_file(self.pdf_paths[0])
+                self._highlight_queue_item(0)
+                self.status_var.set(f"已打开 {len(self.pdf_paths)} 个文件，当前: {Path(self.current_path).name}")
+
+        def open_folder(self):
+            folder = filedialog.askdirectory(title="选择文件夹（自动扫描所有支持的文件）")
+            if not folder:
+                return
+            supported = []
+            for ext in SUPPORTED_EXTENSIONS:
+                for f in Path(folder).rglob(f'*{ext}'):
+                    supported.append(str(f))
+            supported.sort()
+            if not supported:
+                messagebox.showinfo("提示", "文件夹中没有找到支持的文件")
+                return
+            self.pdf_paths = supported
+            self._update_file_queue()
+            if self.pdf_paths:
+                self._load_file(self.pdf_paths[0])
+                self._highlight_queue_item(0)
+                self.status_var.set(f"已扫描文件夹，找到 {len(self.pdf_paths)} 个支持的文件")
+
+        def _update_file_queue(self):
+            self.queue_listbox.delete(0, tk.END)
+            for i, p in enumerate(self.pdf_paths):
+                name = Path(p).name
+                self.queue_listbox.insert(tk.END, f"  {i+1}. {name}")
+            self.queue_count_label.config(text=f"{len(self.pdf_paths)} 个文件")
+            self._update_thumbnails()
+
+        def _highlight_queue_item(self, idx):
+            self.queue_listbox.selection_clear(0, tk.END)
+            if 0 <= idx < len(self.pdf_paths):
+                self.queue_listbox.selection_set(idx)
+                self.queue_listbox.see(idx)
+
+        def _on_queue_select(self, event):
+            sel = self.queue_listbox.curselection()
+            if sel:
+                idx = sel[0]
+                if 0 <= idx < len(self.pdf_paths):
+                    path = self.pdf_paths[idx]
+                    if path != self.current_path:
+                        self._load_file(path)
+                        self._highlight_queue_item(idx)
+
+        def _prev_file(self):
+            if not self.pdf_paths or not self.current_path:
+                return
+            for i, p in enumerate(self.pdf_paths):
+                if Path(p).name == Path(self.current_path).name:
+                    prev_idx = (i - 1) % len(self.pdf_paths)
+                    self._load_file(self.pdf_paths[prev_idx])
+                    self._highlight_queue_item(prev_idx)
+                    return
+
+        def _next_file(self):
+            if not self.pdf_paths or not self.current_path:
+                return
+            for i, p in enumerate(self.pdf_paths):
+                if Path(p).name == Path(self.current_path).name:
+                    next_idx = (i + 1) % len(self.pdf_paths)
+                    self._load_file(self.pdf_paths[next_idx])
+                    self._highlight_queue_item(next_idx)
+                    return
+
+        def _clear_queue(self):
+            self.pdf_paths = []
+            self._file_queue = []
+            self.queue_listbox.delete(0, tk.END)
+            self.queue_count_label.config(text="0 个文件")
+            self._clear_thumbnails()
+            self.status_var.set("队列已清空")
+
+        def _update_thumbnails(self):
+            self._clear_thumbnails()
+            if not self.pdf_paths:
+                return
+            for widget in self.thumb_frame.winfo_children():
+                widget.destroy()
+            for i, path in enumerate(self.pdf_paths[:50]):
+                name = Path(path).name
+                try:
+                    if HAS_PIL:
+                        img = Image.open(path)
+                        img.thumbnail((90, 120), Image.Resampling.LANCZOS)
+                        photo = ImageTk.PhotoImage(img)
+                        self._thumbnail_images.append(photo)
+                        frame = ttk.Frame(self.thumb_frame)
+                        frame.pack(fill=tk.X, pady=2)
+                        label = ttk.Label(frame, image=photo)
+                        label.pack()
+                        ttk.Label(frame, text=name[:12], font=("SimSun", 7), anchor=tk.CENTER).pack(fill=tk.X)
+                        label.bind('<Button-1>', lambda e, idx=i: self._on_thumb_click_internal(idx))
+                except Exception:
+                    pass
+
+        def _clear_thumbnails(self):
+            self._thumbnail_images = []
+            for widget in self.thumb_frame.winfo_children():
+                widget.destroy()
+
+        def _on_thumb_click_internal(self, idx):
             if 0 <= idx < len(self.pdf_paths):
                 path = self.pdf_paths[idx]
                 if path != self.current_path:
                     self._load_file(path)
                     self._highlight_queue_item(idx)
 
-    def _prev_file(self):
-        if not self.pdf_paths or not self.current_path:
-            return
-        for i, p in enumerate(self.pdf_paths):
-            if Path(p).name == Path(self.current_path).name:
-                prev_idx = (i - 1) % len(self.pdf_paths)
-                self._load_file(self.pdf_paths[prev_idx])
-                self._highlight_queue_item(prev_idx)
-                return
-
-    def _next_file(self):
-        if not self.pdf_paths or not self.current_path:
-            return
-        for i, p in enumerate(self.pdf_paths):
-            if Path(p).name == Path(self.current_path).name:
-                next_idx = (i + 1) % len(self.pdf_paths)
-                self._load_file(self.pdf_paths[next_idx])
-                self._highlight_queue_item(next_idx)
-                return
-
-    def _clear_queue(self):
-        self.pdf_paths = []
-        self._file_queue = []
-        self.queue_listbox.delete(0, tk.END)
-        self.queue_count_label.config(text="0 个文件")
-        self._clear_thumbnails()
-        self.status_var.set("队列已清空")
-
-    def _update_thumbnails(self):
-        self._clear_thumbnails()
-        if not self.pdf_paths:
-            return
-        for widget in self.thumb_frame.winfo_children():
-            widget.destroy()
-        for i, path in enumerate(self.pdf_paths[:50]):
-            name = Path(path).name
-            try:
-                if HAS_PIL:
-                    img = Image.open(path)
-                    img.thumbnail((90, 120), Image.Resampling.LANCZOS)
-                    photo = ImageTk.PhotoImage(img)
-                    self._thumbnail_images.append(photo)
-                    frame = ttk.Frame(self.thumb_frame)
-                    frame.pack(fill=tk.X, pady=2)
-                    label = ttk.Label(frame, image=photo)
-                    label.pack()
-                    ttk.Label(frame, text=name[:12], font=("SimSun", 7), anchor=tk.CENTER).pack(fill=tk.X)
-                    label.bind('<Button-1>', lambda e, idx=i: self._on_thumb_click_internal(idx))
-            except Exception:
-                pass
-
-    def _clear_thumbnails(self):
-        self._thumbnail_images = []
-        for widget in self.thumb_frame.winfo_children():
-            widget.destroy()
-
-    def _on_thumb_click_internal(self, idx):
-        if 0 <= idx < len(self.pdf_paths):
-            path = self.pdf_paths[idx]
-            if path != self.current_path:
-                self._load_file(path)
-                self._highlight_queue_item(idx)
-
-    # 旋转
-    def _rotate_cw(self):
-        self._rotation_angle = (self._rotation_angle + 90) % 360
-        self._redraw_current_page()
-
-    def _rotate_ccw(self):
-        self._rotation_angle = (self._rotation_angle - 90) % 360
-        self._redraw_current_page()
-
-    # 批量处理
-    def batch_process_all(self):
-        if not self.pdf_paths:
-            messagebox.showwarning("提示", "请先打开文件或文件夹")
-            return
-        if self._batch_running:
-            self._batch_abort = True
-            self.status_var.set("正在停止批量处理...")
-            return
-        self._batch_running = True
-        self._batch_abort = False
-        self.status_var.set(f"批量处理开始: 共 {len(self.pdf_paths)} 个文件")
-        self.progress_var.set(0)
-        all_codes = []
-        all_code_info = {}
-
-        def batch_thread():
-            try:
-                for i, path in enumerate(self.pdf_paths):
-                    if self._batch_abort:
-                        break
-                    self.root.after(0, lambda p=i+1: self.status_var.set(
-                        f"批量处理: {p}/{len(self.pdf_paths)} - {Path(path).name}"))
-                    self.root.after(0, lambda p=i: self.progress_var.set((p / len(self.pdf_paths)) * 100))
-                    try:
-                        file_type = self._detect_file_type(path)
-                        code_info = {}
-                        if file_type == 'pdf' and HAS_FITZ:
-                            with fitz.open(path) as doc:
-                                for page_num in range(min(len(doc), 5)):
-                                    page = doc.load_page(page_num)
-                                    pix = page.get_pixmap(dpi=200)
-                                    img_path = tempfile.mktemp(suffix='.png')
-                                    pix.save(img_path)
-                                    masked = mask_seals_pil(img_path)
-                                    text, _ = self.checker.ocr_image(masked)
-                                    for p in [masked, img_path]:
-                                        try: os.remove(p)
-                                        except: pass
-                                    cleaned = fullwidth_to_halfwidth(text)
-                                    for c in CODE_PATTERN.findall(cleaned):
-                                        norm = normalize_for_matching(c)
-                                        if norm not in code_info:
-                                            code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
-                        elif file_type == 'image':
-                            masked = mask_seals_pil(path)
-                            text, _ = self.checker.ocr_image(masked)
-                            try: os.remove(masked)
-                            except: pass
-                            cleaned = fullwidth_to_halfwidth(text)
-                            for c in CODE_PATTERN.findall(cleaned):
-                                norm = normalize_for_matching(c)
-                                if norm not in code_info:
-                                    code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
-                        elif file_type == 'cad':
-                            if HAS_CAD:
-                                img_path = render_cad_to_image(path)
-                                if img_path:
-                                    masked = mask_seals_pil(img_path)
-                                    text, _ = self.checker.ocr_image(masked)
-                                    for p in [masked, img_path]:
-                                        try: os.remove(p)
-                                        except: pass
-                                    cleaned = fullwidth_to_halfwidth(text)
-                                    for c in CODE_PATTERN.findall(cleaned):
-                                        norm = normalize_for_matching(c)
-                                        if norm not in code_info:
-                                            code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
-                        elif file_type == 'docx':
-                            doc = Document(path)
-                            full_text = '\n'.join([p.text for p in doc.paragraphs])
-                            cleaned = fullwidth_to_halfwidth(full_text)
-                            for c in CODE_PATTERN.findall(cleaned):
-                                norm = normalize_for_matching(c)
-                                if norm not in code_info:
-                                    code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
-                        elif file_type == 'txt':
-                            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                                full_text = f.read()
-                            cleaned = fullwidth_to_halfwidth(full_text)
-                            for c in CODE_PATTERN.findall(cleaned):
-                                norm = normalize_for_matching(c)
-                                if norm not in code_info:
-                                    code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
-                        for norm, info in code_info.items():
-                            if norm not in all_code_info:
-                                all_code_info[norm] = info
-                            else:
-                                existing = all_code_info[norm].get('source', '')
-                                if Path(path).name not in existing:
-                                    all_code_info[norm]['source'] = existing + ', ' + Path(path).name
-                    except Exception as e:
-                        print(f"Batch processing error for {path}: {e}")
-                if self._batch_abort:
-                    self.root.after(0, lambda: self.status_var.set("批量处理已中止"))
-                    self.root.after(0, lambda: self.progress_var.set(0))
-                else:
-                    self.root.after(0, lambda: self._batch_finished(all_codes, all_code_info))
-            except Exception as e:
-                self.root.after(0, lambda: self.status_var.set(f"批量处理出错: {e}"))
-            finally:
-                self._batch_running = False
-
-        threading.Thread(target=batch_thread, daemon=True).start()
-
-    def _batch_finished(self, all_codes, all_code_info):
-        self.extracted_codes = all_codes
-        self.extracted_code_info = all_code_info
-        self.list_tree.delete(*self.list_tree.get_children())
-        seen = set()
-        for i, code in enumerate(self.extracted_codes, 1):
-            if code in seen:
-                continue
-            seen.add(code)
-            info = self.extracted_code_info.get(code, {})
-            name = info.get('name', '')
-            source = info.get('source', '')
-            self.list_tree.insert('', tk.END, values=(i, info.get('original', code), name, source))
-        self.status_var.set(
-            f"批量处理完成! 共处理 {len(self.pdf_paths)} 个文件，识别到 {len(self.extracted_codes)} 个规范编号")
-        self.progress_var.set(100)
-        self.notebook.select(self.list_tree.master)
-        messagebox.showinfo("批量处理完成",
-                           f"处理文件: {len(self.pdf_paths)} 个\n识别规范: {len(self.extracted_codes)} 个")
-
-    # 显示
-    def show_page(self, idx):
-        if idx < 0 or idx >= len(self.pdf_images):
-            return
-        self.pdf_canvas.delete('all')
-        img_path = self.pdf_images[idx]
-        img = Image.open(img_path)
-        if self._rotation_angle != 0:
-            img = img.rotate(self._rotation_angle, expand=True, resample=Image.Resampling.BICUBIC)
-        self._current_base_image = img
-        canvas_w = self.pdf_canvas.winfo_width() or 400
-        canvas_h = self.pdf_canvas.winfo_height() or 600
-        img_w, img_h = img.size
-        if self._fit_mode.get() == 'fit_width':
-            scale = canvas_w / img_w
-        else:
-            scale = min(canvas_w / img_w, canvas_h / img_h)
-        new_w, new_h = int(img_w * scale), int(img_h * scale)
-        img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-        self.current_img = ImageTk.PhotoImage(img_resized)
-        center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
-        center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
-        self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
-        self.page_var.set(f"第 {idx + 1} / {len(self.pdf_images)} 页")
-        self.current_display_index = idx
-        if self.selector:
-            self.selector.image_item_id = self.current_image_item
-        if self.ocr_region:
-            self._draw_region_overlay(self.ocr_region, scale)
-        self._draw_code_markers_for_page(idx, scale)
-
-    def _prev_page(self):
-        if self.file_type not in ('pdf', 'image', 'cad') or not self.pdf_images:
-            return
-        idx = getattr(self, 'current_display_index', 0) - 1
-        if idx < 0:
-            idx = len(self.pdf_images) - 1
-        self.show_page(idx)
-
-    def _next_page(self):
-        if self.file_type not in ('pdf', 'image', 'cad') or not self.pdf_images:
-            return
-        idx = getattr(self, 'current_display_index', 0) + 1
-        if idx >= len(self.pdf_images):
-            idx = 0
-        self.show_page(idx)
-
-    def _zoom_in(self):
-        if not hasattr(self, '_zoom_level'):
-            self._zoom_level = 1.0
-        self._zoom_level = min(self._zoom_level * 1.2, 5.0)
-        self._redraw_current_page()
-
-    def _zoom_out(self):
-        if not hasattr(self, '_zoom_level'):
-            self._zoom_level = 1.0
-        self._zoom_level = max(self._zoom_level / 1.2, 0.2)
-        self._redraw_current_page()
-
-    def _on_mouse_wheel(self, event):
-        if not hasattr(self, '_zoom_level'):
-            self._zoom_level = 1.0
-        if event.delta > 0:
-            self._zoom_level = min(self._zoom_level * 1.1, 5.0)
-        else:
-            self._zoom_level = max(self._zoom_level / 1.1, 0.2)
-        self._redraw_current_page()
-
-    def _reset_zoom(self):
-        self._zoom_level = 1.0
-        self._pan_image_x = 0
-        self._pan_image_y = 0
-        self._rotation_angle = 0
-        self._redraw_current_page()
-
-    def _on_pan_start(self, event):
-        self._panning = True
-        self._pan_start_x = event.x
-        self._pan_start_y = event.y
-        self.pdf_canvas.config(cursor="fleur")
-
-    def _on_pan_drag(self, event):
-        if not self._panning:
-            return
-        dx = event.x - self._pan_start_x
-        dy = event.y - self._pan_start_y
-        self._pan_image_x += dx
-        self._pan_image_y += dy
-        self._pan_start_x = event.x
-        self._pan_start_y = event.y
-        self._redraw_current_page()
-
-    def _on_pan_end(self, event):
-        self._panning = False
-        self.pdf_canvas.config(cursor="")
-
-    def _redraw_current_page(self, canvas_w=None, canvas_h=None):
-        if not HAS_FITZ:
-            return
-        if not hasattr(self, '_current_base_image') or not self._current_base_image:
-            return
-        if not self.pdf_images:
-            return
-        from PIL import Image, ImageTk
-        img = self._current_base_image
-        img_w, img_h = img.size
-        canvas_w = canvas_w or self.pdf_canvas.winfo_width() or 400
-        canvas_h = canvas_h or self.pdf_canvas.winfo_height() or 600
-        if self._fit_mode.get() == 'fit_width':
-            base_scale = canvas_w / img_w
-        else:
-            base_scale = min(canvas_w / img_w, canvas_h / img_h)
-        scale = base_scale * getattr(self, '_zoom_level', 1.0)
-        new_w, new_h = int(img_w * scale), int(img_h * scale)
-        img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-        self.pdf_canvas.delete('all')
-        self.current_img = ImageTk.PhotoImage(img_resized)
-        center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
-        center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
-        self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
-        if self.ocr_region:
-            self._draw_region_overlay(self.ocr_region, scale)
-        if hasattr(self, 'current_display_index'):
-            self._draw_code_markers_for_page(self.current_display_index, scale)
-        self._highlight_rect_id = None
-
-    def _on_canvas_resize(self, event):
-        if hasattr(self, '_current_base_image') and self._current_base_image and self.pdf_images:
+        # 旋转
+        def _rotate_cw(self):
+            self._rotation_angle = (self._rotation_angle + 90) % 360
             self._redraw_current_page()
 
-    def _start_periodic_redraw(self):
-        self._last_canvas_size = (self.pdf_canvas.winfo_width(), self.pdf_canvas.winfo_height())
-        self._periodic_redraw()
+        def _rotate_ccw(self):
+            self._rotation_angle = (self._rotation_angle - 90) % 360
+            self._redraw_current_page()
 
-    def _periodic_redraw(self):
-        if hasattr(self, '_current_base_image') and self._current_base_image and self.pdf_images:
-            current_size = (self.pdf_canvas.winfo_width(), self.pdf_canvas.winfo_height())
-            if current_size != getattr(self, '_last_canvas_size', None):
-                self._last_canvas_size = current_size
-                if current_size[0] > 10 and current_size[1] > 10:
-                    self._redraw_current_page()
-        self.root.after(200, self._periodic_redraw)
+        # 批量处理
+        def batch_process_all(self):
+            if not self.pdf_paths:
+                messagebox.showwarning("提示", "请先打开文件或文件夹")
+                return
+            if self._batch_running:
+                self._batch_abort = True
+                self.status_var.set("正在停止批量处理...")
+                return
+            self._batch_running = True
+            self._batch_abort = False
+            self.status_var.set(f"批量处理开始: 共 {len(self.pdf_paths)} 个文件")
+            self.progress_var.set(0)
+            all_codes = []
+            all_code_info = {}
 
-    def _draw_code_markers_for_page(self, page_idx, scale):
-        if not hasattr(self, 'current_image_item'):
-            return
-        if hasattr(self, '_code_marker_ids'):
-            for marker_id in self._code_marker_ids:
-                self.pdf_canvas.delete(marker_id)
-            self._code_marker_ids = []
-        offset_x = 0
-        offset_y = 0
-        if hasattr(self, '_current_base_image') and self._current_base_image and scale:
+            def batch_thread():
+                try:
+                    for i, path in enumerate(self.pdf_paths):
+                        if self._batch_abort:
+                            break
+                        self.root.after(0, lambda p=i+1: self.status_var.set(
+                            f"批量处理: {p}/{len(self.pdf_paths)} - {Path(path).name}"))
+                        self.root.after(0, lambda p=i: self.progress_var.set((p / len(self.pdf_paths)) * 100))
+                        try:
+                            file_type = self._detect_file_type(path)
+                            code_info = {}
+                            if file_type == 'pdf' and HAS_FITZ:
+                                with fitz.open(path) as doc:
+                                    for page_num in range(min(len(doc), 5)):
+                                        page = doc.load_page(page_num)
+                                        pix = page.get_pixmap(dpi=200)
+                                        img_path = tempfile.mktemp(suffix='.png')
+                                        pix.save(img_path)
+                                        masked = mask_seals_pil(img_path)
+                                        text, _ = self.checker.ocr_image(masked)
+                                        for p in [masked, img_path]:
+                                            try: os.remove(p)
+                                            except: pass
+                                        cleaned = fullwidth_to_halfwidth(text)
+                                        for c in CODE_PATTERN.findall(cleaned):
+                                            norm = normalize_for_matching(c)
+                                            if norm not in code_info:
+                                                code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
+                            elif file_type == 'image':
+                                masked = mask_seals_pil(path)
+                                text, _ = self.checker.ocr_image(masked)
+                                try: os.remove(masked)
+                                except: pass
+                                cleaned = fullwidth_to_halfwidth(text)
+                                for c in CODE_PATTERN.findall(cleaned):
+                                    norm = normalize_for_matching(c)
+                                    if norm not in code_info:
+                                        code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
+                            elif file_type == 'cad':
+                                if HAS_CAD:
+                                    img_path = render_cad_to_image(path)
+                                    if img_path:
+                                        masked = mask_seals_pil(img_path)
+                                        text, _ = self.checker.ocr_image(masked)
+                                        for p in [masked, img_path]:
+                                            try: os.remove(p)
+                                            except: pass
+                                        cleaned = fullwidth_to_halfwidth(text)
+                                        for c in CODE_PATTERN.findall(cleaned):
+                                            norm = normalize_for_matching(c)
+                                            if norm not in code_info:
+                                                code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
+                            elif file_type == 'docx':
+                                doc = Document(path)
+                                full_text = '\n'.join([p.text for p in doc.paragraphs])
+                                cleaned = fullwidth_to_halfwidth(full_text)
+                                for c in CODE_PATTERN.findall(cleaned):
+                                    norm = normalize_for_matching(c)
+                                    if norm not in code_info:
+                                        code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
+                            elif file_type == 'txt':
+                                with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                                    full_text = f.read()
+                                cleaned = fullwidth_to_halfwidth(full_text)
+                                for c in CODE_PATTERN.findall(cleaned):
+                                    norm = normalize_for_matching(c)
+                                    if norm not in code_info:
+                                        code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
+                            for norm, info in code_info.items():
+                                if norm not in all_code_info:
+                                    all_code_info[norm] = info
+                                else:
+                                    existing = all_code_info[norm].get('source', '')
+                                    if Path(path).name not in existing:
+                                        all_code_info[norm]['source'] = existing + ', ' + Path(path).name
+                        except Exception as e:
+                            print(f"Batch processing error for {path}: {e}")
+                    if self._batch_abort:
+                        self.root.after(0, lambda: self.status_var.set("批量处理已中止"))
+                        self.root.after(0, lambda: self.progress_var.set(0))
+                    else:
+                        self.root.after(0, lambda: self._batch_finished(all_codes, all_code_info))
+                except Exception as e:
+                    self.root.after(0, lambda: self.status_var.set(f"批量处理出错: {e}"))
+                finally:
+                    self._batch_running = False
+
+            threading.Thread(target=batch_thread, daemon=True).start()
+
+        def _batch_finished(self, all_codes, all_code_info):
+            self.extracted_codes = all_codes
+            self.extracted_code_info = all_code_info
+            self.list_tree.delete(*self.list_tree.get_children())
+            seen = set()
+            for i, code in enumerate(self.extracted_codes, 1):
+                if code in seen:
+                    continue
+                seen.add(code)
+                info = self.extracted_code_info.get(code, {})
+                name = info.get('name', '')
+                source = info.get('source', '')
+                self.list_tree.insert('', tk.END, values=(i, info.get('original', code), name, source))
+            self.status_var.set(
+                f"批量处理完成! 共处理 {len(self.pdf_paths)} 个文件，识别到 {len(self.extracted_codes)} 个规范编号")
+            self.progress_var.set(100)
+            self.notebook.select(self.list_tree.master)
+            messagebox.showinfo("批量处理完成",
+                               f"处理文件: {len(self.pdf_paths)} 个\n识别规范: {len(self.extracted_codes)} 个")
+
+        # 显示
+        def show_page(self, idx):
+            if idx < 0 or idx >= len(self.pdf_images):
+                return
+            self.pdf_canvas.delete('all')
+            img_path = self.pdf_images[idx]
+            img = Image.open(img_path)
+            if self._rotation_angle != 0:
+                img = img.rotate(self._rotation_angle, expand=True, resample=Image.Resampling.BICUBIC)
+            self._current_base_image = img
             canvas_w = self.pdf_canvas.winfo_width() or 400
             canvas_h = self.pdf_canvas.winfo_height() or 600
-            img_w, img_h = self._current_base_image.size
+            img_w, img_h = img.size
+            if self._fit_mode.get() == 'fit_width':
+                scale = canvas_w / img_w
+            else:
+                scale = min(canvas_w / img_w, canvas_h / img_h)
             new_w, new_h = int(img_w * scale), int(img_h * scale)
-            offset_x = (canvas_w - new_w) // 2 + getattr(self, '_pan_image_x', 0)
-            offset_y = (canvas_h - new_h) // 2 + getattr(self, '_pan_image_y', 0)
-        page_codes = [loc for loc in self.code_locations if loc['page'] == page_idx]
-        for loc in page_codes:
-            x1, y1, x2, y2 = loc['bbox']
+            img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            self.current_img = ImageTk.PhotoImage(img_resized)
+            center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
+            center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
+            self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
+            self.page_var.set(f"第 {idx + 1} / {len(self.pdf_images)} 页")
+            self.current_display_index = idx
+            if self.selector:
+                self.selector.image_item_id = self.current_image_item
+            if self.ocr_region:
+                self._draw_region_overlay(self.ocr_region, scale)
+            self._draw_code_markers_for_page(idx, scale)
+
+        def _prev_page(self):
+            if self.file_type not in ('pdf', 'image', 'cad') or not self.pdf_images:
+                return
+            idx = getattr(self, 'current_display_index', 0) - 1
+            if idx < 0:
+                idx = len(self.pdf_images) - 1
+            self.show_page(idx)
+
+        def _next_page(self):
+            if self.file_type not in ('pdf', 'image', 'cad') or not self.pdf_images:
+                return
+            idx = getattr(self, 'current_display_index', 0) + 1
+            if idx >= len(self.pdf_images):
+                idx = 0
+            self.show_page(idx)
+
+        def _zoom_in(self):
+            if not hasattr(self, '_zoom_level'):
+                self._zoom_level = 1.0
+            self._zoom_level = min(self._zoom_level * 1.2, 5.0)
+            self._redraw_current_page()
+
+        def _zoom_out(self):
+            if not hasattr(self, '_zoom_level'):
+                self._zoom_level = 1.0
+            self._zoom_level = max(self._zoom_level / 1.2, 0.2)
+            self._redraw_current_page()
+
+        def _on_mouse_wheel(self, event):
+            if not hasattr(self, '_zoom_level'):
+                self._zoom_level = 1.0
+            if event.delta > 0:
+                self._zoom_level = min(self._zoom_level * 1.1, 5.0)
+            else:
+                self._zoom_level = max(self._zoom_level / 1.1, 0.2)
+            self._redraw_current_page()
+
+        def _reset_zoom(self):
+            self._zoom_level = 1.0
+            self._pan_image_x = 0
+            self._pan_image_y = 0
+            self._rotation_angle = 0
+            self._redraw_current_page()
+
+        def _on_pan_start(self, event):
+            self._panning = True
+            self._pan_start_x = event.x
+            self._pan_start_y = event.y
+            self.pdf_canvas.config(cursor="fleur")
+
+        def _on_pan_drag(self, event):
+            if not self._panning:
+                return
+            dx = event.x - self._pan_start_x
+            dy = event.y - self._pan_start_y
+            self._pan_image_x += dx
+            self._pan_image_y += dy
+            self._pan_start_x = event.x
+            self._pan_start_y = event.y
+            self._redraw_current_page()
+
+        def _on_pan_end(self, event):
+            self._panning = False
+            self.pdf_canvas.config(cursor="")
+
+        def _redraw_current_page(self, canvas_w=None, canvas_h=None):
+            if not HAS_FITZ:
+                return
+            if not hasattr(self, '_current_base_image') or not self._current_base_image:
+                return
+            if not self.pdf_images:
+                return
+            from PIL import Image, ImageTk
+            img = self._current_base_image
+            img_w, img_h = img.size
+            canvas_w = canvas_w or self.pdf_canvas.winfo_width() or 400
+            canvas_h = canvas_h or self.pdf_canvas.winfo_height() or 600
+            if self._fit_mode.get() == 'fit_width':
+                base_scale = canvas_w / img_w
+            else:
+                base_scale = min(canvas_w / img_w, canvas_h / img_h)
+            scale = base_scale * getattr(self, '_zoom_level', 1.0)
+            new_w, new_h = int(img_w * scale), int(img_h * scale)
+            img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            self.pdf_canvas.delete('all')
+            self.current_img = ImageTk.PhotoImage(img_resized)
+            center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
+            center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
+            self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
+            if self.ocr_region:
+                self._draw_region_overlay(self.ocr_region, scale)
+            if hasattr(self, 'current_display_index'):
+                self._draw_code_markers_for_page(self.current_display_index, scale)
+            self._highlight_rect_id = None
+
+        def _on_canvas_resize(self, event):
+            if hasattr(self, '_current_base_image') and self._current_base_image and self.pdf_images:
+                self._redraw_current_page()
+
+        def _start_periodic_redraw(self):
+            self._last_canvas_size = (self.pdf_canvas.winfo_width(), self.pdf_canvas.winfo_height())
+            self._periodic_redraw()
+
+        def _periodic_redraw(self):
+            if hasattr(self, '_current_base_image') and self._current_base_image and self.pdf_images:
+                current_size = (self.pdf_canvas.winfo_width(), self.pdf_canvas.winfo_height())
+                if current_size != getattr(self, '_last_canvas_size', None):
+                    self._last_canvas_size = current_size
+                    if current_size[0] > 10 and current_size[1] > 10:
+                        self._redraw_current_page()
+            self.root.after(200, self._periodic_redraw)
+
+        def _draw_code_markers_for_page(self, page_idx, scale):
+            if not hasattr(self, 'current_image_item'):
+                return
+            if hasattr(self, '_code_marker_ids'):
+                for marker_id in self._code_marker_ids:
+                    self.pdf_canvas.delete(marker_id)
+                self._code_marker_ids = []
+            offset_x = 0
+            offset_y = 0
+            if hasattr(self, '_current_base_image') and self._current_base_image and scale:
+                canvas_w = self.pdf_canvas.winfo_width() or 400
+                canvas_h = self.pdf_canvas.winfo_height() or 600
+                img_w, img_h = self._current_base_image.size
+                new_w, new_h = int(img_w * scale), int(img_h * scale)
+                offset_x = (canvas_w - new_w) // 2 + getattr(self, '_pan_image_x', 0)
+                offset_y = (canvas_h - new_h) // 2 + getattr(self, '_pan_image_y', 0)
+            page_codes = [loc for loc in self.code_locations if loc['page'] == page_idx]
+            for loc in page_codes:
+                x1, y1, x2, y2 = loc['bbox']
+                if scale:
+                    x1, y1, x2, y2 = x1 * scale, y1 * scale, x2 * scale, y2 * scale
+                x1 += offset_x
+                y1 += offset_y
+                x2 += offset_x
+                y2 += offset_y
+                rect_id = self.pdf_canvas.create_rectangle(x1, y1, x2, y2, outline='red', width=2, dash=(4, 2))
+                self._code_marker_ids.append(rect_id)
+                label_id = self.pdf_canvas.create_text(x1, y1 - 12, text=loc['code'], fill='red', anchor='sw', font=("SimSun", 9))
+                self._code_marker_ids.append(label_id)
+
+        def _draw_region_overlay(self, region, scale):
+            if not hasattr(self, 'current_image_item'):
+                return
+            x1, y1, x2, y2 = region
             if scale:
                 x1, y1, x2, y2 = x1 * scale, y1 * scale, x2 * scale, y2 * scale
-            x1 += offset_x
-            y1 += offset_y
-            x2 += offset_x
-            y2 += offset_y
-            rect_id = self.pdf_canvas.create_rectangle(x1, y1, x2, y2, outline='red', width=2, dash=(4, 2))
-            self._code_marker_ids.append(rect_id)
-            label_id = self.pdf_canvas.create_text(x1, y1 - 12, text=loc['code'], fill='red', anchor='sw', font=("SimSun", 9))
-            self._code_marker_ids.append(label_id)
+            if hasattr(self, '_current_base_image') and self._current_base_image and scale:
+                canvas_w = self.pdf_canvas.winfo_width() or 400
+                canvas_h = self.pdf_canvas.winfo_height() or 600
+                img_w, img_h = self._current_base_image.size
+                new_w, new_h = int(img_w * scale), int(img_h * scale)
+                offset_x = (canvas_w - new_w) // 2 + getattr(self, '_pan_image_x', 0)
+                offset_y = (canvas_h - new_h) // 2 + getattr(self, '_pan_image_y', 0)
+                x1 += offset_x
+                y1 += offset_y
+                x2 += offset_x
+                y2 += offset_y
+            if hasattr(self, '_region_overlay_id') and self._region_overlay_id:
+                self.pdf_canvas.delete(self._region_overlay_id)
+            self._region_overlay_id = self.pdf_canvas.create_rectangle(x1, y1, x2, y2, outline='red', width=2, dash=(4, 2))
 
-    def _draw_region_overlay(self, region, scale):
-        if not hasattr(self, 'current_image_item'):
-            return
-        x1, y1, x2, y2 = region
-        if scale:
-            x1, y1, x2, y2 = x1 * scale, y1 * scale, x2 * scale, y2 * scale
-        if hasattr(self, '_current_base_image') and self._current_base_image and scale:
-            canvas_w = self.pdf_canvas.winfo_width() or 400
-            canvas_h = self.pdf_canvas.winfo_height() or 600
-            img_w, img_h = self._current_base_image.size
-            new_w, new_h = int(img_w * scale), int(img_h * scale)
-            offset_x = (canvas_w - new_w) // 2 + getattr(self, '_pan_image_x', 0)
-            offset_y = (canvas_h - new_h) // 2 + getattr(self, '_pan_image_y', 0)
-            x1 += offset_x
-            y1 += offset_y
-            x2 += offset_x
-            y2 += offset_y
-        if hasattr(self, '_region_overlay_id') and self._region_overlay_id:
-            self.pdf_canvas.delete(self._region_overlay_id)
-        self._region_overlay_id = self.pdf_canvas.create_rectangle(x1, y1, x2, y2, outline='red', width=2, dash=(4, 2))
+        def start_selection(self):
+            if not self.pdf_images:
+                messagebox.showwarning("提示", "请先打开PDF文件")
+                return
+            self.selection_mode = True
+            self.status_var.set("请在预览图上拖拽选择识别区域")
+            if self.selector:
+                self.selector.enable()
+                self.selector.image_item_id = getattr(self, 'current_image_item', None)
 
-    def start_selection(self):
-        if not self.pdf_images:
-            messagebox.showwarning("提示", "请先打开PDF文件")
-            return
-        self.selection_mode = True
-        self.status_var.set("请在预览图上拖拽选择识别区域")
-        if self.selector:
-            self.selector.enable()
-            self.selector.image_item_id = getattr(self, 'current_image_item', None)
+        def clear_region(self):
+            self.ocr_region = None
+            if hasattr(self, '_region_overlay_id') and self._region_overlay_id:
+                self.pdf_canvas.delete(self._region_overlay_id)
+                self._region_overlay_id = None
+            self.region_var.set("识别区域：未设置（全页识别）")
+            self.status_var.set("已清除识别区域，将使用全页识别")
 
-    def clear_region(self):
-        self.ocr_region = None
-        if hasattr(self, '_region_overlay_id') and self._region_overlay_id:
-            self.pdf_canvas.delete(self._region_overlay_id)
-            self._region_overlay_id = None
-        self.region_var.set("识别区域：未设置（全页识别）")
-        self.status_var.set("已清除识别区域，将使用全页识别")
+        def _on_region_selected(self, region):
+            if hasattr(self, '_current_base_image') and self._current_base_image:
+                img_w, img_h = self._current_base_image.size
+                canvas_w = self.pdf_canvas.winfo_width() or 400
+                canvas_h = self.pdf_canvas.winfo_height() or 600
+                scale = min(canvas_w / img_w, canvas_h / img_h)
+                new_w, new_h = int(img_w * scale), int(img_h * scale)
+                offset_x = (canvas_w - new_w) // 2
+                offset_y = (canvas_h - new_h) // 2
+                x1, y1, x2, y2 = region
+                self.ocr_region = (
+                    max(0, (x1 - offset_x) / scale),
+                    max(0, (y1 - offset_y) / scale),
+                    min(img_w, (x2 - offset_x) / scale),
+                    min(img_h, (y2 - offset_y) / scale),
+                )
+            else:
+                self.ocr_region = region
+            self.selection_mode = False
+            self.region_var.set(f"识别区域：({int(self.ocr_region[0])}, {int(self.ocr_region[1])}) -> ({int(self.ocr_region[2])}, {int(self.ocr_region[3])})")
+            self.status_var.set("识别区域已设置")
+            if hasattr(self, '_current_base_image') and self._current_base_image:
+                img_w, img_h = self._current_base_image.size
+                canvas_w = self.pdf_canvas.winfo_width() or 400
+                canvas_h = self.pdf_canvas.winfo_height() or 600
+                scale = min(canvas_w / img_w, canvas_h / img_h)
+                self._draw_region_overlay(self.ocr_region, scale)
 
-    def _on_region_selected(self, region):
-        if hasattr(self, '_current_base_image') and self._current_base_image:
-            img_w, img_h = self._current_base_image.size
-            canvas_w = self.pdf_canvas.winfo_width() or 400
-            canvas_h = self.pdf_canvas.winfo_height() or 600
-            scale = min(canvas_w / img_w, canvas_h / img_h)
-            new_w, new_h = int(img_w * scale), int(img_h * scale)
-            offset_x = (canvas_w - new_w) // 2
-            offset_y = (canvas_h - new_h) // 2
-            x1, y1, x2, y2 = region
-            self.ocr_region = (
-                max(0, (x1 - offset_x) / scale),
-                max(0, (y1 - offset_y) / scale),
-                min(img_w, (x2 - offset_x) / scale),
-                min(img_h, (y2 - offset_y) / scale),
-            )
-        else:
-            self.ocr_region = region
-        self.selection_mode = False
-        self.region_var.set(f"识别区域：({int(self.ocr_region[0])}, {int(self.ocr_region[1])}) -> ({int(self.ocr_region[2])}, {int(self.ocr_region[3])})")
-        self.status_var.set("识别区域已设置")
-        if hasattr(self, '_current_base_image') and self._current_base_image:
-            img_w, img_h = self._current_base_image.size
-            canvas_w = self.pdf_canvas.winfo_width() or 400
-            canvas_h = self.pdf_canvas.winfo_height() or 600
-            scale = min(canvas_w / img_w, canvas_h / img_h)
-            self._draw_region_overlay(self.ocr_region, scale)
+        def remove_selected_code(self, event=None):
+            selected = self.list_tree.selection()
+            if not selected:
+                return
+            for item in selected:
+                code = self.list_tree.item(item, 'values')[1]
+                norm = normalize_for_matching(code)
+                if norm in self.extracted_codes:
+                    self.extracted_codes.remove(norm)
+                self.list_tree.delete(item)
+            for i, item in enumerate(self.list_tree.get_children(), 1):
+                self.list_tree.item(item, values=(i, self.list_tree.item(item, 'values')[1]))
+            self.status_var.set(f"已移除选中项，剩余 {len(self.extracted_codes)} 个规范")
 
-    def remove_selected_code(self, event=None):
-        selected = self.list_tree.selection()
-        if not selected:
-            return
-        for item in selected:
-            code = self.list_tree.item(item, 'values')[1]
-            norm = normalize_for_matching(code)
-            if norm in self.extracted_codes:
-                self.extracted_codes.remove(norm)
-            self.list_tree.delete(item)
-        for i, item in enumerate(self.list_tree.get_children(), 1):
-            self.list_tree.item(item, values=(i, self.list_tree.item(item, 'values')[1]))
-        self.status_var.set(f"已移除选中项，剩余 {len(self.extracted_codes)} 个规范")
+        def on_code_selected(self, event=None):
+            selected = self.list_tree.selection()
+            if not selected:
+                return
+            item = selected[0]
+            values = self.list_tree.item(item, 'values')
+            code = values[1]
+            name = values[2] if len(values) > 2 else ''
+            preview_name = f"{code} {name}".strip()
+            if hasattr(self, '_preview_name_var'):
+                self._preview_name_var.set(preview_name)
+            if self.file_type == 'pdf':
+                code_norm = normalize_for_matching(code)
+                for loc in self.code_locations:
+                    if normalize_for_matching(loc['code']) == code_norm:
+                        self.show_page(loc['page'])
+                        break
+            self._highlight_code_in_text(code)
+            if self.file_type == 'pdf':
+                self._highlight_standard_on_preview(code, name)
 
-    def on_code_selected(self, event=None):
-        selected = self.list_tree.selection()
-        if not selected:
-            return
-        item = selected[0]
-        values = self.list_tree.item(item, 'values')
-        code = values[1]
-        name = values[2] if len(values) > 2 else ''
-        preview_name = f"{code} {name}".strip()
-        if hasattr(self, '_preview_name_var'):
-            self._preview_name_var.set(preview_name)
-        if self.file_type == 'pdf':
-            code_norm = normalize_for_matching(code)
-            for loc in self.code_locations:
-                if normalize_for_matching(loc['code']) == code_norm:
-                    self.show_page(loc['page'])
-                    break
-        self._highlight_code_in_text(code)
-        if self.file_type == 'pdf':
-            self._highlight_standard_on_preview(code, name)
-
-    def _crop_image_to_region(self, image_path, region):
-        if region is None:
-            return image_path
-        try:
-            img = Image.open(image_path)
-            x1, y1, x2, y2 = region
-            left = max(0, int(x1))
-            top = max(0, int(y1))
-            right = min(img.width, int(x2))
-            bottom = min(img.height, int(y2))
-            if right <= left or bottom <= top:
+        def _crop_image_to_region(self, image_path, region):
+            if region is None:
                 return image_path
-            cropped = img.crop((left, top, right, bottom))
-            out = tempfile.mktemp(suffix='.png')
-            cropped.save(out)
-            return out
-        except Exception as e:
-            print(f"crop error: {e}")
-            return image_path
+            try:
+                img = Image.open(image_path)
+                x1, y1, x2, y2 = region
+                left = max(0, int(x1))
+                top = max(0, int(y1))
+                right = min(img.width, int(x2))
+                bottom = min(img.height, int(y2))
+                if right <= left or bottom <= top:
+                    return image_path
+                cropped = img.crop((left, top, right, bottom))
+                out = tempfile.mktemp(suffix='.png')
+                cropped.save(out)
+                return out
+            except Exception as e:
+                print(f"crop error: {e}")
+                return image_path
 
-    def _detect_and_split_columns(self, image_path):
-        try:
-            img = Image.open(image_path).convert('L')
-            w, h = img.size
-            if w < 300:
+        def _detect_and_split_columns(self, image_path):
+            try:
+                img = Image.open(image_path).convert('L')
+                w, h = img.size
+                if w < 300:
+                    return [image_path]
+                analysis_w = 120
+                analysis_h = max(1, int(h * analysis_w / w))
+                analysis_img = img.resize((analysis_w, analysis_h), Image.Resampling.LANCZOS)
+                binary = analysis_img.point(lambda p: 255 if p > 150 else 0)
+                width, height = binary.size
+                profile = [0] * width
+                pixels = list(binary.getdata())
+                for y in range(height):
+                    for x in range(width):
+                        if pixels[y * width + x] == 0:
+                            profile[x] += 1
+                smoothed = []
+                for i in range(width):
+                    start = max(0, i - 4)
+                    end = min(width, i + 5)
+                    smoothed.append(sum(profile[start:end]) / (end - start))
+                mid_start = int(width * 0.25)
+                mid_end = int(width * 0.75)
+                mid_vals = smoothed[mid_start:mid_end]
+                if not mid_vals:
+                    return [image_path]
+                min_idx = mid_vals.index(min(mid_vals))
+                split_x = mid_start + min_idx
+                left_start = max(0, split_x - 20)
+                right_end = min(width, split_x + 21)
+                left_avg = sum(smoothed[left_start:split_x]) / max(1, split_x - left_start)
+                right_avg = sum(smoothed[split_x + 1:right_end]) / max(1, right_end - split_x - 1)
+                valley = smoothed[split_x]
+                threshold = max(3, (left_avg + right_avg) * 0.25)
+                if left_avg > threshold and right_avg > threshold and valley < threshold:
+                    scale = w / width
+                    split_original = max(1, int(split_x * scale))
+                    img_rgb = Image.open(image_path)
+                    left = img_rgb.crop((0, 0, split_original, h))
+                    right = img_rgb.crop((split_original, 0, w, h))
+                    left_path = tempfile.mktemp(suffix='.png')
+                    right_path = tempfile.mktemp(suffix='.png')
+                    left.save(left_path)
+                    right.save(right_path)
+                    print(f"  Detected two-column layout, split at x={split_original}")
+                    return [left_path, right_path]
                 return [image_path]
-            analysis_w = 120
-            analysis_h = max(1, int(h * analysis_w / w))
-            analysis_img = img.resize((analysis_w, analysis_h), Image.Resampling.LANCZOS)
-            binary = analysis_img.point(lambda p: 255 if p > 150 else 0)
-            width, height = binary.size
-            profile = [0] * width
-            pixels = list(binary.getdata())
-            for y in range(height):
-                for x in range(width):
-                    if pixels[y * width + x] == 0:
-                        profile[x] += 1
-            smoothed = []
-            for i in range(width):
-                start = max(0, i - 4)
-                end = min(width, i + 5)
-                smoothed.append(sum(profile[start:end]) / (end - start))
-            mid_start = int(width * 0.25)
-            mid_end = int(width * 0.75)
-            mid_vals = smoothed[mid_start:mid_end]
-            if not mid_vals:
+            except Exception as e:
+                print(f"column detect error: {e}")
                 return [image_path]
-            min_idx = mid_vals.index(min(mid_vals))
-            split_x = mid_start + min_idx
-            left_start = max(0, split_x - 20)
-            right_end = min(width, split_x + 21)
-            left_avg = sum(smoothed[left_start:split_x]) / max(1, split_x - left_start)
-            right_avg = sum(smoothed[split_x + 1:right_end]) / max(1, right_end - split_x - 1)
-            valley = smoothed[split_x]
-            threshold = max(3, (left_avg + right_avg) * 0.25)
-            if left_avg > threshold and right_avg > threshold and valley < threshold:
-                scale = w / width
-                split_original = max(1, int(split_x * scale))
-                img_rgb = Image.open(image_path)
-                left = img_rgb.crop((0, 0, split_original, h))
-                right = img_rgb.crop((split_original, 0, w, h))
+
+        def _split_pdf_page_to_columns(self, image_path):
+            try:
+                img = Image.open(image_path)
+                w, h = img.size
+                split_x = w // 2
+                left = img.crop((0, 0, split_x, h))
+                right = img.crop((split_x, 0, w, h))
                 left_path = tempfile.mktemp(suffix='.png')
                 right_path = tempfile.mktemp(suffix='.png')
                 left.save(left_path)
                 right.save(right_path)
-                print(f"  Detected two-column layout, split at x={split_original}")
+                print(f"  Split A3 page at x={split_x}")
                 return [left_path, right_path]
-            return [image_path]
-        except Exception as e:
-            print(f"column detect error: {e}")
-            return [image_path]
+            except Exception as e:
+                print(f"pdf column split error: {e}")
+                return [image_path]
 
-    def _split_pdf_page_to_columns(self, image_path):
-        try:
-            img = Image.open(image_path)
-            w, h = img.size
-            split_x = w // 2
-            left = img.crop((0, 0, split_x, h))
-            right = img.crop((split_x, 0, w, h))
-            left_path = tempfile.mktemp(suffix='.png')
-            right_path = tempfile.mktemp(suffix='.png')
-            left.save(left_path)
-            right.save(right_path)
-            print(f"  Split A3 page at x={split_x}")
-            return [left_path, right_path]
-        except Exception as e:
-            print(f"pdf column split error: {e}")
-            return [image_path]
+        def start_ocr(self):
+            if self.current_path and self.file_type in ('pdf', 'image', 'cad'):
+                self._ocr_current_file()
+            else:
+                self._ocr_from_text_dialog()
 
-    def start_ocr(self):
-        if self.current_path and self.file_type in ('pdf', 'image', 'cad'):
-            self._ocr_current_file()
-        else:
-            self._ocr_from_text_dialog()
-
-    def _ocr_current_file(self):
-        if self.file_type in ('pdf', 'image', 'cad'):
-            if not self.pdf_images:
-                messagebox.showwarning("提示", "请先打开文件")
+        def _ocr_current_file(self):
+            if self.file_type in ('pdf', 'image', 'cad'):
+                if not self.pdf_images:
+                    messagebox.showwarning("提示", "请先打开文件")
+                    return
+            else:
+                messagebox.showwarning("提示", "不支持的文件格式")
                 return
-        else:
-            messagebox.showwarning("提示", "不支持的文件格式")
-            return
-        self.status_var.set("开始 OCR 识别...")
-        self.progress_var.set(0)
-        self.ocr_text.delete('1.0', tk.END)
-        self.ocr_results = []
-        self.extracted_codes = []
-        self.code_locations = []
-        self.list_tree.delete(*self.list_tree.get_children())
-        self._ocr_queue = []
-        self._ocr_done = False
+            self.status_var.set("开始 OCR 识别...")
+            self.progress_var.set(0)
+            self.ocr_text.delete('1.0', tk.END)
+            self.ocr_results = []
+            self.extracted_codes = []
+            self.code_locations = []
+            self.list_tree.delete(*self.list_tree.get_children())
+            self._ocr_queue = []
+            self._ocr_done = False
 
-        def do_ocr():
-            try:
-                page_code_blocks = {}
-                total = len(self.pdf_images)
-                for i, img_path in enumerate(self.pdf_images):
-                    page_blocks = []
-                    try:
-                        cropped_path = self._crop_image_to_region(img_path, self.ocr_region)
-                        crop_offsets = (0, 0)
-                        if self.ocr_region and cropped_path != img_path:
-                            crop_offsets = (int(self.ocr_region[0]), int(self.ocr_region[1]))
-                        masked_path = mask_seals_pil(cropped_path)
-                        column_paths = self._split_pdf_page_to_columns(masked_path)
-                        page_texts = []
-                        split_x = 0
-                        if len(column_paths) == 2:
-                            with Image.open(masked_path) as _img:
-                                split_x = _img.width // 2
-                        for col_idx, col_path in enumerate(column_paths):
-                            try:
-                                t, blocks = self.checker.ocr_image(col_path)
-                                page_texts.append(t)
-                                for block_text, bbox in blocks:
-                                    x1, y1, x2, y2 = bbox
-                                    if col_idx == 1:
-                                        x1 += split_x
-                                        x2 += split_x
-                                    if crop_offsets != (0, 0):
-                                        x1 += crop_offsets[0]
-                                        y1 += crop_offsets[1]
-                                        x2 += crop_offsets[0]
-                                        y2 += crop_offsets[1]
-                                    page_blocks.append((block_text, (x1, y1, x2, y2)))
-                            finally:
-                                if col_path != masked_path and os.path.exists(col_path):
-                                    try: os.remove(col_path)
-                                    except: pass
-                        text = '\n'.join(page_texts)
-                        if masked_path != cropped_path and os.path.exists(masked_path):
-                            try: os.remove(masked_path)
-                            except: pass
-                        if cropped_path != img_path and os.path.exists(cropped_path):
-                            try: os.remove(cropped_path)
-                            except: pass
-                    except Exception as page_error:
-                        text = f"OCR_PAGE_ERROR: {page_error}"
-                        print(f"OCR page {i+1} error: {page_error}")
-                    self.ocr_results.append(text)
-                    self._ocr_queue.append(('page', i + 1, total, text))
-                    page_cleaned = fullwidth_to_halfwidth(text)
-                    for code in CODE_PATTERN.findall(page_cleaned):
-                        normalized = code.upper().strip()
-                        if normalized not in page_code_blocks:
-                            page_code_blocks[normalized] = []
-                        bbox = (0, 0, 0, 0)
-                        for block_text, block_bbox in page_blocks:
-                            if normalized.replace(' ', '') in block_text.replace(' ', '') or block_text.replace(' ', '') in normalized.replace(' ', ''):
-                                bbox = block_bbox
+            def do_ocr():
+                try:
+                    page_code_blocks = {}
+                    total = len(self.pdf_images)
+                    for i, img_path in enumerate(self.pdf_images):
+                        page_blocks = []
+                        try:
+                            cropped_path = self._crop_image_to_region(img_path, self.ocr_region)
+                            crop_offsets = (0, 0)
+                            if self.ocr_region and cropped_path != img_path:
+                                crop_offsets = (int(self.ocr_region[0]), int(self.ocr_region[1]))
+                            masked_path = mask_seals_pil(cropped_path)
+                            column_paths = self._split_pdf_page_to_columns(masked_path)
+                            page_texts = []
+                            split_x = 0
+                            if len(column_paths) == 2:
+                                with Image.open(masked_path) as _img:
+                                    split_x = _img.width // 2
+                            for col_idx, col_path in enumerate(column_paths):
+                                try:
+                                    t, blocks = self.checker.ocr_image(col_path)
+                                    page_texts.append(t)
+                                    for block_text, bbox in blocks:
+                                        x1, y1, x2, y2 = bbox
+                                        if col_idx == 1:
+                                            x1 += split_x
+                                            x2 += split_x
+                                        if crop_offsets != (0, 0):
+                                            x1 += crop_offsets[0]
+                                            y1 += crop_offsets[1]
+                                            x2 += crop_offsets[0]
+                                            y2 += crop_offsets[1]
+                                        page_blocks.append((block_text, (x1, y1, x2, y2)))
+                                finally:
+                                    if col_path != masked_path and os.path.exists(col_path):
+                                        try: os.remove(col_path)
+                                        except: pass
+                            text = '\n'.join(page_texts)
+                            if masked_path != cropped_path and os.path.exists(masked_path):
+                                try: os.remove(masked_path)
+                                except: pass
+                            if cropped_path != img_path and os.path.exists(cropped_path):
+                                try: os.remove(cropped_path)
+                                except: pass
+                        except Exception as page_error:
+                            text = f"OCR_PAGE_ERROR: {page_error}"
+                            print(f"OCR page {i+1} error: {page_error}")
+                        self.ocr_results.append(text)
+                        self._ocr_queue.append(('page', i + 1, total, text))
+                        page_cleaned = fullwidth_to_halfwidth(text)
+                        for code in CODE_PATTERN.findall(page_cleaned):
+                            normalized = code.upper().strip()
+                            if normalized not in page_code_blocks:
+                                page_code_blocks[normalized] = []
+                            bbox = (0, 0, 0, 0)
+                            for block_text, block_bbox in page_blocks:
+                                if normalized.replace(' ', '') in block_text.replace(' ', '') or block_text.replace(' ', '') in normalized.replace(' ', ''):
+                                    bbox = block_bbox
+                                    break
+                            page_code_blocks[normalized].append((i, bbox))
+                    self._ocr_queue.append(('status', '正在提取规范编号...'))
+                    all_text = '\n'.join(self.ocr_results)
+                    cleaned_text = fullwidth_to_halfwidth(all_text)
+                    raw_names = NAME_PATTERN.findall(cleaned_text)
+                    name_map = {}
+                    for raw_name in raw_names:
+                        name_map[raw_name.strip()] = raw_name
+                    seen = set()
+                    self.extracted_codes = []
+                    self.extracted_code_info = {}
+                    for code in list(page_code_blocks.keys()):
+                        if code in seen:
+                            continue
+                        seen.add(code)
+                        self.extracted_codes.append(code)
+                        matched_name = ''
+                        for cname in name_map:
+                            if code.replace(' ', '') in cname.replace(' ', '') or cname.replace(' ', '') in code.replace(' ', ''):
+                                matched_name = name_map[cname]
                                 break
-                        page_code_blocks[normalized].append((i, bbox))
-                self._ocr_queue.append(('status', '正在提取规范编号...'))
-                all_text = '\n'.join(self.ocr_results)
-                cleaned_text = fullwidth_to_halfwidth(all_text)
-                raw_names = NAME_PATTERN.findall(cleaned_text)
-                name_map = {}
-                for raw_name in raw_names:
-                    name_map[raw_name.strip()] = raw_name
-                seen = set()
-                self.extracted_codes = []
-                self.extracted_code_info = {}
-                for code in list(page_code_blocks.keys()):
-                    if code in seen:
-                        continue
-                    seen.add(code)
+                        self.extracted_code_info[code] = {'name': matched_name, 'original': code}
+                        first_page, first_bbox = page_code_blocks[code][0]
+                        self.code_locations.append({'code': code, 'page': first_page, 'bbox': first_bbox})
+                    self._ocr_queue.append(('codes', self.extracted_codes))
+                except Exception as e:
+                    self._ocr_queue.append(('status', f'OCR 出错: {e}'))
+                    print(f"OCR fatal error: {e}")
+                finally:
+                    self._ocr_done = True
+
+            def process_queue():
+                if not self._ocr_queue and not self._ocr_done:
+                    self.root.after(50, process_queue)
+                    return
+                while self._ocr_queue:
+                    item = self._ocr_queue.pop(0)
+                    kind = item[0]
+                if kind == 'page':
+                    _, page_no, total, text = item
+                    self.ocr_text.insert(tk.END, f"--- 第{page_no}页 ---\n{text}\n\n")
+                    self.ocr_text.see(tk.END)
+                    self.progress_var.set(page_no / total * 100)
+                    self.status_var.set(f"OCR 识别中: {page_no}/{total}")
+                    # 每页作为一个单独的 AI 气泡显示
+                    if self.ai_chat:
+                        self.ai_chat.add_message("ai", f"📄 OCR 第{page_no}/{total}页\n\n{text}")
+                elif kind == 'status':
+                    _, msg = item
+                    self.status_var.set(msg)
+                elif kind == 'codes':
+                    codes = item[1]
+                    self.list_tree.delete(*self.list_tree.get_children())
+                    if codes:
+                        for i, code in enumerate(codes, 1):
+                            info = self.extracted_code_info.get(normalize_for_matching(code), {})
+                            name = info.get('name', '')
+                            self.list_tree.insert('', tk.END, values=(i, code, name, ''))
+                        self.notebook.select(self.list_tree.master)
+                        self.status_var.set(f"OCR 完成: 识别到 {len(codes)} 个规范编号")
+                        self._push_ocr_to_ai()
+                    else:
+                        sample = '\n'.join(self.ocr_results[:3])
+                        self.list_tree.insert('', tk.END, values=(1, '【未识别到规范编号】'))
+                        self.list_tree.insert('', tk.END, values=(2, '请查看 OCR 识别文本 确认内容'))
+                        if sample.strip():
+                            self.list_tree.insert('', tk.END, values=(3, sample[:120].replace('\n', ' ')))
+                        self.notebook.select(self.list_tree.master)
+                        self.status_var.set("OCR 完成，但未识别到规范编号")
+                    self.progress_var.set(100)
+                    if self.pdf_images:
+                        self.show_page(self.current_display_index)
+                        if not self._ocr_done or self._ocr_queue:
+                            self.root.after(50, process_queue)
+                        else:
+                            self._ocr_queue = []
+                            self._ocr_done = False
+    
+            threading.Thread(target=do_ocr, daemon=True).start()
+            self.root.after(50, process_queue)
+
+        def _ocr_from_text_dialog(self):
+            dialog = tk.Toplevel(self.root)
+            dialog.title("输入文本进行 OCR")
+            dialog.geometry("600x400")
+            dialog.transient(self.root)
+            dialog.grab_set()
+            ttk.Label(dialog, text="请输入或粘贴需要检查的文本：").pack(anchor=tk.W, padx=10, pady=(10, 5))
+            text_widget = tk.Text(dialog, wrap=tk.WORD, font=("SimSun", 10))
+            text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+            btn_frame = ttk.Frame(dialog)
+            btn_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
+
+            def do_ocr_text():
+                text = text_widget.get('1.0', tk.END).strip()
+                if not text:
+                    messagebox.showwarning("提示", "请输入文本")
+                    return
+                dialog.destroy()
+                self.ocr_results = [text]
+                self.ocr_text.delete('1.0', tk.END)
+                self.ocr_text.insert(tk.END, text)
+                self._extract_codes_from_text(text)
+                self._push_ocr_to_ai()
+
+            ttk.Button(btn_frame, text="开始 OCR", command=do_ocr_text).pack(side=tk.RIGHT)
+            ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.RIGHT, padx=(0, 5))
+
+        def _extract_codes_from_text(self, text):
+            raw_codes = CODE_PATTERN.findall(text)
+            raw_names = NAME_PATTERN.findall(text)
+            name_map = {}
+            for raw_name in raw_names:
+                cleaned = normalize_for_matching(raw_name).strip()
+                if cleaned:
+                    name_map[cleaned] = raw_name
+            for code in raw_codes:
+                code_pos = text.find(code)
+                if code_pos >= 0:
+                    after_text = text[code_pos + len(code):code_pos + len(code) + 80]
+                    name_match = re.search(r'[一-鿿]{2,30}', after_text)
+                    if name_match:
+                        potential_name = name_match.group(0)
+                        cleaned_name = normalize_for_matching(potential_name).strip()
+                        if cleaned_name and len(cleaned_name) > 2:
+                            name_map[cleaned_name] = potential_name
+            seen = set()
+            self.extracted_codes = []
+            self.extracted_code_info = {}
+            for code in raw_codes:
+                normalized = normalize_for_matching(code)
+                if normalized not in seen:
+                    seen.add(normalized)
                     self.extracted_codes.append(code)
                     matched_name = ''
                     for cname in name_map:
-                        if code.replace(' ', '') in cname.replace(' ', '') or cname.replace(' ', '') in code.replace(' ', ''):
+                        if normalized.replace(' ', '') in cname.replace(' ', '') or cname.replace(' ', '') in normalized.replace(' ', ''):
                             matched_name = name_map[cname]
                             break
-                    self.extracted_code_info[code] = {'name': matched_name, 'original': code}
-                    first_page, first_bbox = page_code_blocks[code][0]
-                    self.code_locations.append({'code': code, 'page': first_page, 'bbox': first_bbox})
-                self._ocr_queue.append(('codes', self.extracted_codes))
-            except Exception as e:
-                self._ocr_queue.append(('status', f'OCR 出错: {e}'))
-                print(f"OCR fatal error: {e}")
-            finally:
-                self._ocr_done = True
+                    self.extracted_code_info[normalized] = {'name': matched_name, 'original': code}
+            for i, code in enumerate(self.extracted_codes, 1):
+                info = self.extracted_code_info.get(normalize_for_matching(code), {})
+                name = info.get('name', '')
+                self.list_tree.insert('', tk.END, values=(i, code, name, ''))
+            if self.extracted_codes:
+                self.notebook.select(self.list_tree.master)
+                self.status_var.set(f"提取完成: 识别到 {len(self.extracted_codes)} 个规范编号")
 
-        def process_queue():
-            if not self._ocr_queue and not self._ocr_done:
-                self.root.after(50, process_queue)
+        # 检查规范
+        def check_standards(self):
+            if not self.extracted_codes:
+                messagebox.showwarning("提示", "请先进行 OCR 识别并提取规范编号")
                 return
-            while self._ocr_queue:
-                item = self._ocr_queue.pop(0)
-                kind = item[0]
-            if kind == 'page':
-                _, page_no, total, text = item
-                self.ocr_text.insert(tk.END, f"--- 第{page_no}页 ---\n{text}\n\n")
-                self.ocr_text.see(tk.END)
-                self.progress_var.set(page_no / total * 100)
-                self.status_var.set(f"OCR 识别中: {page_no}/{total}")
-                # 每页作为一个单独的 AI 气泡显示
-                if self.ai_chat:
-                    self.ai_chat.add_message("ai", f"📄 OCR 第{page_no}/{total}页\n\n{text}")
-            elif kind == 'status':
-                _, msg = item
-                self.status_var.set(msg)
-            elif kind == 'codes':
-                codes = item[1]
-                self.list_tree.delete(*self.list_tree.get_children())
-                if codes:
-                    for i, code in enumerate(codes, 1):
-                        info = self.extracted_code_info.get(normalize_for_matching(code), {})
-                        name = info.get('name', '')
-                        self.list_tree.insert('', tk.END, values=(i, code, name, ''))
-                    self.notebook.select(self.list_tree.master)
-                    self.status_var.set(f"OCR 完成: 识别到 {len(codes)} 个规范编号")
-                    self._push_ocr_to_ai()
-                else:
-                    sample = '\n'.join(self.ocr_results[:3])
-                    self.list_tree.insert('', tk.END, values=(1, '【未识别到规范编号】'))
-                    self.list_tree.insert('', tk.END, values=(2, '请查看 OCR 识别文本 确认内容'))
-                    if sample.strip():
-                        self.list_tree.insert('', tk.END, values=(3, sample[:120].replace('\n', ' ')))
-                    self.notebook.select(self.list_tree.master)
-                    self.status_var.set("OCR 完成，但未识别到规范编号")
-                self.progress_var.set(100)
-                if self.pdf_images:
-                    self.show_page(self.current_display_index)
-                    if not self._ocr_done or self._ocr_queue:
-                        self.root.after(50, process_queue)
+            self.status_var.set("检查规范中...")
+            self.progress_var.set(0)
+            self.check_tree.delete(*self.check_tree.get_children())
+            self.check_results = []
+            unique_codes = list(self.extracted_codes)
+            total = len(unique_codes)
+            for i, code in enumerate(unique_codes):
+                info = self.extracted_code_info.get(normalize_for_matching(code), {})
+                name = info.get('name', '')
+                result = self.checker.check_code(code, name=name)
+                self.check_results.append((code, result))
+                status = result.get('status', '未找到')
+                replacement = result.get('replacement_raw', '')
+                matched = result.get('matched_name', result.get('matched_code', ''))
+                display_code = code
+                if matched:
+                    display_code = f"{code} -> {matched}"
+                elif not result.get('found'):
+                    similar = self.checker.find_similar_codes(code, limit=2)
+                    if similar:
+                        similar_str = '; '.join([f"{s[1]}《{s[2]}《"[:60] for s in similar])
+                        display_code = f"{code} [相似:{similar_str}]"
+                if result.get('found'):
+                    if '废止' in status or '作废' in status:
+                        action = '需替换'
                     else:
-                        self._ocr_queue = []
-                        self._ocr_done = False
-    
-        threading.Thread(target=do_ocr, daemon=True).start()
-        self.root.after(50, process_queue)
+                        action = '现行'
+                    if result.get('dual_match'):
+                        action += ' (双重确认)'
+                else:
+                    action = '未查询到'
+                matched_name = result.get('matched_name', result.get('matched_code', '')) or name
+                self.check_tree.insert('', tk.END, text=str(i+1),
+                                       values=(display_code, matched_name, status, replacement, action))
+                self.progress_var.set((i + 1) / total * 100)
+                self.root.update_idletasks()
+            self.progress_var.set(100)
+            self.status_var.set(f"检查完成: {len(unique_codes)} 个规范")
+            self.notebook.select(self.check_tree.master)
+            # 推送结果到 AI 聊天窗口
+            if self.ai_chat is not None:
+                self.ai_chat.send_standard_check(self.check_results)
 
-    def _ocr_from_text_dialog(self):
-        dialog = tk.Toplevel(self.root)
-        dialog.title("输入文本进行 OCR")
-        dialog.geometry("600x400")
-        dialog.transient(self.root)
-        dialog.grab_set()
-        ttk.Label(dialog, text="请输入或粘贴需要检查的文本：").pack(anchor=tk.W, padx=10, pady=(10, 5))
-        text_widget = tk.Text(dialog, wrap=tk.WORD, font=("SimSun", 10))
-        text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        btn_frame = ttk.Frame(dialog)
-        btn_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
-
-        def do_ocr_text():
-            text = text_widget.get('1.0', tk.END).strip()
-            if not text:
-                messagebox.showwarning("提示", "请输入文本")
+        def export_doc(self):
+            if not HAS_DOCX:
+                messagebox.showwarning("提示", "需要安装 python-docx 库才能导出 Word 报告")
                 return
-            dialog.destroy()
-            self.ocr_results = [text]
-            self.ocr_text.delete('1.0', tk.END)
-            self.ocr_text.insert(tk.END, text)
-            self._extract_codes_from_text(text)
-            self._push_ocr_to_ai()
+            if not self.check_results:
+                messagebox.showwarning("提示", "没有检查结果可导出")
+                return
+            path = filedialog.asksaveasfilename(
+                title="保存 DOC 报告",
+                defaultextension=".docx",
+                filetypes=[("Word documents", "*.docx"), ("All files", "*.*")])
+            if not path:
+                return
+            self.status_var.set("正在生成报告...")
+            doc = Document()
+            title = doc.add_heading('标准规范检查报告', 0)
+            title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            doc.add_paragraph(f'生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+            doc.add_paragraph(f'文件: {os.path.basename(self.current_path) if self.current_path else "N/A"}')
+            doc.add_paragraph(f'队列文件数: {len(self.pdf_paths)}')
+            doc.add_paragraph()
+            doc.add_heading('检查摘要', 1)
+            total = len(self.check_results)
+            found = sum(1 for _, r in self.check_results if r.get('found'))
+            obsolete = sum(1 for _, r in self.check_results if '废止' in r.get('status', '') or '作废' in r.get('status', ''))
+            doc.add_paragraph(f'共识别 {total} 个规范编号')
+            doc.add_paragraph(f'数据库中查询到 {found} 个')
+            doc.add_paragraph(f'其中废止/作废 {obsolete} 个')
+            doc.add_paragraph()
+            doc.add_heading('详细检查结果', 1)
+            table = doc.add_table(rows=1, cols=6)
+            table.style = 'Light Grid Accent 1'
+            hdr_cells = table.rows[0].cells
+            hdr_cells[0].text = '序号'
+            hdr_cells[1].text = '规范编号'
+            hdr_cells[2].text = '规范名称'
+            hdr_cells[3].text = '状态'
+            hdr_cells[4].text = '替代情况'
+            hdr_cells[5].text = '建议'
+            for i, (code, result) in enumerate(self.check_results, 1):
+                status = result.get('status', '未找到')
+                replacement = result.get('replacement_raw', '')
+                matched_name = result.get('matched_name', result.get('matched_code', ''))
+                if result.get('found'):
+                    if '废止' in status or '作废' in status:
+                        action = '需替换'
+                    else:
+                        action = '现行'
+                else:
+                    action = '未查询到'
+                row_cells = table.add_row().cells
+                row_cells[0].text = str(i)
+                row_cells[1].text = code
+                row_cells[2].text = matched_name
+                row_cells[3].text = status
+                row_cells[4].text = replacement
+                row_cells[5].text = action
+            doc.save(path)
+            self.progress_var.set(0)
+            self.status_var.set(f"报告已保存: {path}")
+            messagebox.showinfo("完成", f"报告已保存到:\n{path}")
 
-        ttk.Button(btn_frame, text="开始 OCR", command=do_ocr_text).pack(side=tk.RIGHT)
-        ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.RIGHT, padx=(0, 5))
 
-    def _extract_codes_from_text(self, text):
-        raw_codes = CODE_PATTERN.findall(text)
-        raw_names = NAME_PATTERN.findall(text)
-        name_map = {}
-        for raw_name in raw_names:
-            cleaned = normalize_for_matching(raw_name).strip()
-            if cleaned:
-                name_map[cleaned] = raw_name
-        for code in raw_codes:
-            code_pos = text.find(code)
-            if code_pos >= 0:
-                after_text = text[code_pos + len(code):code_pos + len(code) + 80]
-                name_match = re.search(r'[一-鿿]{2,30}', after_text)
-                if name_match:
-                    potential_name = name_match.group(0)
-                    cleaned_name = normalize_for_matching(potential_name).strip()
-                    if cleaned_name and len(cleaned_name) > 2:
-                        name_map[cleaned_name] = potential_name
-        seen = set()
-        self.extracted_codes = []
-        self.extracted_code_info = {}
-        for code in raw_codes:
-            normalized = normalize_for_matching(code)
-            if normalized not in seen:
-                seen.add(normalized)
-                self.extracted_codes.append(code)
-                matched_name = ''
-                for cname in name_map:
-                    if normalized.replace(' ', '') in cname.replace(' ', '') or cname.replace(' ', '') in normalized.replace(' ', ''):
-                        matched_name = name_map[cname]
+        def export_excel(self):
+            if not HAS_OPENPYXL:
+                messagebox.showwarning("提示", "需要安装 openpyxl 库才能导出 Excel 报告")
+                return
+            if not self.check_results:
+                messagebox.showwarning("提示", "没有检查结果可导出")
+                return
+            path = filedialog.asksaveasfilename(
+                title="保存 Excel 报告",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")])
+            if not path:
+                return
+            self.status_var.set("正在生成 Excel 报告...")
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "标准规范检查报告"
+    
+            header_font = Font(bold=True, color="FFFFFF", size=11)
+            header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            header_align = Alignment(horizontal="center", vertical="center")
+            thin_border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin'))
+    
+            ws.merge_cells('A1:F1')
+            ws['A1'] = '标准规范检查报告'
+            ws['A1'].font = Font(bold=True, size=14)
+            ws['A1'].alignment = Alignment(horizontal="center")
+    
+            total = len(self.check_results)
+            found = sum(1 for _, r in self.check_results if r.get('found'))
+            obsolete = sum(1 for _, r in self.check_results if '废止' in r.get('status', '') or '作废' in r.get('status', ''))
+            ws['A3'] = f'生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+            ws['A4'] = f'文件: {os.path.basename(self.current_path) if self.current_path else "N/A"}'
+            ws['A5'] = f'共识别 {total} 个规范编号，数据库中查询到 {found} 个，其中废止/作废 {obsolete} 个'
+    
+            headers = ['序号', '规范编号', '规范名称', '状态', '替代情况', '建议']
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=7, column=col, value=header)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = header_align
+                cell.border = thin_border
+    
+            for i, (code, result) in enumerate(self.check_results, 1):
+                status = result.get('status', '未找到')
+                replacement = result.get('replacement_raw', '')
+                matched_name = result.get('matched_name', result.get('matched_code', ''))
+                if result.get('found'):
+                    if '废止' in status or '作废' in status:
+                        action = '需替换'
+                    else:
+                        action = '现行'
+                else:
+                    action = '未查询到'
+                row = i + 7
+                ws.cell(row=row, column=1, value=i).border = thin_border
+                ws.cell(row=row, column=2, value=code).border = thin_border
+                ws.cell(row=row, column=3, value=matched_name).border = thin_border
+                ws.cell(row=row, column=4, value=status).border = thin_border
+                ws.cell(row=row, column=5, value=replacement).border = thin_border
+                ws.cell(row=row, column=6, value=action).border = thin_border
+    
+            ws.column_dimensions['A'].width = 8
+            ws.column_dimensions['B'].width = 20
+            ws.column_dimensions['C'].width = 40
+            ws.column_dimensions['D'].width = 15
+            ws.column_dimensions['E'].width = 30
+            ws.column_dimensions['F'].width = 12
+    
+            wb.save(path)
+            self.progress_var.set(0)
+            self.status_var.set(f"Excel 报告已保存: {path}")
+            messagebox.showinfo("完成", f"Excel 报告已保存到:\n{path}")
+        def on_check_item_selected(self, event=None):
+            selected = self.check_tree.selection()
+            if not selected:
+                return
+            item = selected[0]
+            values = self.check_tree.item(item, 'values')
+            if not values:
+                return
+            display_code = values[0]
+            name = values[1] if len(values) > 1 else ''
+            preview_name = f"{display_code.split(' ')[0].split('->')[0].split('[')[0].strip()} {name}".strip()
+            if hasattr(self, '_preview_name_var'):
+                self._preview_name_var.set(preview_name)
+            original_code = display_code.split(' ')[0].split('->')[0].split('[')[0].strip()
+            code_norm = normalize_for_matching(original_code)
+            if self.file_type == 'pdf':
+                for loc in self.code_locations:
+                    if normalize_for_matching(loc['code']) == code_norm:
+                        self.show_page(loc['page'])
+                        self._highlight_code_location(loc)
                         break
-                self.extracted_code_info[normalized] = {'name': matched_name, 'original': code}
-        for i, code in enumerate(self.extracted_codes, 1):
-            info = self.extracted_code_info.get(normalize_for_matching(code), {})
-            name = info.get('name', '')
-            self.list_tree.insert('', tk.END, values=(i, code, name, ''))
-        if self.extracted_codes:
-            self.notebook.select(self.list_tree.master)
-            self.status_var.set(f"提取完成: 识别到 {len(self.extracted_codes)} 个规范编号")
+                for item in self.list_tree.get_children():
+                    values = self.list_tree.item(item, 'values')
+                    if len(values) > 1 and normalize_for_matching(values[1]) == code_norm:
+                        self.list_tree.selection_set(item)
+                        self.list_tree.see(item)
+                        break
+            if self.file_type == 'pdf':
+                self._highlight_standard_on_preview(original_code, name)
 
-    # 检查规范
-    def check_standards(self):
-        if not self.extracted_codes:
-            messagebox.showwarning("提示", "请先进行 OCR 识别并提取规范编号")
-            return
-        self.status_var.set("检查规范中...")
-        self.progress_var.set(0)
-        self.check_tree.delete(*self.check_tree.get_children())
-        self.check_results = []
-        unique_codes = list(self.extracted_codes)
-        total = len(unique_codes)
-        for i, code in enumerate(unique_codes):
-            info = self.extracted_code_info.get(normalize_for_matching(code), {})
-            name = info.get('name', '')
-            result = self.checker.check_code(code, name=name)
-            self.check_results.append((code, result))
-            status = result.get('status', '未找到')
-            replacement = result.get('replacement_raw', '')
-            matched = result.get('matched_name', result.get('matched_code', ''))
-            display_code = code
-            if matched:
-                display_code = f"{code} -> {matched}"
-            elif not result.get('found'):
-                similar = self.checker.find_similar_codes(code, limit=2)
-                if similar:
-                    similar_str = '; '.join([f"{s[1]}《{s[2]}《"[:60] for s in similar])
-                    display_code = f"{code} [相似:{similar_str}]"
-            if result.get('found'):
-                if '废止' in status or '作废' in status:
-                    action = '需替换'
-                else:
-                    action = '现行'
-                if result.get('dual_match'):
-                    action += ' (双重确认)'
-            else:
-                action = '未查询到'
-            matched_name = result.get('matched_name', result.get('matched_code', '')) or name
-            self.check_tree.insert('', tk.END, text=str(i+1),
-                                   values=(display_code, matched_name, status, replacement, action))
-            self.progress_var.set((i + 1) / total * 100)
-            self.root.update_idletasks()
-        self.progress_var.set(100)
-        self.status_var.set(f"检查完成: {len(unique_codes)} 个规范")
-        self.notebook.select(self.check_tree.master)
-        # 推送结果到 AI 聊天窗口
-        if self.ai_chat is not None:
-            self.ai_chat.send_standard_check(self.check_results)
-
-    def export_doc(self):
-        if not HAS_DOCX:
-            messagebox.showwarning("提示", "需要安装 python-docx 库才能导出 Word 报告")
-            return
-        if not self.check_results:
-            messagebox.showwarning("提示", "没有检查结果可导出")
-            return
-        path = filedialog.asksaveasfilename(
-            title="保存 DOC 报告",
-            defaultextension=".docx",
-            filetypes=[("Word documents", "*.docx"), ("All files", "*.*")])
-        if not path:
-            return
-        self.status_var.set("正在生成报告...")
-        doc = Document()
-        title = doc.add_heading('标准规范检查报告', 0)
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        doc.add_paragraph(f'生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-        doc.add_paragraph(f'文件: {os.path.basename(self.current_path) if self.current_path else "N/A"}')
-        doc.add_paragraph(f'队列文件数: {len(self.pdf_paths)}')
-        doc.add_paragraph()
-        doc.add_heading('检查摘要', 1)
-        total = len(self.check_results)
-        found = sum(1 for _, r in self.check_results if r.get('found'))
-        obsolete = sum(1 for _, r in self.check_results if '废止' in r.get('status', '') or '作废' in r.get('status', ''))
-        doc.add_paragraph(f'共识别 {total} 个规范编号')
-        doc.add_paragraph(f'数据库中查询到 {found} 个')
-        doc.add_paragraph(f'其中废止/作废 {obsolete} 个')
-        doc.add_paragraph()
-        doc.add_heading('详细检查结果', 1)
-        table = doc.add_table(rows=1, cols=6)
-        table.style = 'Light Grid Accent 1'
-        hdr_cells = table.rows[0].cells
-        hdr_cells[0].text = '序号'
-        hdr_cells[1].text = '规范编号'
-        hdr_cells[2].text = '规范名称'
-        hdr_cells[3].text = '状态'
-        hdr_cells[4].text = '替代情况'
-        hdr_cells[5].text = '建议'
-        for i, (code, result) in enumerate(self.check_results, 1):
-            status = result.get('status', '未找到')
-            replacement = result.get('replacement_raw', '')
-            matched_name = result.get('matched_name', result.get('matched_code', ''))
-            if result.get('found'):
-                if '废止' in status or '作废' in status:
-                    action = '需替换'
-                else:
-                    action = '现行'
-            else:
-                action = '未查询到'
-            row_cells = table.add_row().cells
-            row_cells[0].text = str(i)
-            row_cells[1].text = code
-            row_cells[2].text = matched_name
-            row_cells[3].text = status
-            row_cells[4].text = replacement
-            row_cells[5].text = action
-        doc.save(path)
-        self.progress_var.set(0)
-        self.status_var.set(f"报告已保存: {path}")
-        messagebox.showinfo("完成", f"报告已保存到:\n{path}")
-
-
-    def export_excel(self):
-        if not HAS_OPENPYXL:
-            messagebox.showwarning("提示", "需要安装 openpyxl 库才能导出 Excel 报告")
-            return
-        if not self.check_results:
-            messagebox.showwarning("提示", "没有检查结果可导出")
-            return
-        path = filedialog.asksaveasfilename(
-            title="保存 Excel 报告",
-            defaultextension=".xlsx",
-            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")])
-        if not path:
-            return
-        self.status_var.set("正在生成 Excel 报告...")
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "标准规范检查报告"
-    
-        header_font = Font(bold=True, color="FFFFFF", size=11)
-        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-        header_align = Alignment(horizontal="center", vertical="center")
-        thin_border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin'))
-    
-        ws.merge_cells('A1:F1')
-        ws['A1'] = '标准规范检查报告'
-        ws['A1'].font = Font(bold=True, size=14)
-        ws['A1'].alignment = Alignment(horizontal="center")
-    
-        total = len(self.check_results)
-        found = sum(1 for _, r in self.check_results if r.get('found'))
-        obsolete = sum(1 for _, r in self.check_results if '废止' in r.get('status', '') or '作废' in r.get('status', ''))
-        ws['A3'] = f'生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
-        ws['A4'] = f'文件: {os.path.basename(self.current_path) if self.current_path else "N/A"}'
-        ws['A5'] = f'共识别 {total} 个规范编号，数据库中查询到 {found} 个，其中废止/作废 {obsolete} 个'
-    
-        headers = ['序号', '规范编号', '规范名称', '状态', '替代情况', '建议']
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row=7, column=col, value=header)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = header_align
-            cell.border = thin_border
-    
-        for i, (code, result) in enumerate(self.check_results, 1):
-            status = result.get('status', '未找到')
-            replacement = result.get('replacement_raw', '')
-            matched_name = result.get('matched_name', result.get('matched_code', ''))
-            if result.get('found'):
-                if '废止' in status or '作废' in status:
-                    action = '需替换'
-                else:
-                    action = '现行'
-            else:
-                action = '未查询到'
-            row = i + 7
-            ws.cell(row=row, column=1, value=i).border = thin_border
-            ws.cell(row=row, column=2, value=code).border = thin_border
-            ws.cell(row=row, column=3, value=matched_name).border = thin_border
-            ws.cell(row=row, column=4, value=status).border = thin_border
-            ws.cell(row=row, column=5, value=replacement).border = thin_border
-            ws.cell(row=row, column=6, value=action).border = thin_border
-    
-        ws.column_dimensions['A'].width = 8
-        ws.column_dimensions['B'].width = 20
-        ws.column_dimensions['C'].width = 40
-        ws.column_dimensions['D'].width = 15
-        ws.column_dimensions['E'].width = 30
-        ws.column_dimensions['F'].width = 12
-    
-        wb.save(path)
-        self.progress_var.set(0)
-        self.status_var.set(f"Excel 报告已保存: {path}")
-        messagebox.showinfo("完成", f"Excel 报告已保存到:\n{path}")
-    def on_check_item_selected(self, event=None):
-        selected = self.check_tree.selection()
-        if not selected:
-            return
-        item = selected[0]
-        values = self.check_tree.item(item, 'values')
-        if not values:
-            return
-        display_code = values[0]
-        name = values[1] if len(values) > 1 else ''
-        preview_name = f"{display_code.split(' ')[0].split('->')[0].split('[')[0].strip()} {name}".strip()
-        if hasattr(self, '_preview_name_var'):
-            self._preview_name_var.set(preview_name)
-        original_code = display_code.split(' ')[0].split('->')[0].split('[')[0].strip()
-        code_norm = normalize_for_matching(original_code)
-        if self.file_type == 'pdf':
-            for loc in self.code_locations:
-                if normalize_for_matching(loc['code']) == code_norm:
-                    self.show_page(loc['page'])
-                    self._highlight_code_location(loc)
-                    break
-            for item in self.list_tree.get_children():
-                values = self.list_tree.item(item, 'values')
-                if len(values) > 1 and normalize_for_matching(values[1]) == code_norm:
-                    self.list_tree.selection_set(item)
-                    self.list_tree.see(item)
-                    break
-        if self.file_type == 'pdf':
-            self._highlight_standard_on_preview(original_code, name)
-
-    def _highlight_code_location(self, loc):
-        if not hasattr(self, '_current_base_image') or not self._current_base_image:
-            return
-        page_idx = loc.get('page', 0)
-        if page_idx != getattr(self, 'current_display_index', -1):
-            self.show_page(page_idx)
-            self.root.update_idletasks()
-        scale = getattr(self, '_zoom_level', 1.0)
-        if hasattr(self, '_current_base_image') and self._current_base_image:
-            canvas_w = self.pdf_canvas.winfo_width() or 400
-            canvas_h = self.pdf_canvas.winfo_height() or 600
-            img_w, img_h = self._current_base_image.size
-            base_scale = min(canvas_w / img_w, canvas_h / img_h)
-            scale = base_scale * scale
-            offset_x = (canvas_w - int(img_w * scale)) // 2
-            offset_y = (canvas_h - int(img_h * scale)) // 2
-            x1, y1, x2, y2 = loc.get('bbox', (0, 0, 0, 0))
-            if all(v == 0 for v in (x1, y1, x2, y2)):
+        def _highlight_code_location(self, loc):
+            if not hasattr(self, '_current_base_image') or not self._current_base_image:
                 return
-            x1, y1, x2, y2 = x1 * scale + offset_x, y1 * scale + offset_y, x2 * scale + offset_x, y2 * scale + offset_y
+            page_idx = loc.get('page', 0)
+            if page_idx != getattr(self, 'current_display_index', -1):
+                self.show_page(page_idx)
+                self.root.update_idletasks()
+            scale = getattr(self, '_zoom_level', 1.0)
+            if hasattr(self, '_current_base_image') and self._current_base_image:
+                canvas_w = self.pdf_canvas.winfo_width() or 400
+                canvas_h = self.pdf_canvas.winfo_height() or 600
+                img_w, img_h = self._current_base_image.size
+                base_scale = min(canvas_w / img_w, canvas_h / img_h)
+                scale = base_scale * scale
+                offset_x = (canvas_w - int(img_w * scale)) // 2
+                offset_y = (canvas_h - int(img_h * scale)) // 2
+                x1, y1, x2, y2 = loc.get('bbox', (0, 0, 0, 0))
+                if all(v == 0 for v in (x1, y1, x2, y2)):
+                    return
+                x1, y1, x2, y2 = x1 * scale + offset_x, y1 * scale + offset_y, x2 * scale + offset_x, y2 * scale + offset_y
+                if hasattr(self, '_highlight_rect_id') and self._highlight_rect_id:
+                    self.pdf_canvas.delete(self._highlight_rect_id)
+                self._highlight_rect_id = self.pdf_canvas.create_rectangle(
+                    x1 - 2, y1 - 2, x2 + 2, y2 + 2, outline='red', width=3, dash=())
+                self.root.after(3000, self._clear_highlight)
+
+        def _clear_highlight(self):
             if hasattr(self, '_highlight_rect_id') and self._highlight_rect_id:
                 self.pdf_canvas.delete(self._highlight_rect_id)
-            self._highlight_rect_id = self.pdf_canvas.create_rectangle(
-                x1 - 2, y1 - 2, x2 + 2, y2 + 2, outline='red', width=3, dash=())
-            self.root.after(3000, self._clear_highlight)
+                self._highlight_rect_id = None
 
-    def _clear_highlight(self):
-        if hasattr(self, '_highlight_rect_id') and self._highlight_rect_id:
-            self.pdf_canvas.delete(self._highlight_rect_id)
-            self._highlight_rect_id = None
+        def _highlight_code_in_text(self, code):
+            if not hasattr(self, 'ocr_text'):
+                return
+            self.ocr_text.tag_remove('highlight', '1.0', tk.END)
+            if not code:
+                return
+            start = '1.0'
+            while True:
+                pos = self.ocr_text.search(code, start, stopindex=tk.END, nocase=True)
+                if not pos:
+                    break
+                end = f"{pos}+{len(code)}c"
+                self.ocr_text.tag_add('highlight', pos, end)
+                start = end
+            self.ocr_text.tag_config('highlight', background='yellow', foreground='red')
 
-    def _highlight_code_in_text(self, code):
-        if not hasattr(self, 'ocr_text'):
-            return
-        self.ocr_text.tag_remove('highlight', '1.0', tk.END)
-        if not code:
-            return
-        start = '1.0'
-        while True:
-            pos = self.ocr_text.search(code, start, stopindex=tk.END, nocase=True)
-            if not pos:
-                break
-            end = f"{pos}+{len(code)}c"
-            self.ocr_text.tag_add('highlight', pos, end)
-            start = end
-        self.ocr_text.tag_config('highlight', background='yellow', foreground='red')
-
-    def _highlight_standard_on_preview(self, code, name):
-        if self.file_type != 'pdf' or not getattr(self, 'current_path', None):
-            return
-        if not hasattr(self, '_current_base_image') or not self._current_base_image:
-            return
-        try:
-            doc = fitz.open(self.current_path)
-            page_idx = getattr(self, 'current_display_index', 0)
-            if page_idx < 0 or page_idx >= len(doc):
+        def _highlight_standard_on_preview(self, code, name):
+            if self.file_type != 'pdf' or not getattr(self, 'current_path', None):
+                return
+            if not hasattr(self, '_current_base_image') or not self._current_base_image:
+                return
+            try:
+                doc = fitz.open(self.current_path)
+                page_idx = getattr(self, 'current_display_index', 0)
+                if page_idx < 0 or page_idx >= len(doc):
+                    doc.close()
+                    return
+                page = doc.load_page(page_idx)
+                rect = None
+                for search_text in (code, name):
+                    if not search_text:
+                        continue
+                    blocks = page.search_for(search_text)
+                    if blocks:
+                        rect = blocks[0]
+                        break
                 doc.close()
+                if not rect:
+                    return
+                canvas_w = self.pdf_canvas.winfo_width() or 400
+                canvas_h = self.pdf_canvas.winfo_height() or 600
+                img_w, img_h = self._current_base_image.size
+                dpi = 200
+                scale_factor = dpi / 72.0
+                base_scale = min(canvas_w / img_w, canvas_h / img_h)
+                zoom = getattr(self, '_zoom_level', 1.0)
+                scale = base_scale * zoom
+                offset_x = (canvas_w - int(img_w * scale)) // 2 + getattr(self, '_pan_image_x', 0)
+                offset_y = (canvas_h - int(img_h * scale)) // 2 + getattr(self, '_pan_image_y', 0)
+                x1 = rect.x0 * scale_factor * scale + offset_x
+                y1 = rect.y0 * scale_factor * scale + offset_y
+                x2 = rect.x1 * scale_factor * scale + offset_x
+                y2 = rect.y1 * scale_factor * scale + offset_y
+                if hasattr(self, '_highlight_rect_id') and self._highlight_rect_id:
+                    self.pdf_canvas.delete(self._highlight_rect_id)
+                self._highlight_rect_id = self.pdf_canvas.create_rectangle(
+                    x1, y1, x2, y2, outline='red', width=3, dash=())
+            except Exception as e:
+                print(f"highlight error: {e}")
+
+        def on_check_item_double_click(self, event=None):
+            selected = self.check_tree.selection()
+            if not selected:
                 return
-            page = doc.load_page(page_idx)
-            rect = None
-            for search_text in (code, name):
-                if not search_text:
-                    continue
-                blocks = page.search_for(search_text)
-                if blocks:
-                    rect = blocks[0]
-                    break
-            doc.close()
-            if not rect:
+            item = selected[0]
+            values = self.check_tree.item(item, 'values')
+            if not values:
                 return
-            canvas_w = self.pdf_canvas.winfo_width() or 400
-            canvas_h = self.pdf_canvas.winfo_height() or 600
-            img_w, img_h = self._current_base_image.size
-            dpi = 200
-            scale_factor = dpi / 72.0
-            base_scale = min(canvas_w / img_w, canvas_h / img_h)
-            zoom = getattr(self, '_zoom_level', 1.0)
-            scale = base_scale * zoom
-            offset_x = (canvas_w - int(img_w * scale)) // 2 + getattr(self, '_pan_image_x', 0)
-            offset_y = (canvas_h - int(img_h * scale)) // 2 + getattr(self, '_pan_image_y', 0)
-            x1 = rect.x0 * scale_factor * scale + offset_x
-            y1 = rect.y0 * scale_factor * scale + offset_y
-            x2 = rect.x1 * scale_factor * scale + offset_x
-            y2 = rect.y1 * scale_factor * scale + offset_y
-            if hasattr(self, '_highlight_rect_id') and self._highlight_rect_id:
-                self.pdf_canvas.delete(self._highlight_rect_id)
-            self._highlight_rect_id = self.pdf_canvas.create_rectangle(
-                x1, y1, x2, y2, outline='red', width=3, dash=())
-        except Exception as e:
-            print(f"highlight error: {e}")
-
-    def on_check_item_double_click(self, event=None):
-        selected = self.check_tree.selection()
-        if not selected:
-            return
-        item = selected[0]
-        values = self.check_tree.item(item, 'values')
-        if not values:
-            return
-        action = values[4] if len(values) > 4 else ''
-        if action != '未查询到':
-            return
-        display_code = values[0]
-        original_code = display_code.split(' ')[0].split('->')[0].split('[')[0].strip()
-        name = ''
-        if hasattr(self, 'extracted_code_info'):
-            info = self.extracted_code_info.get(normalize_for_matching(original_code), {})
-            name = info.get('name', '')
-        dialog = StandardSearchDialog(self, self.checker, code=original_code, name=name)
-        self.wait_window(dialog)
-
-    # AI 聊天悬浮窗集成
-    def _check_ai_config(self):
-        """启动时检查 AI 配置是否已设置（首次使用弹出配置）"""
-        if not _CONFIG_FILE.exists():
-            # 首次使用，弹出配置对话框
-            self._show_ai_config_dialog(force=True)
-
-    def _show_ai_config_dialog(self, force=False):
-        """显示 AI API 配置对话框"""
-        config = _load_ai_config()
-        dialog = tk.Toplevel(self.root)
-        dialog.title("AI 助手配置")
-        dialog.geometry("500x350")
-        dialog.transient(self.root)
-        dialog.grab_set()
-
-        ttk.Label(dialog, text="🤖 AI 助手 API 配置", font=("SimSun", 12, "bold")).pack(anchor=tk.W, padx=16, pady=(10, 5))
-
-        if force:
-            ttk.Label(dialog, text="首次使用请配置 AI API 信息（使用本地服务可直接保存）", foreground="#c00000").pack(anchor=tk.W, padx=16, pady=(0, 8))
-
-        frame = ttk.Frame(dialog, padding=16)
-        frame.pack(fill=tk.BOTH, expand=True)
-
-        ttk.Label(frame, text="API 地址:").pack(anchor=tk.W, pady=(8, 2))
-        api_url_var = tk.StringVar(value=config.get("api_url", "http://localhost:3000/api/chat"))
-        ttk.Entry(frame, textvariable=api_url_var, width=50).pack(fill=tk.X)
-
-        ttk.Label(frame, text="API Key（可选，本地服务留空）:").pack(anchor=tk.W, pady=(8, 2))
-        api_key_var = tk.StringVar(value=config.get("api_key", ""))
-        key_entry = ttk.Entry(frame, textvariable=api_key_var, width=50, show="*")
-        key_entry.pack(fill=tk.X)
-
-        def toggle_key_show():
-            if key_entry.cget('show') == '*':
-                key_entry.config(show='')
-            else:
-                key_entry.config(show='*')
-        ttk.Button(frame, text="👁", command=toggle_key_show, width=3).pack(anchor=tk.E)
-
-        ttk.Label(frame, text="模型 ID:").pack(anchor=tk.W, pady=(8, 2))
-        model_var = tk.StringVar(value=config.get("model", "glm-5.1"))
-        model_combo = ttk.Combobox(frame, textvariable=model_var, width=47)
-        model_combo['values'] = ('glm-5.2', 'glm-5.1', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
-        model_combo.pack(fill=tk.X)
-
-        # 本地服务快捷按钮
-        local_frame = ttk.Frame(frame)
-        local_frame.pack(fill=tk.X, pady=(8, 2))
-        ttk.Label(local_frame, text="快捷:", foreground="#888").pack(side=tk.LEFT)
-        ttk.Button(local_frame, text="本地服务 (3000)", command=lambda: api_url_var.set("http://localhost:3000/api/chat")).pack(side=tk.LEFT, padx=2)
-        ttk.Button(local_frame, text="智谱 GLM", command=lambda: [api_url_var.set("https://open.bigmodel.cn/api/paas/v4/chat/completions"), model_var.set("glm-4.9")]).pack(side=tk.LEFT, padx=2)
-        ttk.Button(local_frame, text="DeepSeek", command=lambda: [api_url_var.set("https://api.deepseek.com/v1/chat/completions"), model_var.set("deepseek-chat")]).pack(side=tk.LEFT, padx=2)
-
-        status_lbl = ttk.Label(frame, text="", foreground="green")
-        status_lbl.pack(anchor=tk.W, pady=4)
-
-        def test_connection():
-            status_lbl.config(text="测试中...", foreground="blue")
-            dialog.update()
-            def do_test():
-                try:
-                    url = api_url_var.get().strip()
-                    data = json.dumps({"message": "你好", "stream": False}).encode('utf-8')
-                    req = urllib.request.Request(url, data=data,
-                        headers={'Content-Type': 'application/json'}, method='POST')
-                    resp = urllib.request.urlopen(req, timeout=10)
-                    result = json.loads(resp.read().decode('utf-8'))
-                    reply = result.get('reply', '') or result.get('content', '') or 'OK'
-                    dialog.after(0, lambda: status_lbl.config(text=f"✅ 连接成功: {reply[:50]}", foreground="green"))
-                except Exception as e:
-                    dialog.after(0, lambda: status_lbl.config(text=f"❌ 连接失败: {str(e)[:80]}", foreground="red"))
-            threading.Thread(target=do_test, daemon=True).start()
-
-        def save_config():
-            new_config = {
-                "api_url": api_url_var.get().strip(),
-                "api_key": api_key_var.get().strip(),
-                "model": model_var.get().strip()
-            }
-            if not new_config["api_url"]:
-                messagebox.showwarning("提示", "请输入 API 地址", parent=dialog)
+            action = values[4] if len(values) > 4 else ''
+            if action != '未查询到':
                 return
-            if _save_ai_config(new_config):
-                self.ai_config = new_config
-                # 同步到 AI 聊天窗口
-                try:
-                    if self.ai_chat is not None:
-                        self.ai_chat.config.update(self.ai_config)
-                except Exception:
-                    pass
-                status_lbl.config(text="✅ 配置已保存", foreground="green")
-                dialog.after(800, dialog.destroy)
-            else:
-                status_lbl.config(text="❌ 保存失败: 请检查文件权限", foreground="red")
-                messagebox.showerror("保存失败", "无法写入配置文件:\n" + str(_CONFIG_FILE) + "\n请检查文件权限或磁盘空间。", parent=dialog)
+            display_code = values[0]
+            original_code = display_code.split(' ')[0].split('->')[0].split('[')[0].strip()
+            name = ''
+            if hasattr(self, 'extracted_code_info'):
+                info = self.extracted_code_info.get(normalize_for_matching(original_code), {})
+                name = info.get('name', '')
+            dialog = StandardSearchDialog(self, self.checker, code=original_code, name=name)
+            self.wait_window(dialog)
 
-        btn_frame = ttk.Frame(dialog, padding=12)
-        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
-        ttk.Button(btn_frame, text="测试连接", command=test_connection).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(btn_frame, text="保存", command=save_config).pack(side=tk.RIGHT, padx=(5, 0))
-        ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.RIGHT)
+        # AI 聊天悬浮窗集成
+        def _check_ai_config(self):
+            """启动时检查 AI 配置是否已设置（首次使用弹出配置）"""
+            if not _CONFIG_FILE.exists():
+                # 首次使用，弹出配置对话框
+                self._show_ai_config_dialog(force=True)
 
-        if force:
-            dialog.protocol("WM_DELETE_WINDOW", lambda: None)  # 首次使用不能关闭
+        def _show_ai_config_dialog(self, force=False):
+            """显示 AI API 配置对话框"""
+            config = _load_ai_config()
+            dialog = tk.Toplevel(self.root)
+            dialog.title("AI 助手配置")
+            dialog.geometry("500x350")
+            dialog.transient(self.root)
+            dialog.grab_set()
 
-    def _toggle_ai_chat(self):
-        if self.ai_chat is None:
-            self.ai_chat = AIChatFloatingWindow(self.root, config=self.ai_config)
-        self.ai_chat.show()
-        if self.extracted_codes:
+            ttk.Label(dialog, text="🤖 AI 助手 API 配置", font=("SimSun", 12, "bold")).pack(anchor=tk.W, padx=16, pady=(10, 5))
+
+            if force:
+                ttk.Label(dialog, text="首次使用请配置 AI API 信息（使用本地服务可直接保存）", foreground="#c00000").pack(anchor=tk.W, padx=16, pady=(0, 8))
+
+            frame = ttk.Frame(dialog, padding=16)
+            frame.pack(fill=tk.BOTH, expand=True)
+
+            ttk.Label(frame, text="API 地址:").pack(anchor=tk.W, pady=(8, 2))
+            api_url_var = tk.StringVar(value=config.get("api_url", "http://localhost:3000/api/chat"))
+            ttk.Entry(frame, textvariable=api_url_var, width=50).pack(fill=tk.X)
+
+            ttk.Label(frame, text="API Key（可选，本地服务留空）:").pack(anchor=tk.W, pady=(8, 2))
+            api_key_var = tk.StringVar(value=config.get("api_key", ""))
+            key_entry = ttk.Entry(frame, textvariable=api_key_var, width=50, show="*")
+            key_entry.pack(fill=tk.X)
+
+            def toggle_key_show():
+                if key_entry.cget('show') == '*':
+                    key_entry.config(show='')
+                else:
+                    key_entry.config(show='*')
+            ttk.Button(frame, text="👁", command=toggle_key_show, width=3).pack(anchor=tk.E)
+
+            ttk.Label(frame, text="模型 ID:").pack(anchor=tk.W, pady=(8, 2))
+            model_var = tk.StringVar(value=config.get("model", "glm-5.1"))
+            model_combo = ttk.Combobox(frame, textvariable=model_var, width=47)
+            model_combo['values'] = ('glm-5.2', 'glm-5.1', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
+            model_combo.pack(fill=tk.X)
+
+            # 本地服务快捷按钮
+            local_frame = ttk.Frame(frame)
+            local_frame.pack(fill=tk.X, pady=(8, 2))
+            ttk.Label(local_frame, text="快捷:", foreground="#888").pack(side=tk.LEFT)
+            ttk.Button(local_frame, text="本地服务 (3000)", command=lambda: api_url_var.set("http://localhost:3000/api/chat")).pack(side=tk.LEFT, padx=2)
+            ttk.Button(local_frame, text="智谱 GLM", command=lambda: [api_url_var.set("https://open.bigmodel.cn/api/paas/v4/chat/completions"), model_var.set("glm-4.9")]).pack(side=tk.LEFT, padx=2)
+            ttk.Button(local_frame, text="DeepSeek", command=lambda: [api_url_var.set("https://api.deepseek.com/v1/chat/completions"), model_var.set("deepseek-chat")]).pack(side=tk.LEFT, padx=2)
+
+            status_lbl = ttk.Label(frame, text="", foreground="green")
+            status_lbl.pack(anchor=tk.W, pady=4)
+
+            def test_connection():
+                status_lbl.config(text="测试中...", foreground="blue")
+                dialog.update()
+                def do_test():
+                    try:
+                        url = api_url_var.get().strip()
+                        data = json.dumps({"message": "你好", "stream": False}).encode('utf-8')
+                        req = urllib.request.Request(url, data=data,
+                            headers={'Content-Type': 'application/json'}, method='POST')
+                        resp = urllib.request.urlopen(req, timeout=10)
+                        result = json.loads(resp.read().decode('utf-8'))
+                        reply = result.get('reply', '') or result.get('content', '') or 'OK'
+                        dialog.after(0, lambda: status_lbl.config(text=f"✅ 连接成功: {reply[:50]}", foreground="green"))
+                    except Exception as e:
+                        dialog.after(0, lambda: status_lbl.config(text=f"❌ 连接失败: {str(e)[:80]}", foreground="red"))
+                threading.Thread(target=do_test, daemon=True).start()
+
+            def save_config():
+                new_config = {
+                    "api_url": api_url_var.get().strip(),
+                    "api_key": api_key_var.get().strip(),
+                    "model": model_var.get().strip()
+                }
+                if not new_config["api_url"]:
+                    messagebox.showwarning("提示", "请输入 API 地址", parent=dialog)
+                    return
+                if _save_ai_config(new_config):
+                    self.ai_config = new_config
+                    # 同步到 AI 聊天窗口
+                    try:
+                        if self.ai_chat is not None:
+                            self.ai_chat.config.update(self.ai_config)
+                    except Exception:
+                        pass
+                    status_lbl.config(text="✅ 配置已保存", foreground="green")
+                    dialog.after(800, dialog.destroy)
+                else:
+                    status_lbl.config(text="❌ 保存失败: 请检查文件权限", foreground="red")
+                    messagebox.showerror("保存失败", "无法写入配置文件:\n" + str(_CONFIG_FILE) + "\n请检查文件权限或磁盘空间。", parent=dialog)
+
+            btn_frame = ttk.Frame(dialog, padding=12)
+            btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
+            ttk.Button(btn_frame, text="测试连接", command=test_connection).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(btn_frame, text="保存", command=save_config).pack(side=tk.RIGHT, padx=(5, 0))
+            ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.RIGHT)
+
+            if force:
+                dialog.protocol("WM_DELETE_WINDOW", lambda: None)  # 首次使用不能关闭
+
+        def _toggle_ai_chat(self):
+            if self.ai_chat is None:
+                self.ai_chat = AIChatFloatingWindow(self.root, config=self.ai_config)
+            self.ai_chat.show()
+            if self.extracted_codes:
+                results = []
+                for code in self.extracted_codes:
+                    info = self.extracted_code_info.get(normalize_for_matching(code), {})
+                    check_result = None
+                    for c, r in self.check_results:
+                        if normalize_for_matching(c) == normalize_for_matching(code):
+                            check_result = r
+                            break
+                    results.append({
+                        'code': info.get('original', code),
+                        'name': info.get('name', ''),
+                        'source': info.get('source', ''),
+                        'status': check_result.get('status', '') if check_result else '',
+                        'found': check_result.get('found', False) if check_result else False
+                    })
+                self.ai_chat.set_ocr_results(results)
+
+        def _push_ocr_to_ai(self):
+            if self.ai_chat is None or not self.extracted_codes:
+                return
             results = []
             for code in self.extracted_codes:
                 info = self.extracted_code_info.get(normalize_for_matching(code), {})
-                check_result = None
-                for c, r in self.check_results:
-                    if normalize_for_matching(c) == normalize_for_matching(code):
-                        check_result = r
-                        break
                 results.append({
                     'code': info.get('original', code),
                     'name': info.get('name', ''),
                     'source': info.get('source', ''),
-                    'status': check_result.get('status', '') if check_result else '',
-                    'found': check_result.get('found', False) if check_result else False
                 })
             self.ai_chat.set_ocr_results(results)
 
-    def _push_ocr_to_ai(self):
-        if self.ai_chat is None or not self.extracted_codes:
-            return
-        results = []
-        for code in self.extracted_codes:
-            info = self.extracted_code_info.get(normalize_for_matching(code), {})
-            results.append({
-                'code': info.get('original', code),
-                'name': info.get('name', ''),
-                'source': info.get('source', ''),
-            })
-        self.ai_chat.set_ocr_results(results)
+        def convert_pdf_to_images(self):
+            if not self.current_path or self.file_type != 'pdf' or not HAS_FITZ:
+                return
+            self.status_var.set("正在转换 PDF...")
+            self.progress_var.set(0)
+            self.pdf_images = []
+            doc = fitz.open(self.current_path)
+            total = len(doc)
+            for page_num in range(total):
+                page = doc.load_page(page_num)
+                pix = page.get_pixmap(dpi=200)
+                img_path = tempfile.mktemp(suffix='.png')
+                pix.save(img_path)
+                self.pdf_images.append(img_path)
+                self.progress_var.set((page_num + 1) / total * 100)
+                self.root.update_idletasks()
+            doc.close()
+            self.status_var.set(f"PDF 已转换: {len(self.pdf_images)} 页")
+            self.page_var.set(f"第 1 / {len(self.pdf_images)} 页")
+            self.progress_var.set(0)
+            if self.pdf_images:
+                self.show_page(0)
 
-    def convert_pdf_to_images(self):
-        if not self.current_path or self.file_type != 'pdf' or not HAS_FITZ:
+    def _render_text_to_canvas(self, text, title):
+        """将文本内容渲染为图片并显示在预览画布上"""
+        if not HAS_PIL:
             return
-        self.status_var.set("正在转换 PDF...")
-        self.progress_var.set(0)
-        self.pdf_images = []
-        doc = fitz.open(self.current_path)
-        total = len(doc)
-        for page_num in range(total):
-            page = doc.load_page(page_num)
-            pix = page.get_pixmap(dpi=200)
-            img_path = tempfile.mktemp(suffix='.png')
-            pix.save(img_path)
-            self.pdf_images.append(img_path)
-            self.progress_var.set((page_num + 1) / total * 100)
-            self.root.update_idletasks()
-        doc.close()
-        self.status_var.set(f"PDF 已转换: {len(self.pdf_images)} 页")
-        self.page_var.set(f"第 1 / {len(self.pdf_images)} 页")
-        self.progress_var.set(0)
-        if self.pdf_images:
-            self.show_page(0)
-
-def _render_text_to_canvas(self, text, title):
-    """将文本内容渲染为图片并显示在预览画布上"""
-    if not HAS_PIL:
-        return
-    self.status_var.set(f"正在渲染文本内容: {title}...")
-    try:
-        lines = text.split('\n')
-        if not lines or all(not l.strip() for l in lines):
-            lines = ["（文件内容为空）"]
-        # 自动换行（按 50 个中文字符宽度）
-        wrapped = []
-        max_chars = 50
-        for line in lines:
-            while len(line) > max_chars:
-                wrapped.append(line[:max_chars])
-                line = line[max_chars:]
-            if line:
-                wrapped.append(line)
-        lines = wrapped
-        line_h = 28
-        margin = 40
-        w = max(600, margin * 2 + max_chars * 22)
-        h = margin * 2 + len(lines) * line_h
-        # 限制最大高度，避免过大
-        if h > 1600:
-            h = 1600
-            line_h = max(16, (h - margin * 2) // len(lines))
-        img = Image.new("RGB", (w, h), (255, 255, 255))
-        draw = ImageDraw.Draw(img)
-        # 尝试用系统字体，回退用位图
-        font_path = None
-        for fp in [
-            "C:/Windows/Fonts/simsun.ttc",
-            "C:/Windows/Fonts/simhei.ttf",
-            "C:/Windows/Fonts/msyh.ttc",
-        ]:
-            if Path(fp).exists():
-                font_path = fp
-                break
-        if font_path:
-            title_font = ImageDraw.textlength("标准文本预览",
-                ImageFont.truetype(font_path, 20)) > 10 and ImageFont.truetype(font_path, 20) or ImageFont.load_default()
-            text_font = ImageFont.truetype(font_path, 16)
-        else:
-            text_font = ImageFont.load_default()
-            title_font = ImageFont.load_default()
-        draw.text((margin, 12), title, fill=(0, 51, 102), font=title_font)
-        draw.line([(margin, 40), (w - margin, 40)], fill=(0, 120, 200), width=2)
-        cy = 56
-        for ln in lines:
-            if cy + line_h > h - margin:
-                draw.text((margin, cy), "...（内容截断，超出预览区域）", fill=(128, 128, 128), font=text_font)
-                break
-            draw.text((margin, cy), ln, fill=(0, 0, 0), font=text_font)
-            cy += line_h
-        tmp = tempfile.mktemp(suffix='.png')
-        img.save(tmp)
-        self.pdf_images = [tmp]
-        if self.pdf_images:
-            self.show_page(0)
-        self.status_var.set(f"已加载文本内容: {title}")
-        self.page_var.set("文本预览")
-    except Exception as e:
-        print(f"text render error: {e}")
-        self.status_var.set("文本渲染失败")
-
-def extract_text_file(self):
-    if not self.current_path:
-        return
-    self.status_var.set("正在提取文本...")
-    self.progress_var.set(0)
-    self.ocr_results = []
-    self.pdf_images = []
-    self.code_locations = []
-    self.extracted_codes = []
-    self.list_tree.delete(*self.list_tree.get_children())
-    self.check_tree.delete(*self.list_tree.get_children())
-    self.pdf_canvas.delete('all')
-    full_text = ""
-    rendered = False
-    try:
-        if self.file_type == 'docx' and HAS_DOCX:
-            doc = Document(self.current_path)
-            full_text = '\n'.join([p.text for p in doc.paragraphs])
-            self.ocr_results = [full_text]
-            title_text = f"Word 文档: {Path(self.current_path).name}"
-            self._render_text_to_canvas(full_text, title_text)
-            rendered = True
-        elif self.file_type == 'txt':
-            with open(self.current_path, 'r', encoding='utf-8', errors='ignore') as f:
-                full_text = f.read()
-            self.ocr_results = [full_text]
-            title_text = f"文本文件: {Path(self.current_path).name}"
-            self._render_text_to_canvas(full_text, title_text)
-            rendered = True
-        else:
-            messagebox.showwarning("提示", "不支持的文件格式")
-            return
-        if not rendered:
+        self.status_var.set(f"正在渲染文本内容: {title}...")
+        try:
+            lines = text.split('\n')
+            if not lines or all(not l.strip() for l in lines):
+                lines = ["（文件内容为空）"]
+            # 自动换行（按 50 个中文字符宽度）
+            wrapped = []
+            max_chars = 50
+            for line in lines:
+                while len(line) > max_chars:
+                    wrapped.append(line[:max_chars])
+                    line = line[max_chars:]
+                if line:
+                    wrapped.append(line)
+            lines = wrapped
+            line_h = 28
+            margin = 40
+            w = max(600, margin * 2 + max_chars * 22)
+            h = margin * 2 + len(lines) * line_h
+            # 限制最大高度，避免过大
+            if h > 1600:
+                h = 1600
+                line_h = max(16, (h - margin * 2) // len(lines))
+            img = Image.new("RGB", (w, h), (255, 255, 255))
+            draw = ImageDraw.Draw(img)
+            # 尝试用系统字体，回退用位图
+            font_path = None
+            for fp in [
+                "C:/Windows/Fonts/simsun.ttc",
+                "C:/Windows/Fonts/simhei.ttf",
+                "C:/Windows/Fonts/msyh.ttc",
+            ]:
+                if Path(fp).exists():
+                    font_path = fp
+                    break
+            if font_path:
+                title_font = ImageDraw.textlength("标准文本预览",
+                    ImageFont.truetype(font_path, 20)) > 10 and ImageFont.truetype(font_path, 20) or ImageFont.load_default()
+                text_font = ImageFont.truetype(font_path, 16)
+            else:
+                text_font = ImageFont.load_default()
+                title_font = ImageFont.load_default()
+            draw.text((margin, 12), title, fill=(0, 51, 102), font=title_font)
+            draw.line([(margin, 40), (w - margin, 40)], fill=(0, 120, 200), width=2)
+            cy = 56
+            for ln in lines:
+                if cy + line_h > h - margin:
+                    draw.text((margin, cy), "...（内容截断，超出预览区域）", fill=(128, 128, 128), font=text_font)
+                    break
+                draw.text((margin, cy), ln, fill=(0, 0, 0), font=text_font)
+                cy += line_h
+            tmp = tempfile.mktemp(suffix='.png')
+            img.save(tmp)
+            self.pdf_images = [tmp]
+            if self.pdf_images:
+                self.show_page(0)
+            self.status_var.set(f"已加载文本内容: {title}")
             self.page_var.set("文本预览")
-        self.progress_var.set(100)
-        self.status_var.set("文本提取完成")
-        self.ocr_text.delete('1.0', tk.END)
-        self.ocr_text.insert(tk.END, full_text)
-        self._extract_codes_from_text(full_text)
-    except Exception as e:
-        messagebox.showerror("错误", f"读取文件失败: {e}")
-        self.status_var.set("读取文件失败")
+        except Exception as e:
+            print(f"text render error: {e}")
+            self.status_var.set("文本渲染失败")
 
-    def run(self):
-        self._start_periodic_redraw()
-        self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
-        self.root.mainloop()
+    def extract_text_file(self):
+        if not self.current_path:
+            return
+        self.status_var.set("正在提取文本...")
+        self.progress_var.set(0)
+        self.ocr_results = []
+        self.pdf_images = []
+        self.code_locations = []
+        self.extracted_codes = []
+        self.list_tree.delete(*self.list_tree.get_children())
+        self.check_tree.delete(*self.list_tree.get_children())
+        self.pdf_canvas.delete('all')
+        full_text = ""
+        rendered = False
+        try:
+            if self.file_type == 'docx' and HAS_DOCX:
+                doc = Document(self.current_path)
+                full_text = '\n'.join([p.text for p in doc.paragraphs])
+                self.ocr_results = [full_text]
+                title_text = f"Word 文档: {Path(self.current_path).name}"
+                self._render_text_to_canvas(full_text, title_text)
+                rendered = True
+            elif self.file_type == 'txt':
+                with open(self.current_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    full_text = f.read()
+                self.ocr_results = [full_text]
+                title_text = f"文本文件: {Path(self.current_path).name}"
+                self._render_text_to_canvas(full_text, title_text)
+                rendered = True
+            else:
+                messagebox.showwarning("提示", "不支持的文件格式")
+                return
+            if not rendered:
+                self.page_var.set("文本预览")
+            self.progress_var.set(100)
+            self.status_var.set("文本提取完成")
+            self.ocr_text.delete('1.0', tk.END)
+            self.ocr_text.insert(tk.END, full_text)
+            self._extract_codes_from_text(full_text)
+        except Exception as e:
+            messagebox.showerror("错误", f"读取文件失败: {e}")
+            self.status_var.set("读取文件失败")
 
-    def _on_exit(self):
-        import os
-        icon_tmp = getattr(self, '_icon_tmp', None)
-        if icon_tmp and os.path.exists(icon_tmp):
-            try:
-                os.unlink(icon_tmp)
-            except Exception:
-                pass
-        for img in getattr(self, 'pdf_images', []):
-            if os.path.exists(img):
+        def run(self):
+            self._start_periodic_redraw()
+            self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
+            self.root.mainloop()
+
+        def _on_exit(self):
+            import os
+            icon_tmp = getattr(self, '_icon_tmp', None)
+            if icon_tmp and os.path.exists(icon_tmp):
                 try:
-                    os.unlink(img)
+                    os.unlink(icon_tmp)
                 except Exception:
                     pass
-        if hasattr(self, 'checker') and self.checker is not None:
-            try:
-                self.checker.close()
-            except Exception:
-                pass
-        self.root.destroy()
+            for img in getattr(self, 'pdf_images', []):
+                if os.path.exists(img):
+                    try:
+                        os.unlink(img)
+                    except Exception:
+                        pass
+            if hasattr(self, 'checker') and self.checker is not None:
+                try:
+                    self.checker.close()
+                except Exception:
+                    pass
+            self.root.destroy()
 
 
 def main():
