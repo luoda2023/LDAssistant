@@ -44,13 +44,13 @@ jobs:
           $GZ_FILE="standards_gov_full.db.gz"
           $JSON_FILE="all_standards_merged_20260629_092235.json"
           Write-Host "下载数据库..."
-          curl -L -o $GZ_FILE $GZ_URL
+          Invoke-WebRequest -Uri $GZ_URL -OutFile $GZ_FILE -UseBasicParsing
           Write-Host "解压..."
           7z x $GZ_FILE -y
           if (Test-Path "standards_gov_full.db") {
             Move-Item -Force "standards_gov_full.db" $JSON_FILE
           }
-          New-Item -ItemType Directory -Force -Path "data"
+          New-Item -ItemType Directory -Force -Path "data" -ErrorAction SilentlyContinue
           Move-Item -Force $JSON_FILE "data/$JSON_FILE"
           Write-Host "数据文件大小: $((Get-Item 'data/$JSON_FILE').Length / 1MB) MB"
 
