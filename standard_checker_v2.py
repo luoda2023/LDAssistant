@@ -19,8 +19,11 @@ import re
 import subprocess
 import tempfile
 import threading
+import time
 import urllib.request
 import urllib.parse
+import struct
+import io
 from pathlib import Path
 from datetime import datetime
 
@@ -43,7 +46,7 @@ except Exception:
 
 
 try:
-    from PIL import Image, ImageDraw, ImageFilter, ImageCms, ImageTk
+    from PIL import Image, ImageDraw, ImageFilter, ImageCms, ImageTk, ImageFont
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -569,7 +572,7 @@ def mask_seals_pil(image_path, out_path=None):
 
 
 def render_cad_to_image(dxf_path, dpi=150):
-    """将 DXF/DWG 文件渲染为 PNG 图片"""
+    """将 DXF 文件渲染为 PNG 图片（仅支持 DXF 格式）"""
     if not HAS_CAD:
         return None
     try:
@@ -748,22 +751,40 @@ def _save_ai_config(config):
 class AIChatFloatingWindow:
     """AI 聊天悬浮窗"""
 
-    def __init__(self, master, config=None):
-        self.master = master
-        self.config = config or _load_ai_config()
-        self.window = tk.Toplevel(master)
-        self.window.title("AI 助手")
-        self.window.geometry("400x500")
-        self.window.minsize(300, 350)
-        self._floating = True
-        self._pin_icon = "📌"
-        self._float_icon = "💠"
-        self._offset_x = 0
-        self._offset_y = 0
-        self._messages = []
-        self._setup_ui()
-        self._setup_drag()
-        self.add_message("ai", "你好！我是标准查询 AI 助手。\n发送标准号或关键词，我可以帮你查询国家标准。\n\nOCR 识别的结果会自动显示在这里。")
+def __init__(self, master, config=None):
+    self.master = master
+    self.config = config or _load_ai_config()
+    self.window = tk.Toplevel(master)
+    self.window.title("AI 助手")
+    self.window.geometry("400x500")
+    self.window.minsize(300, 350)
+    # 设置 AI 窗口图标
+    self._set_ai_icon()
+    self._floating = True
+    self._pin_icon = "📌"
+    self._float_icon = "💠"
+    self._offset_x = 0
+    self._offset_y = 0
+    self._messages = []
+    self._setup_ui()
+    self._setup_drag()
+    self.add_message("ai", "你好！我是标准查询 AI 助手。\n发送标准号或关键词，我可以帮你查询国家标准。\n\nOCR 识别的结果会自动显示在这里。")
+
+def _set_ai_icon(self):
+    """给 AI 聊天窗口设置图标（兼容 PyInstaller onedir 路径）"""
+    for p in [_APP_DIR / 'app_icon.ico', _APP_DIR / 'app_icon.png']:
+        if p.exists():
+            try:
+                if p.suffix == '.ico':
+                    self.window.iconbitmap(str(p))
+                    return
+                else:
+                    img = tk.PhotoImage(file=str(p))
+                    self.window.iconphoto(True, img)
+                    self._icon_image = img
+                    return
+            except Exception:
+                continue
 
     def _setup_ui(self):
         titlebar = ttk.Frame(self.window)
@@ -782,6 +803,7 @@ class AIChatFloatingWindow:
         self._cfg_btn = ttk.Button(quick_frame, text="⚙️", command=self._open_config, width=2)
         self._cfg_btn.pack(side=tk.LEFT, padx=1)
         ttk.Button(quick_frame, text="🗑", command=self._clear_chat, width=2).pack(side=tk.LEFT, padx=1)
+        ttk.Button(quick_frame, text="💾", command=self._export_chat, width=2).pack(side=tk.LEFT, padx=1)
         ttk.Button(quick_frame, text="—", command=self._minimize, width=2).pack(side=tk.LEFT, padx=1)
         ttk.Button(quick_frame, text="✕", command=self._close, width=2).pack(side=tk.LEFT, padx=1)
 
@@ -861,6 +883,113 @@ class AIChatFloatingWindow:
         for w in self._msg_inner.winfo_children():
             w.destroy()
         self.add_message("ai", "对话已清空，可以重新开始提问。")
+
+    def _export_chat(self):
+        """导出 AI 对话记录为 Word 或 PDF"""
+        dialog = tk.Toplevel(self.window)
+        dialog.title("导出对话记录")
+        dialog.geometry("360x140")
+        dialog.transient(self.window)
+        dialog.grab_set()
+        if hasattr(self.master, '_set_icon_for_toplevel'):
+            self.master._set_icon_for_toplevel(dialog)
+        ttk.Label(dialog, text="请选择导出格式:", font=("SimSun", 11)).pack(anchor=tk.W, padx=14, pady=(12, 8))
+        def do_export_docx():
+            dialog.destroy()
+            self._do_export_chat_docx()
+        def do_export_pdf():
+            dialog.destroy()
+            self._do_export_chat_pdf()
+        btn_frame = ttk.Frame(dialog, padding=14)
+        btn_frame.pack(fill=tk.X)
+        ttk.Button(btn_frame, text="📄 导出 Word", command=do_export_docx).pack(side=tk.LEFT, padx=8)
+        ttk.Button(btn_frame, text="📕 导出 PDF", command=do_export_pdf).pack(side=tk.LEFT, padx=8)
+        ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.RIGHT)
+
+    def _build_chat_text(self):
+        """将对话历史拼接为文本（返回 (title_lines, body_lines)）"""
+        from datetime import datetime
+        title = f"LDAssistant AI 对话记录 — {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        body = []
+        for m in self._messages:
+            role = "🤖 AI" if m.get("role") == "ai" else "👤 用户"
+            body.append(f"{role}：")
+            body.append(m.get("content", "") + "\n")
+            body.append("")
+        return title, body
+
+    def _do_export_chat_docx(self):
+        """导出对话为 Word 文档"""
+        if not HAS_DOCX:
+            messagebox.showwarning("提示", "需要安装 python-docx 库才能导出 Word")
+            return
+        from docx import Document
+        from docx.shared import Pt, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        try:
+            title, body = self._build_chat_text()
+            doc = Document()
+            p = doc.add_heading(title, level=1)
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for line in body:
+                para = doc.add_paragraph(line)
+                for run in para.runs:
+                    run.font.name = "SimSun"
+                    run.font.size = Pt(11)
+            path = filedialog.asksaveasfilename(
+                title="保存对话记录 (Word)",
+                defaultextension=".docx",
+                filetypes=[("Word 文档", "*.docx"), ("所有文件", "*.*")])
+            if path:
+                doc.save(path)
+                messagebox.showinfo("完成", f"对话已导出:\n{path}", parent=self.window)
+        except Exception as e:
+            messagebox.showerror("错误", f"导出失败: {e}", parent=self.window)
+
+def _do_export_chat_pdf(self):
+    """导出对话为 PDF 文档"""
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.lib import colors
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    except Exception:
+        messagebox.showwarning("提示", "需要安装 reportlab 库才能导出 PDF，请在命令行执行:\npip install reportlab",
+                               parent=self.window)
+        return
+    try:
+        pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+        title, body = self._build_chat_text()
+        path = filedialog.asksaveasfilename(
+            title="保存对话记录 (PDF)",
+            defaultextension=".pdf",
+            filetypes=[("PDF 文档", "*.pdf"), ("所有文件", "*.*")])
+        if not path:
+            return
+        doc = SimpleDocTemplate(path, pagesize=A4,
+                                leftMargin=2*cm, rightMargin=2*cm,
+                                topMargin=2*cm, bottomMargin=2*cm)
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle('Title', parent=styles['Title'], fontName='STSong-Light', fontSize=16, spaceAfter=20, alignment=1)
+        story = [Paragraph(title, title_style), Spacer(1, 0.3*cm)]
+        ai_style = ParagraphStyle('AI', parent=styles['Normal'], fontName='STSong-Light', fontSize=10, spaceAfter=8, textColor=colors.HexColor('#1a73e8'))
+        user_style = ParagraphStyle('User', parent=styles['Normal'], fontName='STSong-Light', fontSize=10, spaceAfter=8, textColor=colors.HexColor('#333333'))
+        for m in self._messages:
+            role = m.get("role")
+            role_label = "🤖 AI" if role == "ai" else "👤 用户"
+            style = ai_style if role == "ai" else user_style
+            content = m.get("content", "").replace("\n", "<br/>")
+            content = content.replace("**", "").replace("•", "- ")
+            story.append(Paragraph(f"<b>{role_label}：</b>", style))
+            story.append(Paragraph(content, style))
+            story.append(Spacer(1, 0.2*cm))
+        doc.build(story)
+        messagebox.showinfo("完成", f"对话已导出:\n{path}", parent=self.window)
+    except Exception as e:
+        messagebox.showerror("错误", f"导出 PDF 失败: {e}", parent=self.window)
 
     def _open_config(self):
         """打开AI API配置对话框"""
@@ -1299,6 +1428,9 @@ class App:
         self._batch_abort = False
         self._thumbnail_images = []
         self._rotation_angle = 0
+        self._acme_proc = None        # AcmeCAD 进程
+        self._acme_main_hwnd = None   # AcmeCAD 主窗口句柄
+        self._acme_find_count = 0     # 查找 AcmeCAD 窗口计数器
         self.root = tk.Tk()
         self._name_index = {}
         self.root.title(APP_TITLE)
@@ -1318,25 +1450,51 @@ class App:
         self._check_ai_config()
 
 
-    def _set_app_icon(self):
-        """设置窗口图标"""
-        # 使用全局 _APP_DIR（兼容 PyInstaller onedir 打包后的 _internal 路径）
-        for icon_path in [_APP_DIR / 'app_icon.ico', _APP_DIR / 'app_icon.png']:
-            if icon_path.exists():
-                try:
-                    if icon_path.suffix == '.ico':
-                        self.root.iconbitmap(str(icon_path))
-                    else:
-                        png_ico = tk.PhotoImage(file=str(icon_path))
-                        self.root.iconphoto(True, png_ico)
-                        self._icon_image = png_ico
-                        self._icon_tmp = None  # 使用文件，不需要临时文件
-                        print(f'Icon set: {icon_path.name}')
-                        return
-                except Exception as e:
-                    print(f'Failed to set icon from {icon_path}: {e}')
-                    continue
-        print('No icon file found, using default')
+def _set_app_icon(self):
+    """设置窗口图标（主窗口 + 所有 Toplevel 子窗口）"""
+    # 兼容 PyInstaller onedir 打包后的路径
+    icon_path = _APP_DIR / 'app_icon.ico'
+    png_path = _APP_DIR / 'app_icon.png'
+    if not icon_path.exists() and not png_path.exists():
+        # 退回到脚本所在目录
+        icon_path = Path(__file__).parent / 'app_icon.ico'
+        png_path = Path(__file__).parent / 'app_icon.png'
+
+    if icon_path.exists():
+        try:
+            self.root.iconbitmap(str(icon_path))
+            self._icon_path = str(icon_path)
+            print(f'Icon set: {icon_path.name}')
+            return
+        except Exception as e:
+            print(f'Failed iconbitmap from {icon_path}: {e}')
+
+    if png_path.exists():
+        try:
+            png_ico = tk.PhotoImage(file=str(png_path))
+            self.root.iconphoto(True, png_ico)
+            self._icon_image = png_ico
+            print(f'Icon set: {png_path.name}')
+            return
+        except Exception as e:
+            print(f'Failed iconphoto from {png_path}: {e}')
+
+    print('No icon file found, using default')
+
+def _set_icon_for_toplevel(self, win):
+    """给任意 Toplevel 窗口设置图标"""
+    if hasattr(self, '_icon_path') and self._icon_path:
+        try:
+            win.iconbitmap(self._icon_path)
+            return
+        except Exception:
+            pass
+    if hasattr(self, '_icon_image'):
+        try:
+            win.iconphoto(True, self._icon_image)
+            return
+        except Exception:
+            pass
 
 
     def _setup_style(self):
@@ -1440,20 +1598,21 @@ class App:
         self.selector = RegionSelector(self.pdf_canvas, None, self._on_region_selected)
 
     # 悬浮面板：结果面板
-    def _toggle_results_panel(self):
-        if self._results_panel is None:
-            self._results_panel = tk.Toplevel(self.root)
-            self._results_panel.title("OCR / 规范列表 / 检查结果")
-            self._results_panel.geometry("500x400")
-            self._results_panel.attributes('-topmost', True)
-            self._setup_results_panel_ui()
-        if self._results_visible:
-            self._results_panel.withdraw()
-            self._results_visible = False
-        else:
-            self._results_panel.deiconify()
-            self._results_panel.lift()
-            self._results_visible = True
+def _toggle_results_panel(self):
+    if self._results_panel is None:
+        self._results_panel = tk.Toplevel(self.root)
+        self._results_panel.title("OCR / 规范列表 / 检查结果")
+        self._set_icon_for_toplevel(self._results_panel)
+        self._results_panel.geometry("500x400")
+        self._results_panel.attributes('-topmost', True)
+        self._setup_results_panel_ui()
+    if self._results_visible:
+        self._results_panel.withdraw()
+        self._results_visible = False
+    else:
+        self._results_panel.deiconify()
+        self._results_panel.lift()
+        self._results_visible = True
 
     def _setup_results_panel_ui(self):
         panel = self._results_panel
@@ -1515,30 +1674,31 @@ class App:
         self.check_tree.bind('<<TreeviewSelect>>', self.on_check_item_selected)
 
     # 悬浮面板：缩略图
-    def _toggle_thumbnail_panel(self):
-        if self._thumb_panel is None:
-            self._thumb_panel = tk.Toplevel(self.root)
-            self._thumb_panel.title("文件缩略图")
-            self._thumb_panel.geometry("120x500")
-            self._thumb_panel.attributes('-topmost', True)
-            self.thumb_canvas = tk.Canvas(self._thumb_panel, bg="#e8e8e8", highlightthickness=0, width=110)
-            self.thumb_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-            thumb_scroll = ttk.Scrollbar(self._thumb_panel, orient=tk.VERTICAL, command=self.thumb_canvas.yview)
-            thumb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-            self.thumb_canvas.configure(yscrollcommand=thumb_scroll.set)
-            self.thumb_frame = ttk.Frame(self.thumb_canvas)
-            self.thumb_scroll_window = self.thumb_canvas.create_window(
-                (0, 0), window=self.thumb_frame, anchor='nw', width=110)
-            self.thumb_frame.bind('<Configure>',
-                                  lambda e: self.thumb_canvas.configure(scrollregion=self.thumb_canvas.bbox('all')))
-        if self._thumb_visible:
-            self._thumb_panel.withdraw()
-            self._thumb_visible = False
-        else:
-            self._thumb_panel.deiconify()
-            self._thumb_panel.lift()
-            self._thumb_visible = True
-            self._update_thumbnails()
+def _toggle_thumbnail_panel(self):
+    if self._thumb_panel is None:
+        self._thumb_panel = tk.Toplevel(self.root)
+        self._thumb_panel.title("文件缩略图")
+        self._set_icon_for_toplevel(self._thumb_panel)
+        self._thumb_panel.geometry("120x500")
+        self._thumb_panel.attributes('-topmost', True)
+        self.thumb_canvas = tk.Canvas(self._thumb_panel, bg="#e8e8e8", highlightthickness=0, width=110)
+        self.thumb_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        thumb_scroll = ttk.Scrollbar(self._thumb_panel, orient=tk.VERTICAL, command=self.thumb_canvas.yview)
+        thumb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.thumb_canvas.configure(yscrollcommand=thumb_scroll.set)
+        self.thumb_frame = ttk.Frame(self.thumb_canvas)
+        self.thumb_scroll_window = self.thumb_canvas.create_window(
+            (0, 0), window=self.thumb_frame, anchor='nw', width=110)
+        self.thumb_frame.bind('<Configure>',
+            lambda e: self.thumb_canvas.configure(scrollregion=self.thumb_canvas.bbox('all')))
+    if self._thumb_visible:
+        self._thumb_panel.withdraw()
+        self._thumb_visible = False
+    else:
+        self._thumb_panel.deiconify()
+        self._thumb_panel.lift()
+        self._thumb_visible = True
+        self._update_thumbnails()
 
     def _detect_file_type(self, path):
         ext = Path(path).suffix.lower()
@@ -1586,14 +1746,23 @@ class App:
         self.pdf_images = []
         self.pdf_images.append(self.current_path)
         self.status_var.set(f"已加载图片: {Path(self.current_path).name}")
-        self.page_var.set("第 1 / 1 页")
-        if self.pdf_images:
-            self.show_page(0)
+    self.page_var.set("第 1 / 1 页")
+    if self.pdf_images:
+        self.show_page(0)
 
+    # 加载 CAD 图纸（DWG → AcmeCAD 嵌入; DXF → ezdxf 渲染）
     def _load_cad_file(self):
         if not self.current_path or self.file_type != 'cad':
             return
-        self.status_var.set("正在渲染 CAD 图纸...")
+        ext = Path(self.current_path).suffix.lower()
+
+        # DWG → 启动 AcmeCAD 嵌入到预览区
+        if ext == '.dwg':
+            self._load_cad_with_acmecad()
+            return
+
+        # DXF → ezdxf 渲染
+        self.status_var.set("正在渲染 CAD 图纸 (DXF)...")
         self.pdf_images = []
         if not HAS_CAD:
             self.status_var.set("CAD 渲染不可用")
@@ -1609,6 +1778,196 @@ class App:
         else:
             self.status_var.set("CAD 渲染失败")
             messagebox.showerror("CAD 错误", f"无法渲染 CAD 文件:\n{self.current_path}")
+
+def _load_cad_with_acmecad(self):
+    """用 AcmeCAD 打开 DWG 并嵌入到预览区。只保留中间黑色绘图区，
+    菜单栏、工具栏、状态栏全部隐藏，窗口充满整个预览画布。"""
+    acme_path = r"D:/Program Files/AcmeCAD2023-v8.10.6.1560-Chs.exe"
+    if not Path(acme_path).exists():
+        messagebox.showwarning("CAD 错误",
+            f"找不到 AcmeCAD:\n{acme_path}\n\n"
+            "请先安装 AcmeCAD，再打开 DWG 文件。")
+        return
+
+    self.status_var.set("正在启动 AcmeCAD 打开 DWG...")
+    try:
+        import win32gui
+        import win32con
+    except Exception as e:
+        messagebox.showerror("错误", f"缺少 pywin32:\n{e}")
+        return
+
+    # 清理旧的 AcmeCAD 残留
+    self._close_acmecad()
+    try:
+        # 清除画布上旧的图片，避免与嵌入窗口重叠
+        self.pdf_canvas.delete('all')
+        self.current_img = None
+        self.pdf_images = []
+
+        # 启动 AcmeCAD 打开目标 DWG（CREATE_NO_WINDOW 只针对控制台窗口）
+        proc = subprocess.Popen([acme_path, str(self.current_path)])
+        self._acme_proc = proc
+
+        def _hide_acme_ui(acme_main, try_count=0):
+            """把 AcmeCAD 的菜单栏、工具栏、状态栏、文件标签栏全部隐藏"""
+            try:
+                # 去掉菜单栏
+                menu = win32gui.GetMenu(acme_main)
+                if menu:
+                    win32gui.SetMenu(acme_main, 0)
+                    win32gui.DestroyMenu(menu)
+                # 隐藏所有子窗口中的 UI 元素（工具栏、状态栏、底部面板、左侧树形面板）
+                ui_keywords = [
+                    'toolbar', 'status', 'msctls_statusbar',
+                    'tree', 'listview', 'explorer', 'panel',
+                    'ribbon', 'quicklaunch', 'tabcontrol'
+                ]
+                def _hide_cb(hwnd):
+                    cls = win32gui.GetClassName(hwnd)
+                    title = win32gui.GetWindowText(hwnd)
+                    low = (cls + title).lower()
+                    # 状态栏
+                    if cls == 'msctls_statusbar32' or 'status' in cls.lower():
+                        win32gui.ShowWindow(hwnd, 0)
+                        return
+                    # 工具栏
+                    if 'toolbar' in low or 'tool' in cls.lower():
+                        win32gui.ShowWindow(hwnd, 0)
+                        return
+                    # 左侧文件树/属性面板
+                    if 'tree' in cls.lower() or 'explorer' in cls.lower():
+                        win32gui.ShowWindow(hwnd, 0)
+                        return
+                    # 有标题的工具/文件标签栏（文件列表 tab）
+                    title_u = title.upper()
+                    if ('文件' in title_u or 'FILE' in title_u or '打开' in title_u
+                            or 'OPEN' in title_u):
+                        win32gui.ShowWindow(hwnd, 0)
+                        return
+                    # 底部命令栏/图层栏
+                    if any(k in low for k in ui_keywords):
+                        r = win32gui.GetWindowRect(hwnd)
+                        area = (r[2] - r[0]) * (r[3] - r[1])
+                        if area > 0 and area < 3000000:  # 过滤大绘图区
+                            win32gui.ShowWindow(hwnd, 0)
+                win32gui.EnumChildWindows(acme_main, _hide_cb, [])
+                # 最大化 AcmeCAD 窗口（让绘图区占满）
+                win32gui.SendMessage(acme_main, win32con.WM_SYSCOMMAND,
+                                    win32con.SC_MAXIMIZE, 0)
+                # 去掉窗口样式：边框、标题栏、最大最小化按钮
+                style = win32gui.GetWindowLong(acme_main, win32con.GWL_STYLE)
+                style &= ~win32con.WS_CAPTION
+                style &= ~win32con.WS_THICKFRAME
+                style &= ~win32con.WS_MINIMIZEBOX
+                style &= ~win32con.WS_MAXIMIZEBOX
+                style &= ~win32con.WS_SYSMENU
+                style &= ~win32con.WS_BORDER
+                win32gui.SetWindowLong(acme_main, win32con.GWL_STYLE, style)
+                # 让窗口重新计算布局
+                win32gui.SetWindowPos(acme_main, 0, 0, 0, 0, 0,
+                    win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
+                    win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED)
+                # 让 AcmeCAD 重绘内部布局
+                win32gui.InvalidateRect(acme_main, None, True)
+                win32gui.RedrawWindow(acme_main, None, None,
+                    win32con.RDW_INVALIDATE | win32con.RDW_UPDATENOW)
+                # 重新枚举，把还没隐藏的小 UI 也藏掉（二次清理）
+                win32gui.EnumChildWindows(acme_main, _hide_cb, [])
+                if try_count < 5:
+                    self.root.after(150, lambda: _hide_acme_ui(acme_main, try_count + 1))
+            except Exception as e:
+                print(f"_hide_acme_ui error: {e}")
+
+        def _embed_acme(acme_main, try_count=0):
+            """把 AcmeCAD 嵌入到我们预览区，定位到画布尺寸"""
+            try:
+                # 取当前画布尺寸
+                ww = self.pdf_canvas.winfo_width()
+                hh = self.pdf_canvas.winfo_height()
+                if ww <= 10 or hh <= 10:
+                    ww, hh = 900, 500
+                # 获取我们的容器窗口
+                parent_hwnd = int(str(self.pdf_canvas.master.winfo_id()))
+                # 设为子窗口（嵌入）
+                win32gui.SetParent(acme_main, parent_hwnd)
+                # 去 WS_CHILD 后再设 WS_CHILD，避免 WS_POPUP 残留
+                style = win32gui.GetWindowLong(acme_main, win32con.GWL_STYLE)
+                style &= ~win32con.WS_POPUP
+                style |= win32con.WS_CHILD
+                win32gui.SetWindowLong(acme_main, win32con.GWL_STYLE, style)
+                # 移进画布区域（坐标相对于 parent）
+                win32gui.MoveWindow(acme_main, 0, 0, ww, hh, 1)
+                # 显示并置顶
+                win32gui.SetWindowPos(acme_main, win32con.HWND_TOP, 0, 0,
+                    ww, hh,
+                    win32con.SWP_NOZORDER)
+                win32gui.ShowWindow(acme_main, 1)
+                win32gui.SetForegroundWindow(acme_main)
+                self._acme_main_hwnd = acme_main
+                self.status_var.set(f"已用 AcmeCAD 打开 DWG: {Path(self.current_path).name}")
+                self.page_var.set("CAD 预览")
+            except Exception as e:
+                print(f"_embed_acme error (try {try_count}): {e}")
+                if try_count < 6:
+                    self.root.after(200, lambda: _embed_acme(acme_main, try_count + 1))
+
+        def _find_and_init():
+            """搜索 AcmeCAD 主窗口，找到后隐藏 UI 并嵌入"""
+            found = []
+            def _search(hwnd, lst):
+                title = win32gui.GetWindowText(hwnd)
+                title_l = title.lower()
+                if 'acmecad' in title_l or 'ACME' in title.upper():
+                    lst.append(hwnd)
+            win32gui.EnumWindows(_search, found)
+            if found:
+                acme_main = found[-1]
+                self.root.after(300, lambda: _hide_acme_ui(acme_main))
+                self.root.after(1500, lambda: _embed_acme(acme_main))
+            else:
+                if self._acme_find_count < 40:
+                    self._acme_find_count += 1
+                    self.root.after(250, _find_and_init)
+                else:
+                    messagebox.showerror("CAD 错误",
+                        "无法获取 AcmeCAD 窗口，请确认 AcmeCAD 已正确安装。\n\n"
+                        "提示：请关闭任何正在运行的 AcmeCAD 后再试。")
+                    self._acme_proc.terminate()
+                    self._acme_find_count = 0
+
+            self._acme_find_count = 0
+            self.root.after(400, _find_and_init)
+
+    except Exception as e:
+        messagebox.showerror("CAD 错误", f"打开 DWG 失败:\n{e}")
+    self.status_var.set("打开 DWG 失败")
+
+    def _close_acmecad(self):
+        """关闭嵌入的 AcmeCAD 实例"""
+        try:
+            import win32gui
+        except Exception:
+            pass
+        if self._acme_main_hwnd:
+            try:
+                win32gui.SetParent(self._acme_main_hwnd, 0)
+            except Exception:
+                pass
+            self._acme_main_hwnd = None
+        if self._acme_proc:
+            try:
+                self._acme_proc.terminate()
+                self._acme_proc.wait(timeout=3)
+            except Exception:
+                pass
+            self._acme_proc = None
+        try:
+            self.pdf_canvas.delete('all')
+        except Exception:
+            pass
+        self.current_img = None
+        self.pdf_images = []
 
     def open_file(self):
         paths = filedialog.askopenfilenames(
@@ -2956,40 +3315,114 @@ class App:
         if self.pdf_images:
             self.show_page(0)
 
-    def extract_text_file(self):
-        if not self.current_path:
-            return
-        self.status_var.set("正在提取文本...")
-        self.progress_var.set(0)
-        self.ocr_results = []
-        self.pdf_images = []
-        self.code_locations = []
-        self.extracted_codes = []
-        self.list_tree.delete(*self.list_tree.get_children())
-        self.check_tree.delete(*self.check_tree.get_children())
-        self.pdf_canvas.delete('all')
-        try:
-            if self.file_type == 'docx' and HAS_DOCX:
-                doc = Document(self.current_path)
-                full_text = '\n'.join([p.text for p in doc.paragraphs])
-                self.ocr_results = [full_text]
-            elif self.file_type == 'txt':
-                with open(self.current_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    full_text = f.read()
-                self.ocr_results = [full_text]
-            else:
-                messagebox.showwarning("提示", "不支持的文件格式")
-                return
-            self.page_var.set("文本文件")
-            self.progress_var.set(100)
-            self.status_var.set("文本提取完成")
-            self.ocr_text.delete('1.0', tk.END)
-            self.ocr_text.insert(tk.END, full_text)
+def _render_text_to_canvas(self, text, title):
+    """将文本内容渲染为图片并显示在预览画布上"""
+    if not HAS_PIL:
+        return
+    self.status_var.set(f"正在渲染文本内容: {title}...")
+    try:
+        lines = text.split('\n')
+        if not lines or all(not l.strip() for l in lines):
+            lines = ["（文件内容为空）"]
+        # 自动换行（按 50 个中文字符宽度）
+        wrapped = []
+        max_chars = 50
+        for line in lines:
+            while len(line) > max_chars:
+                wrapped.append(line[:max_chars])
+                line = line[max_chars:]
+            if line:
+                wrapped.append(line)
+        lines = wrapped
+        line_h = 28
+        margin = 40
+        w = max(600, margin * 2 + max_chars * 22)
+        h = margin * 2 + len(lines) * line_h
+        # 限制最大高度，避免过大
+        if h > 1600:
+            h = 1600
+            line_h = max(16, (h - margin * 2) // len(lines))
+        img = Image.new("RGB", (w, h), (255, 255, 255))
+        draw = ImageDraw.Draw(img)
+        # 尝试用系统字体，回退用位图
+        font_path = None
+        for fp in [
+            "C:/Windows/Fonts/simsun.ttc",
+            "C:/Windows/Fonts/simhei.ttf",
+            "C:/Windows/Fonts/msyh.ttc",
+        ]:
+            if Path(fp).exists():
+                font_path = fp
+                break
+        if font_path:
+            title_font = ImageDraw.textlength("标准文本预览",
+                ImageFont.truetype(font_path, 20)) > 10 and ImageFont.truetype(font_path, 20) or ImageFont.load_default()
+            text_font = ImageFont.truetype(font_path, 16)
+        else:
+            text_font = ImageFont.load_default()
+            title_font = ImageFont.load_default()
+        draw.text((margin, 12), title, fill=(0, 51, 102), font=title_font)
+        draw.line([(margin, 40), (w - margin, 40)], fill=(0, 120, 200), width=2)
+        cy = 56
+        for ln in lines:
+            if cy + line_h > h - margin:
+                draw.text((margin, cy), "...（内容截断，超出预览区域）", fill=(128, 128, 128), font=text_font)
+                break
+            draw.text((margin, cy), ln, fill=(0, 0, 0), font=text_font)
+            cy += line_h
+        tmp = tempfile.mktemp(suffix='.png')
+        img.save(tmp)
+        self.pdf_images = [tmp]
+        if self.pdf_images:
+            self.show_page(0)
+        self.status_var.set(f"已加载文本内容: {title}")
+        self.page_var.set("文本预览")
+    except Exception as e:
+        print(f"text render error: {e}")
+        self.status_var.set("文本渲染失败")
+
+def extract_text_file(self):
+    if not self.current_path:
+        return
+    self.status_var.set("正在提取文本...")
+    self.progress_var.set(0)
+    self.ocr_results = []
+    self.pdf_images = []
+    self.code_locations = []
+    self.extracted_codes = []
+    self.list_tree.delete(*self.list_tree.get_children())
+    self.check_tree.delete(*self.list_tree.get_children())
+    self.pdf_canvas.delete('all')
+    full_text = ""
+    rendered = False
+    try:
+        if self.file_type == 'docx' and HAS_DOCX:
+            doc = Document(self.current_path)
+            full_text = '\n'.join([p.text for p in doc.paragraphs])
             self.ocr_results = [full_text]
-            self._extract_codes_from_text(full_text)
-        except Exception as e:
-            messagebox.showerror("错误", f"读取文件失败: {e}")
-            self.status_var.set("读取文件失败")
+            title_text = f"Word 文档: {Path(self.current_path).name}"
+            self._render_text_to_canvas(full_text, title_text)
+            rendered = True
+        elif self.file_type == 'txt':
+            with open(self.current_path, 'r', encoding='utf-8', errors='ignore') as f:
+                full_text = f.read()
+            self.ocr_results = [full_text]
+            title_text = f"文本文件: {Path(self.current_path).name}"
+            self._render_text_to_canvas(full_text, title_text)
+            rendered = True
+        else:
+            messagebox.showwarning("提示", "不支持的文件格式")
+            return
+        if not rendered:
+            self.page_var.set("文本预览")
+        self.progress_var.set(100)
+        self.status_var.set("文本提取完成")
+        self.ocr_text.delete('1.0', tk.END)
+        self.ocr_text.insert(tk.END, full_text)
+        self._extract_codes_from_text(full_text)
+    except Exception as e:
+        messagebox.showerror("错误", f"读取文件失败: {e}")
+        self.status_var.set("读取文件失败")
 
     def run(self):
         self._start_periodic_redraw()
