@@ -40,17 +40,13 @@ jobs:
       - name: 下载标准数据库
         shell: pwsh
         run: |
-          $GZ_FILE = "standards_gov_full.db.gz"
           $JSON_FILE = "all_standards_merged_20260629_092235.json"
-          $GZ_URL = "https://github.com/luoda2023/LDAssistant/releases/download/data-v1/standards_gov_full.db.gz"
-          Write-Host "下载数据库..."
-          curl -fsSL -o $GZ_FILE $GZ_URL
-          if (-not (Test-Path $GZ_FILE)) {
+          Write-Host "下载并解压数据库..."
+          python download_db.py
+          if (-not (Test-Path $JSON_FILE)) {
             Write-Error "下载失败"
             exit 1
           }
-          Write-Host "解压..."
-          python -c "import gzip; data = gzip.open('$GZ_FILE', 'rb').read(); open('$JSON_FILE', 'wb').write(data); print('解压完成:', len(data), 'bytes')"
           New-Item -ItemType Directory -Force -Path "data" -ErrorAction SilentlyContinue
           Move-Item -Force $JSON_FILE "data/$JSON_FILE"
           Write-Host "数据文件大小: $((Get-Item ('data/' + $JSON_FILE)).Length / 1MB) MB"
