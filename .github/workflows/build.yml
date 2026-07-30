@@ -49,11 +49,8 @@ jobs:
             Write-Error "下载失败"
             exit 1
           }
-          Write-Host "解压..."
-          7z x $GZ_FILE -y
-          if (Test-Path "standards_gov_full.db") {
-            Move-Item -Force "standards_gov_full.db" $JSON_FILE
-          }
+Write-Host "解压..."
+python -c "import gzip; data = gzip.open('$GZ_FILE', 'rb').read(); open('$JSON_FILE', 'wb').write(data); print(f'解压完成: {len(data)} bytes')"
           New-Item -ItemType Directory -Force -Path "data" -ErrorAction SilentlyContinue
           Move-Item -Force $JSON_FILE "data/$JSON_FILE"
           Write-Host "数据文件大小: $((Get-Item 'data/$JSON_FILE').Length / 1MB) MB"
