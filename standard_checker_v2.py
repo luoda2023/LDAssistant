@@ -560,12 +560,19 @@ def mask_seals_pil(image_path, out_path=None):
                 mask = mask.resize((w, h), Image.Resampling.NEAREST)
             white = Image.new("RGB", (w, h), (255, 255, 255))
             img = Image.composite(white, img, mask)
-        if out_path:
-            img.save(out_path)
-            return out_path
-        tmp_path = tempfile.mktemp(suffix='.png')
+if out_path:
+        img.save(out_path)
+        return out_path
+    tmp_path = tempfile.mktemp(suffix='.png')
+    try:
         img.save(tmp_path)
         return tmp_path
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+        raise
     except Exception as e:
         print(f"mask_seals error: {e}")
         return image_path
@@ -592,11 +599,19 @@ def render_cad_to_image(dxf_path, dpi=150):
         ax.axis('off')
         backend = MatplotlibBackend(ax)
         Frontend(RenderContext(doc), backend).draw_layout(doc.modelspace())
-        tmp = tempfile.mktemp(suffix='.png')
+tmp = tempfile.mktemp(suffix='.png')
+    try:
         fig.savefig(tmp, dpi=dpi, bbox_inches='tight', pad_inches=0.1,
-                    facecolor='white', edgecolor='none')
+                     facecolor='white', edgecolor='none')
         plt.close(fig)
         return tmp
+    except Exception:
+        plt.close(fig)
+        try:
+            os.unlink(tmp)
+        except Exception:
+            pass
+        raise
     except Exception as e:
         print(f"CAD render error: {e}")
         return None
@@ -2818,10 +2833,17 @@ class App:
             bottom = min(img.height, int(y2))
             if right <= left or bottom <= top:
                 return image_path
-            cropped = img.crop((left, top, right, bottom))
-            out = tempfile.mktemp(suffix='.png')
-            cropped.save(out)
-            return out
+cropped = img.crop((left, top, right, bottom))
+    out = tempfile.mktemp(suffix='.png')
+    try:
+        cropped.save(out)
+        return out
+    except Exception:
+        try:
+            os.unlink(out)
+        except Exception:
+            pass
+        raise
         except Exception as e:
             print(f"crop error: {e}")
             return image_path
@@ -2867,12 +2889,20 @@ class App:
                 img_rgb = Image.open(image_path)
                 left = img_rgb.crop((0, 0, split_original, h))
                 right = img_rgb.crop((split_original, 0, w, h))
-                left_path = tempfile.mktemp(suffix='.png')
-                right_path = tempfile.mktemp(suffix='.png')
-                left.save(left_path)
-                right.save(right_path)
-                print(f"  Detected two-column layout, split at x={split_original}")
-                return [left_path, right_path]
+left_path = tempfile.mktemp(suffix='.png')
+    right_path = tempfile.mktemp(suffix='.png')
+    try:
+        left.save(left_path)
+        right.save(right_path)
+        print(f"  Detected two-column layout, split at x={split_original}")
+        return [left_path, right_path]
+    except Exception:
+        for p in [left_path, right_path]:
+            try:
+                os.unlink(p)
+            except Exception:
+                pass
+        raise
             return [image_path]
         except Exception as e:
             print(f"column detect error: {e}")
@@ -2885,12 +2915,20 @@ class App:
             split_x = w // 2
             left = img.crop((0, 0, split_x, h))
             right = img.crop((split_x, 0, w, h))
-            left_path = tempfile.mktemp(suffix='.png')
-            right_path = tempfile.mktemp(suffix='.png')
-            left.save(left_path)
-            right.save(right_path)
-            print(f"  Split A3 page at x={split_x}")
-            return [left_path, right_path]
+left_path = tempfile.mktemp(suffix='.png')
+    right_path = tempfile.mktemp(suffix='.png')
+    try:
+        left.save(left_path)
+        right.save(right_path)
+        print(f"  Split A3 page at x={split_x}")
+        return [left_path, right_path]
+    except Exception:
+        for p in [left_path, right_path]:
+            try:
+                os.unlink(p)
+            except Exception:
+                pass
+        raise
         except Exception as e:
             print(f"pdf column split error: {e}")
             return [image_path]
