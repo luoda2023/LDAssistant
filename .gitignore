@@ -12,7 +12,9 @@ build/
 *.db
 *.db.gz
 *.json.gz
-# 占位数据文件例外（小文件直接提交，完整数据通过 Release 分发）
+# 压缩数据文件例外（15MB，直接提交以免依赖 Release）
+!data/standards_data.json.gz
+# 占位数据文件例外（小文件直接提交）
 !data/all_standards_merged_20260629_092235.json
 
 # Node
