@@ -11,89 +11,89 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+    - name: 检出代码
+      uses: actions/checkout@v4
 
-      - name: 安装 Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          architecture: "x64"
+    - name: 安装 Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        architecture: "x64"
 
-      - name: 安装 Python 依赖
-        shell: pwsh
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller reportlab
-          pip install PyMuPDF python-docx Pillow openpyxl ezdxf matplotlib
+    - name: 安装 Python 依赖
+      shell: pwsh
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller reportlab
+        pip install PyMuPDF python-docx Pillow openpyxl ezdxf matplotlib
 
-      - name: 验证依赖
-        shell: pwsh
-        run: |
-          python -c "import fitz; print('PyMuPDF OK')"
-          python -c "from docx import Document; print('python-docx OK')"
-          python -c "from PIL import Image; print('Pillow OK')"
-          python -c "import openpyxl; print('openpyxl OK')"
-          python -c "import ezdxf; print('ezdxf OK')"
-          python -c "import matplotlib; print('matplotlib OK')"
+    - name: 验证依赖
+      shell: pwsh
+      run: |
+        python -c "import fitz; print('PyMuPDF OK')"
+        python -c "from docx import Document; print('python-docx OK')"
+        python -c "from PIL import Image; print('Pillow OK')"
+        python -c "import openpyxl; print('openpyxl OK')"
+        python -c "import ezdxf; print('ezdxf OK')"
+        python -c "import matplotlib; print('matplotlib OK')"
 
-      - name: 下载标准数据库
-        shell: pwsh
-        run: |
-          $GZ_FILE = "standards_gov_full.db.gz"
-          $JSON_FILE = "all_standards_merged_20260629_092235.json"
-          $GZ_URL = "https://github.com/luoda2023/LDAssistant/releases/download/data-v1/standards_gov_full.db.gz"
-          Write-Host "下载数据库..."
-          python download_file.py $GZ_URL $GZ_FILE
-          if (-not (Test-Path $GZ_FILE)) {
-            Write-Error "下载失败"
-            exit 1
-          }
-Write-Host "解压..."
-python -c "import gzip; data = gzip.open('$GZ_FILE', 'rb').read(); open('$JSON_FILE', 'wb').write(data); print(f'解压完成: {len(data)} bytes')"
-          New-Item -ItemType Directory -Force -Path "data" -ErrorAction SilentlyContinue
-          Move-Item -Force $JSON_FILE "data/$JSON_FILE"
-          Write-Host "数据文件大小: $((Get-Item 'data/$JSON_FILE').Length / 1MB) MB"
+    - name: 下载标准数据库
+      shell: pwsh
+      run: |
+        $GZ_FILE = "standards_gov_full.db.gz"
+        $JSON_FILE = "all_standards_merged_20260629_092235.json"
+        $GZ_URL = "https://github.com/luoda2023/LDAssistant/releases/download/data-v1/standards_gov_full.db.gz"
+        Write-Host "下载数据库..."
+        python download_file.py $GZ_URL $GZ_FILE
+        if (-not (Test-Path $GZ_FILE)) {
+          Write-Error "下载失败"
+          exit 1
+        }
+        Write-Host "解压..."
+        python -c "import gzip; data = gzip.open('$GZ_FILE', 'rb').read(); open('$JSON_FILE', 'wb').write(data); print('解压完成:', len(data), 'bytes')"
+        New-Item -ItemType Directory -Force -Path "data" -ErrorAction SilentlyContinue
+        Move-Item -Force $JSON_FILE "data/$JSON_FILE"
+        Write-Host "数据文件大小: $((Get-Item ('data/' + $JSON_FILE)).Length / 1MB) MB"
 
-      - name: 构建可执行文件 (onedir 模式)
-        shell: pwsh
-        run: |
-          python -m PyInstaller --onedir --windowed --name "LDAssistant" `
-            --icon "app_icon.ico" `
-            --add-data "data/all_standards_merged_20260629_092235.json;data" `
-            --add-data "app_icon.ico;." `
-            --hidden-import "docx" `
-            --hidden-import "docx.shared" `
-            --hidden-import "docx.enum.text" `
-            --hidden-import "openpyxl" `
-            --hidden-import "openpyxl.styles" `
-            --hidden-import "ezdxf" `
-            --hidden-import "matplotlib" `
-            --hidden-import "reportlab" `
-            --hidden-import "reportlab.pdfbase" `
-            --hidden-import "reportlab.pdfbase.cidfonts" `
-            --hidden-import "PIL" `
-            --hidden-import "PIL._tkinter_finder" `
-            --exclude-module "matplotlib.tests" `
-            --exclude-module "numpy.testing" `
-            standard_checker_v2.py
+    - name: 构建可执行文件 (onedir 模式)
+      shell: pwsh
+      run: |
+        python -m PyInstaller --onedir --windowed --name "LDAssistant" `
+          --icon "app_icon.ico" `
+          --add-data "data/all_standards_merged_20260629_092235.json;data" `
+          --add-data "app_icon.ico;." `
+          --hidden-import "docx" `
+          --hidden-import "docx.shared" `
+          --hidden-import "docx.enum.text" `
+          --hidden-import "openpyxl" `
+          --hidden-import "openpyxl.styles" `
+          --hidden-import "ezdxf" `
+          --hidden-import "matplotlib" `
+          --hidden-import "reportlab" `
+          --hidden-import "reportlab.pdfbase" `
+          --hidden-import "reportlab.pdfbase.cidfonts" `
+          --hidden-import "PIL" `
+          --hidden-import "PIL._tkinter_finder" `
+          --exclude-module "matplotlib.tests" `
+          --exclude-module "numpy.testing" `
+          standard_checker_v2.py
 
-      - name: 压缩 build 产物
-        shell: pwsh
-        run: |
-          Compress-Archive -Path "dist\LDAssistant\*" -DestinationPath "dist\LDAssistant.zip" -Force
-          Write-Host "压缩完成: $((Get-Item 'dist\LDAssistant.zip').Length / 1MB) MB"
+    - name: 压缩 build 产物
+      shell: pwsh
+      run: |
+        Compress-Archive -Path "dist\LDAssistant\*" -DestinationPath "dist\LDAssistant.zip" -Force
+        Write-Host "压缩完成: $((Get-Item 'dist\LDAssistant.zip').Length / 1MB) MB"
 
-      - name: 上传构建产物到 Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: latest-build
-          name: LDAssistant 最新构建
-          body: |
-            自动构建最新版工程助手
-            commit: ${{ github.sha }}
-          files: dist/LDAssistant.zip
-          token: ${{ secrets.GITHUB_TOKEN }}
-          draft: false
-          prerelease: false
+    - name: 上传构建产物到 Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: latest-build
+        name: LDAssistant 最新构建
+        body: |
+          自动构建最新版工程助手
+          commit: ${{ github.sha }}
+        files: dist/LDAssistant.zip
+        token: ${{ secrets.GITHUB_TOKEN }}
+        draft: false
+        prerelease: false
