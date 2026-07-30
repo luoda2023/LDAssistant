@@ -1,0 +1,72 @@
+[
+  {
+    "code": "GB/T 1.1-2020",
+    "name": "标准化工作导则 第1部分：标准化文件的结构和起草规则",
+    "status": "现行",
+    "publisher": "国家市场监督管理总局",
+    "implement_date": "2020-10-01"
+  },
+  {
+    "code": "GB/T 19001-2016",
+    "name": "质量管理体系 要求",
+    "status": "现行",
+    "publisher": "国家市场监督管理总局",
+    "implement_date": "2017-07-01"
+  },
+  {
+    "code": "GB/T 24001-2016",
+    "name": "环境管理体系 要求及使用指南",
+    "status": "现行",
+    "publisher": "国家市场监督管理总局",
+    "implement_date": "2017-06-01"
+  },
+  {
+    "code": "GB/T 45001-2020",
+    "name": "职业健康安全管理体系 要求及使用指南",
+    "status": "现行",
+    "publisher": "国家市场监督管理总局",
+    "implement_date": "2020-03-01"
+  },
+  {
+    "code": "GB/T 22080-2016",
+    "name": "信息技术 安全技术 信息安全管理体系 要求",
+    "status": "现行",
+    "publisher": "国家市场监督管理总局",
+    "implement_date": "2017-05-01"
+  },
+  {
+    "code": "GB/T 22239-2019",
+    "name": "信息安全技术 网络安全等级保护基本要求",
+    "status": "现行",
+    "publisher": "国家市场监督管理总局",
+    "implement_date": "2019-12-01"
+  },
+  {
+    "code": "GB/T 35273-2020",
+    "name": "信息安全技术 个人信息安全规范",
+    "status": "现行",
+    "publisher": "国家市场监督管理总局",
+    "implement_date": "2020-10-01"
+  },
+  {
+    "code": "GB/T 19000-2016",
+    "name": "质量管理体系 基础和术语",
+    "status": "现行",
+    "publisher": "国家市场监督管理总局",
+    "implement_date": "2017-07-01"
+  },
+  {
+    "code": "GB/T 24004-2017",
+    "name": "环境管理体系 通用实施指南",
+    "status": "现行",
+    "publisher": "国家市场监督管理总局",
+    "implement_date": "2017-10-01"
+  },
+  {
+    "code": "GB/T 28001-2011",
+    "name": "职业健康安全管理体系 要求",
+    "status": "现行",
+    "publisher": "国家市场监督管理总局",
+    "implement_date": "2012-02-01"
+  }
+]

@@ -37,20 +37,6 @@ jobs:
           python -c "import ezdxf; print('ezdxf OK')"
           python -c "import matplotlib; print('matplotlib OK')"
 
-      - name: 下载标准数据库
-        shell: pwsh
-        run: |
-          $JSON_FILE = "all_standards_merged_20260629_092235.json"
-          Write-Host "下载并解压数据库..."
-          python download_db.py
-          if (-not (Test-Path $JSON_FILE)) {
-            Write-Error "下载失败"
-            exit 1
-          }
-          New-Item -ItemType Directory -Force -Path "data" -ErrorAction SilentlyContinue
-          Move-Item -Force $JSON_FILE "data/$JSON_FILE"
-          Write-Host "数据文件大小: $((Get-Item ('data/' + $JSON_FILE)).Length / 1MB) MB"
-
       - name: 构建可执行文件 (onedir 模式)
         shell: pwsh
         run: |
