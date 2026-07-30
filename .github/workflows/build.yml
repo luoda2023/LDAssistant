@@ -40,15 +40,11 @@ jobs:
       - name: 下载标准数据库
         shell: pwsh
         run: |
-          $GZ_URL="https://github.com/luoda2023/LDAssistant/releases/download/data-v1/standards_gov_full.db.gz"
-          $GZ_FILE="standards_gov_full.db.gz"
-          $JSON_FILE="all_standards_merged_20260629_092235.json"
-          Write-Host "下载数据库..."
-          $wc = [System.Net.WebClient]::new()
-          $wc.DownloadFile($GZ_URL, $GZ_FILE)
-          $wc.Dispose()
+          $JSON_FILE = "all_standards_merged_20260629_092235.json"
+          Write-Host "下载数据库 (gh release download)..."
+          gh release download data-v1 -p "standards_gov_full.db.gz" --clobber
           Write-Host "解压..."
-          7z x $GZ_FILE -y
+          7z x standards_gov_full.db.gz -y
           if (Test-Path "standards_gov_full.db") {
             Move-Item -Force "standards_gov_full.db" $JSON_FILE
           }
