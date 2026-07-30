@@ -19,6 +19,7 @@ import re
 import subprocess
 import tempfile
 import threading
+import concurrent.futures
 import time
 import urllib.request
 import urllib.parse
@@ -560,19 +561,19 @@ def mask_seals_pil(image_path, out_path=None):
                 mask = mask.resize((w, h), Image.Resampling.NEAREST)
             white = Image.new("RGB", (w, h), (255, 255, 255))
             img = Image.composite(white, img, mask)
-if out_path:
-        img.save(out_path)
-        return out_path
-    tmp_path = tempfile.mktemp(suffix='.png')
-    try:
-        img.save(tmp_path)
-        return tmp_path
-    except Exception:
-        try:
-            os.unlink(tmp_path)
-        except Exception:
-            pass
-        raise
+            if out_path:
+                img.save(out_path)
+                return out_path
+            fd, tmp_path = tempfile.mkstemp(suffix=".png"); os.close(fd)
+            try:
+                img.save(tmp_path)
+                return tmp_path
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+                raise
     except Exception as e:
         print(f"mask_seals error: {e}")
         return image_path
@@ -599,19 +600,19 @@ def render_cad_to_image(dxf_path, dpi=150):
         ax.axis('off')
         backend = MatplotlibBackend(ax)
         Frontend(RenderContext(doc), backend).draw_layout(doc.modelspace())
-tmp = tempfile.mktemp(suffix='.png')
-    try:
-        fig.savefig(tmp, dpi=dpi, bbox_inches='tight', pad_inches=0.1,
-                     facecolor='white', edgecolor='none')
-        plt.close(fig)
-        return tmp
-    except Exception:
-        plt.close(fig)
+        fd, tmp = tempfile.mkstemp(suffix=".png"); os.close(fd)
         try:
-            os.unlink(tmp)
+            fig.savefig(tmp, dpi=dpi, bbox_inches="tight", pad_inches=0.1,
+                         facecolor="white", edgecolor="none")
+            plt.close(fig)
+            return tmp
         except Exception:
-            pass
-        raise
+            plt.close(fig)
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
+            raise
     except Exception as e:
         print(f"CAD render error: {e}")
         return None
@@ -1096,7 +1097,7 @@ class AIChatFloatingWindow:
                     cfg.after(0, lambda: status_lbl.config(text=f"✅ 连接成功: {reply[:50]}", foreground="green"))
                 except Exception as e:
                     cfg.after(0, lambda: status_lbl.config(text=f"❌ 连接失败: {e}", foreground="red"))
-            threading.Thread(target=do_test, daemon=True).start()
+            self._executor.submit(do_test)
 
         def save_config():
             new_config = {
@@ -2250,8 +2251,11 @@ class App:
                             "无法获取 AcmeCAD 窗口，请确认 AcmeCAD 已正确安装。\n\n"
                             "提示：请关闭任何正在运行的 AcmeCAD 后再试。")
                         self._acme_proc.terminate()
+                        try:
+                            self._acme_proc.wait(timeout=3)
+                        except Exception:
+                            pass
                         self._acme_find_count = 0
-
                 self._acme_find_count = 0
                 self.root.after(400, _find_and_init)
 
@@ -2453,7 +2457,7 @@ class App:
                                 for page_num in range(min(len(doc), 5)):
                                     page = doc.load_page(page_num)
                                     pix = page.get_pixmap(dpi=200)
-                                    img_path = tempfile.mktemp(suffix='.png')
+                                    fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
                                     pix.save(img_path)
                                     masked = mask_seals_pil(img_path)
                                     text, _ = self.checker.ocr_image(masked)
@@ -2833,17 +2837,17 @@ class App:
             bottom = min(img.height, int(y2))
             if right <= left or bottom <= top:
                 return image_path
-cropped = img.crop((left, top, right, bottom))
-    out = tempfile.mktemp(suffix='.png')
-    try:
-        cropped.save(out)
-        return out
-    except Exception:
-        try:
-            os.unlink(out)
-        except Exception:
-            pass
-        raise
+            cropped = img.crop((left, top, right, bottom))
+            fd, out = tempfile.mkstemp(suffix=".png"); os.close(fd)
+            try:
+                cropped.save(out)
+                return out
+            except Exception:
+                try:
+                    os.unlink(out)
+                except Exception:
+                    pass
+                raise
         except Exception as e:
             print(f"crop error: {e}")
             return image_path
@@ -2889,20 +2893,20 @@ cropped = img.crop((left, top, right, bottom))
                 img_rgb = Image.open(image_path)
                 left = img_rgb.crop((0, 0, split_original, h))
                 right = img_rgb.crop((split_original, 0, w, h))
-left_path = tempfile.mktemp(suffix='.png')
-    right_path = tempfile.mktemp(suffix='.png')
-    try:
-        left.save(left_path)
-        right.save(right_path)
-        print(f"  Detected two-column layout, split at x={split_original}")
-        return [left_path, right_path]
-    except Exception:
-        for p in [left_path, right_path]:
-            try:
-                os.unlink(p)
-            except Exception:
-                pass
-        raise
+                fd, left_path = tempfile.mkstemp(suffix=".png"); os.close(fd)
+                fd, right_path = tempfile.mkstemp(suffix=".png"); os.close(fd)
+                try:
+                    left.save(left_path)
+                    right.save(right_path)
+                    print(f"  Detected two-column layout, split at x={split_original}")
+                    return [left_path, right_path]
+                except Exception:
+                    for p in [left_path, right_path]:
+                        try:
+                            os.unlink(p)
+                        except Exception:
+                            pass
+                    raise
             return [image_path]
         except Exception as e:
             print(f"column detect error: {e}")
@@ -2915,20 +2919,20 @@ left_path = tempfile.mktemp(suffix='.png')
             split_x = w // 2
             left = img.crop((0, 0, split_x, h))
             right = img.crop((split_x, 0, w, h))
-left_path = tempfile.mktemp(suffix='.png')
-    right_path = tempfile.mktemp(suffix='.png')
-    try:
-        left.save(left_path)
-        right.save(right_path)
-        print(f"  Split A3 page at x={split_x}")
-        return [left_path, right_path]
-    except Exception:
-        for p in [left_path, right_path]:
+            fd, left_path = tempfile.mkstemp(suffix=".png"); os.close(fd)
+            fd, right_path = tempfile.mkstemp(suffix=".png"); os.close(fd)
             try:
-                os.unlink(p)
+                left.save(left_path)
+                right.save(right_path)
+                print(f"  Split A3 page at x={split_x}")
+                return [left_path, right_path]
             except Exception:
-                pass
-        raise
+                for p in [left_path, right_path]:
+                    try:
+                        os.unlink(p)
+                    except Exception:
+                        pass
+                    raise
         except Exception as e:
             print(f"pdf column split error: {e}")
             return [image_path]
@@ -2954,6 +2958,7 @@ left_path = tempfile.mktemp(suffix='.png')
         self.extracted_codes = []
         self.code_locations = []
         self.list_tree.delete(*self.list_tree.get_children())
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         self._ocr_queue = []
         self._ocr_done = False
 
@@ -3094,7 +3099,7 @@ left_path = tempfile.mktemp(suffix='.png')
                         self._ocr_queue = []
                         self._ocr_done = False
     
-        threading.Thread(target=do_ocr, daemon=True).start()
+        self._executor.submit(do_ocr)
         self.root.after(50, process_queue)
 
     def _ocr_from_text_dialog(self):
@@ -3565,7 +3570,7 @@ left_path = tempfile.mktemp(suffix='.png')
                     dialog.after(0, lambda: status_lbl.config(text=f"✅ 连接成功: {reply[:50]}", foreground="green"))
                 except Exception as e:
                     dialog.after(0, lambda: status_lbl.config(text=f"❌ 连接失败: {str(e)[:80]}", foreground="red"))
-            threading.Thread(target=do_test, daemon=True).start()
+            self._executor.submit(do_test)
 
         def save_config():
             new_config = {
@@ -3645,7 +3650,7 @@ left_path = tempfile.mktemp(suffix='.png')
         for page_num in range(total):
             page = doc.load_page(page_num)
             pix = page.get_pixmap(dpi=200)
-            img_path = tempfile.mktemp(suffix='.png')
+            fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
             pix.save(img_path)
             self.pdf_images.append(img_path)
             self.progress_var.set((page_num + 1) / total * 100)
@@ -3715,7 +3720,7 @@ left_path = tempfile.mktemp(suffix='.png')
                         break
                     draw.text((margin, cy), ln, fill=(0, 0, 0), font=text_font)
                     cy += line_h
-                tmp = tempfile.mktemp(suffix='.png')
+                fd, tmp = tempfile.mkstemp(suffix='.png'); os.close(fd)
                 img.save(tmp)
                 self.pdf_images = [tmp]
                 if self.pdf_images:
@@ -3775,6 +3780,8 @@ left_path = tempfile.mktemp(suffix='.png')
         self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
         self.root.mainloop()
     def _on_exit(self):
+        if hasattr(self, "_executor"):
+            self._executor.shutdown(wait=False)
         import os
         icon_tmp = getattr(self, '_icon_tmp', None)
         if icon_tmp and os.path.exists(icon_tmp):
