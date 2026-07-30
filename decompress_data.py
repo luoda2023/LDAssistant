@@ -15,4 +15,4 @@ with open(dst, 'wb') as f:
     f.write(data)
 
 size = os.path.getsize(dst)
-print(f'解压完成: {size/1024/1024:.1f} MB ({len(data)/1024/1024:.1f} MB)')
+print(f'Decompressed: {size/1024/1024:.1f} MB ({len(data)/1024/1024:.1f} MB raw, {len(data)-size} bytes overhead)')
