@@ -1,79 +1,45 @@
-## AIChatFloatingWindow 全面重构计划
+## 问题分析与修复计划
 
-### 目标
-悬浮 AI 对话框 UI 美化 + 富文本气泡 + 每气泡操作图标
+### 问题 1：EXE 启动太慢
 
-### 现有问题
-1. **UI 简陋**：平铺式布局，无圆角、无阴影、无气泡尾
-2. **富文本不足**：现有 markdown 解析只支持 `**粗体**`、`##标题`，不支持图片内嵌、列表缩进、代码块
-3. **每气泡操作图标缺失**：虽有复制按钮但太小（font=7），缺少导出 PDF/Word 图标
-4. **导出入口单一**：仅在标题栏有 💾 按钮，不直观
+**原因：** `App.__init__` 中 `StandardChecker()` 同步加载 543791 条 JSON 数据（143MB），阻塞 UI 显示，用户看到空白窗口。
 
-### 重构方案
+**修复方案：** 改为异步加载
+1. `App.__init__` 中先创建窗口、显示 UI，再通过 `after()` 延迟加载数据
+2. 加载期间状态栏显示"正在加载标准数据库..."，加载完成后显示"就绪"
+3. 在加载完成前，查询功能返回"数据加载中，请稍候"
 
-#### 1. 整体 UI 美化（`_setup_ui`）
-- 标题栏：渐变背景色（#1a73e8），白色圆角标签，右对齐操作按钮
-- 消息区域：改为 `tk.Frame` + `Canvas` 滚动，每条消息气泡带圆角边框
-- 输入区域：圆角输入框，发送按钮带图标，底部状态栏显示 AI 状态
-- 窗口阴影效果：用 `tkinter.ttk.Style` 配置
+### 问题 2：DWG/Word/图片/PDF 打不开
 
-#### 2. 富文本气泡引擎（`_add_text_bubble` + `_insert_formatted_text`）
-完全重写为分层渲染引擎：
+**原因分析：**
+- **DWG (AcmeCAD)**：需要 `D:/Program Files/AcmeCAD2023-v8.10.6.1560-Chs.exe` 和 `pywin32`，但 AcmeCAD 是第三方的，必须在用户电脑上安装。打包后用户电脑可能没有这个路径
+- **DXF (ezdxf)**：需要 `ezdxf` 和 `matplotlib`，已 `--hidden-import` 但可能遗漏
+- **DOCX (python-docx)**：已 `--hidden-import "docx"`，但 `docx.shared`、`docx.enum.text` 等子模块可能未打包全
+- **PDF (PyMuPDF)**：`fitz` 是 C 扩展，PyInstaller 自动打包有时会漏掉 `fitz` 的 DLL
+- **图片 (Pillow)**：PIL 的 `ImageCms`、`ImageDraw`、`ImageFont` 等可能未打包
 
-| 标记 | 样式 | 当前支持 | 重构后 |
-|---|---|---|---|
-| `# 标题` | 大号粗体 + 下划线 | ✅ | ✅ 增强颜色+间距 |
-| `## 二级标题` | 中号粗体 | ✅ | ✅ |
-| `**粗体**` | 粗体 | ✅ | ✅ |
-| `*斜体*` | 斜体 | ❌ | ✅ 新增 |
-| `` `代码` `` | 等宽字体 + 高亮背景 | ✅ | ✅ 增加 bg 高亮 |
-| ` ```代码块``` ` | 等宽字体 + 灰底框 | ✅ 单行 | ✅ 多行块 |
-| `- 列表` | 缩进列表 | ✅ | ✅ 增加缩进级别 |
-| `1. 有序列表` | 编号列表 | ❌ | ✅ 新增 |
-| `> 引用` | 灰底斜体 | ❌ | ✅ 新增 |
-| `---` 分割线 | 灰色横线 | ❌ | ✅ 新增 |
-| `![图片]()` | 内嵌图片 | ❌ | ✅ 新增（PIL 缩略图） |
-| 表格 `\|` | 表格渲染 | ✅ 单独函数 | ✅ 合并到行内渲染 |
-| 链接 `[text](url)` | 可点击链接 | ❌ | ✅ 新增（蓝色下划线） |
-| 颜色标记 | ⚠️✅❌ 等 | ✅ | ✅ 保留 |
+**修复方案：**
+1. 检查 build.yml 中 PyInstaller 的 hidden-import 是否完整
+2. 为 DWG 的 AcmeCAD 路径不存在时给出友好提示
+3. 添加 `--hidden-import` 补充：`docx.text`, `docx.document`, `PIL.ImageCms`, `PIL.ImageDraw`, `PIL.ImageFont`, `PIL.ImageFilter`, `PIL.ImageTk`, `fitz`, `fitz.utils`
+4. 增加 `--collect-all` 或 `--add-data` 确保 DLL 被打包
 
-#### 3. 每气泡操作图标（`add_message` 底部）
-每个气泡底部增加操作栏（水平排列）：
+### 问题 3：AI 聊天 UI 格式
 
-```
-[气泡内容]
-─────────────────
-📋 复制  📄 Word  📕 PDF
-```
+**当前：** 用户和 AI 消息都用气泡格式，每个气泡底部都有操作栏（复制、导出等）
 
-- **📋 复制**：复制该条消息文本到剪贴板
-- **📄 Word**：导出该条消息到 Word（单条导出）
-- **📕 PDF**：导出该条消息到 PDF（单条导出）
+**需求：**
+- 用户消息 → 保留在右侧（当前已实现），可以保留气泡形式
+- AI/系统消息 → 不要气泡，**不要操作栏**，纯文本对齐左侧，类似普通聊天界面
 
-#### 4. 气泡样式美化
-- 用户气泡：蓝色背景 (#1a73e8) + 白色文字 + 右侧圆角尾
-- AI 气泡：白色背景 + 灰色边框 + 左侧圆角尾
-- 固定最大宽度（70% 容器宽度）
-- 消息间间距 8px
+**修复方案：**
+1. `add_message()` 中当 `role == 'ai'` 时，不用气泡（`_add_text_bubble`），改用普通 `tk.Message` 或 `tk.Label` 加 `wraplength`
+2. 去掉 AI 消息底部的操作栏（`_add_action_bar`）
+3. 简化 AI 消息样式：白色背景、左对齐、无边框、无圆角
 
-#### 5. 导出增强
-- 标题栏 💾 按钮保留（全量导出）
-- 每气泡新增 📄/📕 按钮（单条导出）
-- 导出格式：Word 带格式（粗体/颜色/表格），PDF 带角色颜色区分
+### 文件修改清单
 
-### 涉及文件
-仅修改 `standard_checker_v2.py` 中的 `AIChatFloatingWindow` 类（约 650 行）。
-
-### 具体修改方法
-- `_setup_ui()` → 重写布局
-- `_add_text_bubble()` → 重写为富文本引擎
-- `_insert_formatted_text()` → 重写为完整 markdown 解析器
-- `add_message()` → 底部增加操作栏
-- 新增 `_add_action_bar()` → 每气泡操作图标
-- 新增 `_add_code_block()` → 代码块渲染
-- 新增 `_add_quote_block()` → 引用渲染
-- 新增 `_export_single_message()` → 单条导出
-- 其他方法保持不动
-
-### 不回滚的承诺
-本次只修改 `AIChatFloatingWindow` 类内部（L751-L1400），不触碰 `App`、`StandardChecker` 等任何其他类。结构不变。
+| 文件 | 修改内容 |
+|------|---------|
+| `standard_checker_v2.py` | 1️⃣ 异步加载数据（`after_idle`） 2️⃣ 修复 AI 聊天 UI 3️⃣ 补充 hidden-import |
+| `.github/workflows/build.yml` | 补充缺失的 `--hidden-import` 和 `--collect-all` |

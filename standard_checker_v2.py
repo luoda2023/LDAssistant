@@ -1203,46 +1203,65 @@ class AIChatFloatingWindow:
         self._status_label.config(text="就绪")
 
     def add_message(self, role, content, msg_type='text', extra=None):
-        """添加一条消息到聊天界面，底部带操作栏"""
+        """添加一条消息到聊天界面"""
         self._messages.append({"role": role, "content": content})
 
-        # ── 外层容器（对齐） ──
-        outer = tk.Frame(self._msg_inner, bg="#eef2f7")
-        outer.pack(fill=tk.X, padx=8, pady=(4, 2), anchor='e' if role == 'user' else 'w')
+        # ── 用户消息：气泡在右侧（保留原样式） ──
+        if role == 'user':
+            outer = tk.Frame(self._msg_inner, bg="#eef2f7")
+            outer.pack(fill=tk.X, padx=8, pady=(4, 2), anchor='e')
 
-        # ── 角色标签 ──
-        hdr = tk.Label(outer, text="你" if role == 'user' else "AI",
-                       font=("Microsoft YaHei", 8, "bold"),
-                       bg="#eef2f7",
-                       fg="#1a73e8" if role == 'ai' else "#555")
-        hdr.pack(anchor='e' if role == 'user' else 'w', pady=(0, 2))
+            hdr = tk.Label(outer, text="你",
+                font=("Microsoft YaHei", 8, "bold"),
+                bg="#eef2f7", fg="#555")
+            hdr.pack(anchor='e', pady=(0, 2))
 
-        # ── 气泡内容 ──
-        if msg_type == 'text':
-            bubble = self._add_text_bubble(outer, content, role)
-        elif msg_type == 'table':
-            self._add_table_widget(outer, extra or [])
-            if content:
-                bubble = self._add_text_bubble(outer, content, role, small=True)
+            if msg_type == 'text':
+                bubble = self._add_text_bubble(outer, content, role)
+            elif msg_type == 'table':
+                self._add_table_widget(outer, extra or [])
+                if content:
+                    bubble = self._add_text_bubble(outer, content, role, small=True)
+                else:
+                    bubble = None
+            elif msg_type == 'image':
+                self._add_image_widget(outer, extra)
+                if content:
+                    bubble = self._add_text_bubble(outer, content, role, small=True)
+                else:
+                    bubble = None
+            elif msg_type == 'file':
+                self._add_file_widget(outer, extra or {})
+                if content:
+                    bubble = self._add_text_bubble(outer, content, role, small=True)
+                else:
+                    bubble = None
             else:
-                bubble = None
-        elif msg_type == 'image':
-            self._add_image_widget(outer, extra)
-            if content:
-                bubble = self._add_text_bubble(outer, content, role, small=True)
-            else:
-                bubble = None
-        elif msg_type == 'file':
-            self._add_file_widget(outer, extra or {})
-            if content:
-                bubble = self._add_text_bubble(outer, content, role, small=True)
-            else:
-                bubble = None
+                bubble = self._add_text_bubble(outer, content, role)
+
+            self._add_action_bar(outer, content, role)
+
+        # ── AI/系统消息：无气泡，左对齐纯文本 ──
         else:
-            bubble = self._add_text_bubble(outer, content, role)
+            outer = tk.Frame(self._msg_inner, bg="#eef2f7")
+            outer.pack(fill=tk.X, padx=8, pady=(2, 1), anchor='w')
 
-        # ── 操作栏（每个气泡底部） ──
-        self._add_action_bar(outer, content, role)
+            if msg_type == 'text':
+                self._add_plain_text(outer, content)
+            elif msg_type == 'table':
+                self._add_table_widget(outer, extra or [])
+                if content:
+                    self._add_plain_text(outer, content, small=True)
+            elif msg_type == 'image':
+                self._add_image_widget(outer, extra)
+                if content:
+                    self._add_plain_text(outer, content, small=True)
+            elif msg_type == 'file':
+                self._add_file_widget(outer, extra or {})
+                if content:
+                    self._add_plain_text(outer, content, small=True)
+            else:
+                self._add_plain_text(outer, content)
 
         self._msg_canvas.after(50, self._on_msg_configure)
 
@@ -1374,6 +1393,15 @@ class AIChatFloatingWindow:
         bubble.config(state=tk.DISABLED)
         bubble.pack(fill=tk.X, pady=(0, 0), anchor='e' if role == 'user' else 'w')
         return bubble
+
+    def _add_plain_text(self, parent, text, small=False):
+        """AI/系统消息：纯文本左对齐，无气泡无操作栏"""
+        font_size = 9 if small else 10
+        label = tk.Label(parent, text=text, font=("Microsoft YaHei", font_size),
+            bg="#eef2f7", fg="#1a1a1a",
+            wraplength=380, anchor='w', justify=tk.LEFT)
+        label.pack(fill=tk.X, pady=(1, 1), anchor='w')
+        return label
 
     def _insert_formatted_text(self, widget, text, default_fg, is_user):
         """完整 Markdown 解析引擎，插入到 Text 组件中"""
@@ -1719,7 +1747,8 @@ class AIChatFloatingWindow:
 # ===== 主应用 =====
 class App:
     def __init__(self):
-        self.checker = StandardChecker()
+        self.checker = None
+        self._data_loaded = False
         self.ai_config = _load_ai_config()
         self.pdf_paths = []
         self.current_path = None
@@ -1745,9 +1774,9 @@ class App:
         self._batch_abort = False
         self._thumbnail_images = []
         self._rotation_angle = 0
-        self._acme_proc = None        # AcmeCAD 进程
-        self._acme_main_hwnd = None   # AcmeCAD 主窗口句柄
-        self._acme_find_count = 0     # 查找 AcmeCAD 窗口计数器
+        self._acme_proc = None # AcmeCAD 进程
+        self._acme_main_hwnd = None # AcmeCAD 主窗口句柄
+        self._acme_find_count = 0 # 查找 AcmeCAD 窗口计数器
         self.root = tk.Tk()
         self._name_index = {}
         self.root.title(APP_TITLE)
@@ -1765,6 +1794,23 @@ class App:
         self.setup_ui()
         # 启动时检查AI配置
         self._check_ai_config()
+        # 异步加载标准数据库（不阻塞UI启动）
+        self._load_data_async()
+
+    def _load_data_async(self):
+        """异步加载标准数据库，不阻塞 UI 启动"""
+        self.status_var.set("正在加载标准数据库...")
+        self.root.update_idletasks()
+        def _do_load():
+            try:
+                self.checker = StandardChecker()
+                self._data_loaded = True
+                self.status_var.set("就绪")
+            except Exception as e:
+                self.status_var.set(f"数据库加载失败: {e}")
+                print(f"StandardChecker 加载失败: {e}")
+                self._data_loaded = False
+        self.root.after(100, _do_load)
 
 
     def _set_app_icon(self):
@@ -3174,6 +3220,9 @@ class App:
         if not self.extracted_codes:
             messagebox.showwarning("提示", "请先进行 OCR 识别并提取规范编号")
             return
+        if not self._data_loaded or self.checker is None:
+            messagebox.showwarning("提示", "标准数据库正在加载中，请稍候...")
+            return
         self.status_var.set("检查规范中...")
         self.progress_var.set(0)
         self.check_tree.delete(*self.check_tree.get_children())
@@ -3495,8 +3544,9 @@ class App:
         if hasattr(self, 'extracted_code_info'):
             info = self.extracted_code_info.get(normalize_for_matching(original_code), {})
             name = info.get('name', '')
-        dialog = StandardSearchDialog(self, self.checker, code=original_code, name=name)
-        self.wait_window(dialog)
+dialog = StandardSearchDialog(self, self.checker, code=original_code, name=name) if self.checker else None
+if dialog:
+    self.wait_window(dialog)
 
         # AI 聊天悬浮窗集成
     def _check_ai_config(self):

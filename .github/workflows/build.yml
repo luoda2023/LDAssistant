@@ -49,19 +49,84 @@ jobs:
             --add-data "data/all_standards_merged_20260629_092235.json;data" `
             --add-data "app_icon.ico;." `
             --hidden-import "docx" `
+            --hidden-import "docx.text" `
+            --hidden-import "docx.document" `
+            --hidden-import "docx.oxml" `
+            --hidden-import "docx.oxml.ns" `
+            --hidden-import "docx.oxml.table" `
+            --hidden-import "docx.oxml.text.paragraph" `
+            --hidden-import "docx.oxml.text.run" `
+            --hidden-import "docx.oxml.section" `
             --hidden-import "docx.shared" `
             --hidden-import "docx.enum.text" `
+            --hidden-import "docx.enum.style" `
+            --hidden-import "docx.enum.section" `
+            --hidden-import "docx.image" `
+            --hidden-import "docx.image.bmp" `
+            --hidden-import "docx.image.gif" `
+            --hidden-import "docx.image.jpeg" `
+            --hidden-import "docx.image.png" `
+            --hidden-import "docx.image.tiff" `
             --hidden-import "openpyxl" `
             --hidden-import "openpyxl.styles" `
+            --hidden-import "openpyxl.cell" `
+            --hidden-import "openpyxl.worksheet" `
+            --hidden-import "openpyxl.reader" `
+            --hidden-import "openpyxl.reader.excel" `
+            --hidden-import "openpyxl.writer" `
+            --hidden-import "openpyxl.writer.excel" `
             --hidden-import "ezdxf" `
+            --hidden-import "ezdxf.addons.drawing" `
+            --hidden-import "ezdxf.addons.drawing.frontend" `
+            --hidden-import "ezdxf.addons.drawing.matplotlib" `
+            --hidden-import "ezdxf.addons.drawing.text" `
+            --hidden-import "ezdxf.addons.drawing.properties" `
+            --hidden-import "ezdxf.addons.drawing.type_hints" `
+            --hidden-import "ezdxf.path" `
+            --hidden-import "ezdxf.math" `
+            --hidden-import "ezdxf.entities" `
             --hidden-import "matplotlib" `
+            --hidden-import "matplotlib.backends" `
+            --hidden-import "matplotlib.backends.backend_agg" `
+            --hidden-import "matplotlib.font_manager" `
+            --hidden-import "matplotlib.pyplot" `
             --hidden-import "reportlab" `
             --hidden-import "reportlab.pdfbase" `
             --hidden-import "reportlab.pdfbase.cidfonts" `
+            --hidden-import "reportlab.pdfbase.ttfonts" `
+            --hidden-import "reportlab.lib" `
+            --hidden-import "reportlab.lib.pagesizes" `
+            --hidden-import "reportlab.lib.styles" `
+            --hidden-import "reportlab.lib.units" `
+            --hidden-import "reportlab.lib.colors" `
+            --hidden-import "reportlab.platypus" `
             --hidden-import "PIL" `
             --hidden-import "PIL._tkinter_finder" `
+            --hidden-import "PIL.ImageDraw" `
+            --hidden-import "PIL.ImageFont" `
+            --hidden-import "PIL.ImageFilter" `
+            --hidden-import "PIL.ImageCms" `
+            --hidden-import "PIL.ImageTk" `
+            --hidden-import "PIL.ImageOps" `
+            --hidden-import "PIL.ImageEnhance" `
+            --hidden-import "PIL.ExifTags" `
+            --hidden-import "PIL.TiffImagePlugin" `
+            --hidden-import "PIL.JpegImagePlugin" `
+            --hidden-import "PIL.PngImagePlugin" `
+            --hidden-import "PIL.BmpImagePlugin" `
+            --hidden-import "PIL.WebPImagePlugin" `
+            --hidden-import "fitz" `
+            --hidden-import "fitz.utils" `
+            --collect-all "fitz" `
+            --collect-all "PIL" `
+            --collect-all "docx" `
+            --collect-all "ezdxf" `
+            --collect-all "matplotlib" `
+            --collect-all "reportlab" `
             --exclude-module "matplotlib.tests" `
             --exclude-module "numpy.testing" `
+            --exclude-module "PIL.ImageShow" `
+            --exclude-module "PIL.ImageGrab" `
             standard_checker_v2.py
 
       - name: 压缩 build 产物
