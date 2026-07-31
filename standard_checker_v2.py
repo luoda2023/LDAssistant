@@ -3544,9 +3544,9 @@ class App:
         if hasattr(self, 'extracted_code_info'):
             info = self.extracted_code_info.get(normalize_for_matching(original_code), {})
             name = info.get('name', '')
-dialog = StandardSearchDialog(self, self.checker, code=original_code, name=name) if self.checker else None
-if dialog:
-    self.wait_window(dialog)
+        dialog = StandardSearchDialog(self, self.checker, code=original_code, name=name) if self.checker else None
+        if dialog:
+            self.wait_window(dialog)
 
         # AI 聊天悬浮窗集成
     def _check_ai_config(self):
