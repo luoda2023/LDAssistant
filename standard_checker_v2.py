@@ -2107,11 +2107,15 @@ class App:
             return
         self.status_var.set("正在加载图片...")
         self.pdf_images = []
-        self.pdf_images.append(self.current_path)
-        self.status_var.set(f"已加载图片: {Path(self.current_path).name}")
-        self.page_var.set("第 1 / 1 页")
-        if self.pdf_images:
-            self.show_page(0)
+        try:
+            self.pdf_images.append(self.current_path)
+            self.status_var.set(f"已加载图片: {Path(self.current_path).name}")
+            self.page_var.set("第 1 / 1 页")
+            if self.pdf_images:
+                self.show_page(0)
+        except Exception as e:
+            messagebox.showerror("图片错误", f"无法加载图片:\n{self.current_path}\n\n错误: {e}")
+            self.status_var.set("图片加载失败")
 
         # 加载 CAD 图纸（DWG → AcmeCAD 嵌入; DXF → ezdxf 渲染）
     def _load_cad_file(self):
@@ -2119,28 +2123,32 @@ class App:
             return
         ext = Path(self.current_path).suffix.lower()
 
-        # DWG → 启动 AcmeCAD 嵌入到预览区
-        if ext == '.dwg':
-            self._load_cad_with_acmecad()
-            return
+        try:
+            # DWG → 启动 AcmeCAD 嵌入到预览区
+            if ext == '.dwg':
+                self._load_cad_with_acmecad()
+                return
 
-        # DXF → ezdxf 渲染
-        self.status_var.set("正在渲染 CAD 图纸 (DXF)...")
-        self.pdf_images = []
-        if not HAS_CAD:
-            self.status_var.set("CAD 渲染不可用")
-            messagebox.showwarning("CAD 不可用", "需要安装 ezdxf 和 matplotlib")
-            return
-        img_path = render_cad_to_image(self.current_path)
-        if img_path:
-            self.pdf_images.append(img_path)
-            self.status_var.set(f"CAD 已渲染: {Path(self.current_path).name}")
-            self.page_var.set("第 1 / 1 页")
-            if self.pdf_images:
-                self.show_page(0)
-        else:
-            self.status_var.set("CAD 渲染失败")
-            messagebox.showerror("CAD 错误", f"无法渲染 CAD 文件:\n{self.current_path}")
+            # DXF → ezdxf 渲染
+            self.status_var.set("正在渲染 CAD 图纸 (DXF)...")
+            self.pdf_images = []
+            if not HAS_CAD:
+                self.status_var.set("CAD 渲染不可用")
+                messagebox.showwarning("CAD 不可用", "需要安装 ezdxf 和 matplotlib")
+                return
+            img_path = render_cad_to_image(self.current_path)
+            if img_path:
+                self.pdf_images.append(img_path)
+                self.status_var.set(f"CAD 已渲染: {Path(self.current_path).name}")
+                self.page_var.set("第 1 / 1 页")
+                if self.pdf_images:
+                    self.show_page(0)
+            else:
+                self.status_var.set("CAD 渲染失败")
+                messagebox.showerror("CAD 错误", f"无法渲染 CAD 文件:\n{self.current_path}")
+        except Exception as e:
+            messagebox.showerror("CAD 错误", f"加载 CAD 文件出错:\n{self.current_path}\n\n错误: {e}")
+            self.status_var.set("CAD 加载失败")
 
     def _load_cad_with_acmecad(self):
         """用 AcmeCAD 打开 DWG 并嵌入到预览区。只保留中间黑色绘图区，
@@ -2476,6 +2484,9 @@ class App:
         if not self.pdf_paths:
             messagebox.showwarning("提示", "请先打开文件或文件夹")
             return
+        if self.checker is None:
+            messagebox.showwarning("提示", "标准数据库正在加载中，请稍候再试")
+            return
         if self._batch_running:
             self._batch_abort = True
             self.status_var.set("正在停止批量处理...")
@@ -2602,30 +2613,34 @@ class App:
             return
         self.pdf_canvas.delete('all')
         img_path = self.pdf_images[idx]
-        img = Image.open(img_path)
-        if self._rotation_angle != 0:
-            img = img.rotate(self._rotation_angle, expand=True, resample=Image.Resampling.BICUBIC)
-        self._current_base_image = img
-        canvas_w = self.pdf_canvas.winfo_width() or 400
-        canvas_h = self.pdf_canvas.winfo_height() or 600
-        img_w, img_h = img.size
-        if self._fit_mode.get() == 'fit_width':
-            scale = canvas_w / img_w
-        else:
-            scale = min(canvas_w / img_w, canvas_h / img_h)
-        new_w, new_h = int(img_w * scale), int(img_h * scale)
-        img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-        self.current_img = ImageTk.PhotoImage(img_resized)
-        center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
-        center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
-        self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
-        self.page_var.set(f"第 {idx + 1} / {len(self.pdf_images)} 页")
-        self.current_display_index = idx
-        if self.selector:
-            self.selector.image_item_id = self.current_image_item
-        if self.ocr_region:
-            self._draw_region_overlay(self.ocr_region, scale)
-        self._draw_code_markers_for_page(idx, scale)
+        try:
+            img = Image.open(img_path)
+            if self._rotation_angle != 0:
+                img = img.rotate(self._rotation_angle, expand=True, resample=Image.Resampling.BICUBIC)
+            self._current_base_image = img
+            canvas_w = self.pdf_canvas.winfo_width() or 400
+            canvas_h = self.pdf_canvas.winfo_height() or 600
+            img_w, img_h = img.size
+            if self._fit_mode.get() == 'fit_width':
+                scale = canvas_w / img_w
+            else:
+                scale = min(canvas_w / img_w, canvas_h / img_h)
+            new_w, new_h = int(img_w * scale), int(img_h * scale)
+            img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            self.current_img = ImageTk.PhotoImage(img_resized)
+            center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
+            center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
+            self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
+            self.page_var.set(f"第 {idx + 1} / {len(self.pdf_images)} 页")
+            self.current_display_index = idx
+            if self.selector:
+                self.selector.image_item_id = self.current_image_item
+            if self.ocr_region:
+                self._draw_region_overlay(self.ocr_region, scale)
+            self._draw_code_markers_for_page(idx, scale)
+        except Exception as e:
+            messagebox.showerror("图片错误", f"无法显示图片:\n{img_path}\n\n错误: {e}")
+            self.status_var.set("图片显示失败")
 
     def _prev_page(self):
         if self.file_type not in ('pdf', 'image', 'cad') or not self.pdf_images:
@@ -2990,6 +3005,9 @@ class App:
             self._ocr_from_text_dialog()
 
     def _ocr_current_file(self):
+        if self.checker is None:
+            messagebox.showwarning("提示", "标准数据库正在加载中，请稍候再试")
+            return
         if self.file_type in ('pdf', 'image', 'cad'):
             if not self.pdf_images:
                 messagebox.showwarning("提示", "请先打开文件")
@@ -3695,22 +3713,26 @@ class App:
         self.status_var.set("正在转换 PDF...")
         self.progress_var.set(0)
         self.pdf_images = []
-        doc = fitz.open(self.current_path)
-        total = len(doc)
-        for page_num in range(total):
-            page = doc.load_page(page_num)
-            pix = page.get_pixmap(dpi=200)
-            fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
-            pix.save(img_path)
-            self.pdf_images.append(img_path)
-            self.progress_var.set((page_num + 1) / total * 100)
-            self.root.update_idletasks()
-        doc.close()
-        self.status_var.set(f"PDF 已转换: {len(self.pdf_images)} 页")
-        self.page_var.set(f"第 1 / {len(self.pdf_images)} 页")
-        self.progress_var.set(0)
-        if self.pdf_images:
-            self.show_page(0)
+        try:
+            doc = fitz.open(self.current_path)
+            total = len(doc)
+            for page_num in range(total):
+                page = doc.load_page(page_num)
+                pix = page.get_pixmap(dpi=200)
+                fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
+                pix.save(img_path)
+                self.pdf_images.append(img_path)
+                self.progress_var.set((page_num + 1) / total * 100)
+                self.root.update_idletasks()
+            doc.close()
+            self.status_var.set(f"PDF 已转换: {len(self.pdf_images)} 页")
+            self.page_var.set(f"第 1 / {len(self.pdf_images)} 页")
+            self.progress_var.set(0)
+            if self.pdf_images:
+                self.show_page(0)
+        except Exception as e:
+            messagebox.showerror("PDF 错误", f"无法打开或转换 PDF 文件:\n{self.current_path}\n\n错误: {e}")
+            self.status_var.set("PDF 加载失败")
 
     def _render_text_to_canvas(self, text, title):
         """将文本内容渲染为图片并显示在预览画布上"""
@@ -3823,8 +3845,6 @@ class App:
         except Exception as e:
             messagebox.showerror("错误", f"读取文件失败: {e}")
             self.status_var.set("读取文件失败")
-    def run(self):
-        self._start_periodic_redraw()
     def run(self):
         self._start_periodic_redraw()
         self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
