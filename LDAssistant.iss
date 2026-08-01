@@ -1,27 +1,28 @@
 ; LDAssistant 安装包脚本
-; 使用 Inno Setup 编译: iscc LDAssistant.iss
+; 由 CI 编译: iscc /DAppVersion="2.0.0" LDAssistant.iss
 
 #define AppName "工程助手 LDAssistant"
-#define AppVersion "2.0"
+#ifndef AppVersion
+  #define AppVersion "2.0.0"
+#endif
 #define AppExeName "LDAssistant.exe"
-#define OutputDir "dist\installer"
-#define OutputBaseFilename "LDAssistant-Setup-v2.0"
+#define OutputBaseFilename "LDAssistant-Setup-v{#AppVersion}"
 
 [Setup]
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 AppName={#AppName}
 AppVersion={#AppVersion}
+AppVerName={#AppName} {#AppVersion}
 DefaultDirName={pf}\LDAssistant
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
-LicenseFile=LICENSE.txt
-OutputDir={#OutputDir}
+OutputDir=dist
 OutputBaseFilename={#OutputBaseFilename}
 SetupIconFile=app_icon.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-PrivilegesRequired=administrator
+PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64
 
 [Languages]

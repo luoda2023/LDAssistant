@@ -37,7 +37,7 @@ jobs:
           python -c "import ezdxf; print('ezdxf OK')"
           python -c "import matplotlib; print('matplotlib OK')"
 
-- name: 解压标准数据库
+      - name: 解压标准数据库
    shell: pwsh
    run: python decompress_data.py
 
@@ -134,13 +134,20 @@ jobs:
             --exclude-module "PIL.ImageGrab" `
             standard_checker_v2.py
 
-      - name: 压缩 build 产物
+      - name: 安装 Inno Setup
+        shell: pwsh
+        run: choco install innosetup
+
+      - name: 提取版本号并编译安装包
         shell: pwsh
         run: |
-          Compress-Archive -Path "dist\LDAssistant\*" -DestinationPath "dist\LDAssistant.zip" -Force
-          Write-Host "压缩完成: $((Get-Item 'dist\LDAssistant.zip').Length / 1MB) MB"
+          $version = python -c "import re; print(re.search(r'VERSION\s*=\s*\"([\w.]+)\"', open('standard_checker_v2.py').read()).group(1))"
+          Write-Host "版本号: $version"
+          iscc /DAppVersion="$version" LDAssistant.iss
+          Write-Host "安装包路径: $(Get-Item dist\LDAssistant-Setup-*.exe | % FullName)"
+          Write-Host "安装包大小: $((Get-Item dist\LDAssistant-Setup-*.exe).Length / 1MB) MB"
 
-      - name: 上传构建产物到 Release
+      - name: 上传安装包到 Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest-build
@@ -148,7 +155,7 @@ jobs:
           body: |
             自动构建最新版工程助手
             commit: ${{ github.sha }}
-          files: dist/LDAssistant.zip
+          files: dist/LDAssistant-Setup-*.exe
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: false
