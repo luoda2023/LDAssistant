@@ -95,12 +95,12 @@ else:
 
 
 def _find_ocr_path():
-    """查找 PaddleOCR-json.exe 路径（优先打包目录，其次 UmiOCR 安装路径）"""
+    """查找 PaddleOCR-json.exe 路径（打包目录内 ocr/ 或 UmiOCR 安装路径）"""
     # 1) 打包目录内的 ocr/（PyInstaller --add-data 或本地开发拷贝）
     bundled = _APP_DIR / "ocr" / "PaddleOCR-json.exe"
     if bundled.exists():
         return bundled, _APP_DIR / "ocr"
-    # 2) 标准 UmiOCR 安装路径
+    # 2) 本地开发时的 UmiOCR 安装路径
     umi = Path(r"D:/Program Files/图片文字识别/UmiOCR-data/plugins/win7_x64_PaddleOCR-json")
     exe = umi / "PaddleOCR-json.exe"
     if exe.exists():
