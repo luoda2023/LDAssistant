@@ -2083,27 +2083,32 @@ class App:
         return 'unknown'
 
     def _load_file(self, path):
-        self.current_path = path
-        self.file_type = self._detect_file_type(path)
-        if self.file_type == 'unknown':
-            self.status_var.set(f"不支持的文件格式: {Path(path).suffix}")
+        try:
+            self.current_path = path
+            self.file_type = self._detect_file_type(path)
+            if self.file_type == 'unknown':
+                self.status_var.set(f"不支持的文件格式: {Path(path).suffix}")
+                return False
+            self.ocr_results = []
+            self.extracted_codes = []
+            self.code_locations = []
+            self.list_tree.delete(*self.list_tree.get_children())
+            self.check_tree.delete(*self.check_tree.get_children())
+            self.ocr_text.delete('1.0', tk.END)
+            self._rotation_angle = 0
+            if self.file_type == 'pdf':
+                self.convert_pdf_to_images()
+            elif self.file_type == 'image':
+                self._load_image_file()
+            elif self.file_type == 'cad':
+                self._load_cad_file()
+            else:
+                self.extract_text_file()
+            return True
+        except Exception as e:
+            messagebox.showerror("文件加载错误", f"无法打开文件:\n{path}\n\n错误: {e}")
+            self.status_var.set("文件加载失败")
             return False
-        self.ocr_results = []
-        self.extracted_codes = []
-        self.code_locations = []
-        self.list_tree.delete(*self.list_tree.get_children())
-        self.check_tree.delete(*self.check_tree.get_children())
-        self.ocr_text.delete('1.0', tk.END)
-        self._rotation_angle = 0
-        if self.file_type == 'pdf':
-            self.convert_pdf_to_images()
-        elif self.file_type == 'image':
-            self._load_image_file()
-        elif self.file_type == 'cad':
-            self._load_cad_file()
-        else:
-            self.extract_text_file()
-        return True
 
     def _load_image_file(self):
         if not self.current_path or self.file_type != 'image':
@@ -2363,9 +2368,9 @@ class App:
         self.pdf_paths = list(paths)
         self._update_file_queue()
         if self.pdf_paths:
-            self._load_file(self.pdf_paths[0])
-            self._highlight_queue_item(0)
-            self.status_var.set(f"已打开 {len(self.pdf_paths)} 个文件，当前: {Path(self.current_path).name}")
+            if self._load_file(self.pdf_paths[0]):
+                self._highlight_queue_item(0)
+                self.status_var.set(f"已打开 {len(self.pdf_paths)} 个文件，当前: {Path(self.current_path).name}")
 
     def open_folder(self):
         folder = filedialog.askdirectory(title="选择文件夹（自动扫描所有支持的文件）")
@@ -2382,9 +2387,9 @@ class App:
         self.pdf_paths = supported
         self._update_file_queue()
         if self.pdf_paths:
-            self._load_file(self.pdf_paths[0])
-            self._highlight_queue_item(0)
-            self.status_var.set(f"已扫描文件夹，找到 {len(self.pdf_paths)} 个支持的文件")
+            if self._load_file(self.pdf_paths[0]):
+                self._highlight_queue_item(0)
+                self.status_var.set(f"已扫描文件夹，找到 {len(self.pdf_paths)} 个支持的文件")
 
     def _update_file_queue(self):
         self.queue_listbox.delete(0, tk.END)
