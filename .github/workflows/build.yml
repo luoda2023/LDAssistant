@@ -37,17 +37,22 @@ jobs:
           python -c "import ezdxf; print('ezdxf OK')"
           python -c "import matplotlib; print('matplotlib OK')"
 
-      - name: 解压标准数据库
-        shell: pwsh
-        run: python decompress_data.py
+- name: 解压标准数据库
+   shell: pwsh
+   run: python decompress_data.py
 
-      - name: 构建可执行文件 (onedir 模式)
-        shell: pwsh
-        run: |
-          python -m PyInstaller --onedir --windowed --name "LDAssistant" `
-            --icon "app_icon.ico" `
-            --add-data "data/all_standards_merged_20260629_092235.json;data" `
-            --add-data "app_icon.ico;." `
+ - name: 下载 OCR 引擎 (PaddleOCR-json)
+   shell: pwsh
+   run: python download_ocr.py
+
+ - name: 构建可执行文件 (onedir 模式)
+   shell: pwsh
+   run: |
+    python -m PyInstaller --onedir --windowed --name "LDAssistant" `
+     --icon "app_icon.ico" `
+     --add-data "data/all_standards_merged_20260629_092235.json;data" `
+     --add-data "ocr;ocr" `
+     --add-data "app_icon.ico;." `
             --hidden-import "docx" `
             --hidden-import "docx.text" `
             --hidden-import "docx.document" `

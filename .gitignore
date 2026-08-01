@@ -14,8 +14,8 @@ build/
 *.json.gz
 # 压缩数据文件例外（15MB，直接提交以免依赖 Release）
 !data/standards_data.json.gz
-# 占位数据文件例外（小文件直接提交）
-!data/all_standards_merged_20260629_092235.json
+# 大 JSON 文件（由 decompress_data.py 从压缩包生成）
+data/all_standards_merged_20260629_092235.json
 
 # Node
 node_modules/
@@ -42,4 +42,7 @@ _*.log
 _*.txt
 _*.js
 
-data/all_standards_merged_20260629_092235.json
+# OCR 引擎（CI 构建时自动下载，不提交）
+ocr/
+# 但允许 download_ocr.py 脚本提交
+!download_ocr.py

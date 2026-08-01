@@ -94,32 +94,33 @@ else:
     _APP_DIR = Path(__file__).parent.resolve()
 
 
-def _find_portable_paths():
-    ocr_dir = _APP_DIR / "ocr"
-    data_file = _APP_DIR / "data" / "all_standards_merged_20260629_092235.json"
-    if ocr_dir.exists() and data_file.exists():
-        return ocr_dir / "PaddleOCR-json.exe", data_file, ocr_dir
-    return None, None, None
+def _find_ocr_path():
+    """查找 PaddleOCR-json.exe 路径（优先打包目录，其次 UmiOCR 安装路径）"""
+    # 1) 打包目录内的 ocr/（PyInstaller --add-data 或本地开发拷贝）
+    bundled = _APP_DIR / "ocr" / "PaddleOCR-json.exe"
+    if bundled.exists():
+        return bundled, _APP_DIR / "ocr"
+    # 2) 标准 UmiOCR 安装路径
+    umi = Path(r"D:/Program Files/图片文字识别/UmiOCR-data/plugins/win7_x64_PaddleOCR-json")
+    exe = umi / "PaddleOCR-json.exe"
+    if exe.exists():
+        return exe, umi
+    return None, None
 
 
-_PADDLE_OCR_EXE, _DATA_FILE, _OCR_DIR = _find_portable_paths()
-if _PADDLE_OCR_EXE is None or _DATA_FILE is None:
-    UMI_OCR_DIR = Path(r"D:/Program Files/图片文字识别/UmiOCR-data/plugins/win7_x64_PaddleOCR-json")
-    PADDLE_OCR_EXE = UMI_OCR_DIR / "PaddleOCR-json.exe"
-    OCR_DIR = UMI_OCR_DIR
-    _found_data = None
+def _find_data_file():
+    """查找标准数据库 JSON 文件"""
     for p in [
         _APP_DIR / "data" / "all_standards_merged_20260629_092235.json",
         _APP_DIR / "all_standards_merged_20260629_092235.json",
     ]:
         if p.exists():
-            _found_data = p
-            break
-    DATA_FILE = _found_data
-else:
-    PADDLE_OCR_EXE = _PADDLE_OCR_EXE
-    OCR_DIR = _OCR_DIR
-    DATA_FILE = _DATA_FILE
+            return p
+    return None
+
+
+PADDLE_OCR_EXE, OCR_DIR = _find_ocr_path()
+DATA_FILE = _find_data_file()
 
 # Patterns
 CODE_PATTERN = re.compile(
