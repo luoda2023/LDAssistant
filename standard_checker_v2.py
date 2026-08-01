@@ -236,6 +236,40 @@ def normalize_for_matching(text):
     return result
 
 
+def ocr_image_standalone(image_path):
+    """调用 PaddleOCR-json.exe 识别图片中的文字（不依赖 StandardChecker 实例）"""
+    if PADDLE_OCR_EXE is None:
+        return "OCR_ERROR: PaddleOCR 未找到", []
+    cmd = [str(PADDLE_OCR_EXE), f"-image_path={image_path}"]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, cwd=str(OCR_DIR))
+        ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+        for line in result.stdout.split('\n'):
+            line = ansi_escape.sub('', line).strip()
+            if line.startswith('{'):
+                try:
+                    ocr_result = json.loads(line)
+                    blocks = []
+                    for item in ocr_result.get('data', []):
+                        text = item.get('text', '')
+                        box = item.get('box', [])
+                        if box and len(box) == 4:
+                            xs = [p[0] for p in box]
+                            ys = [p[1] for p in box]
+                            bbox = (min(xs), min(ys), max(xs), max(ys))
+                        else:
+                            bbox = (0, 0, 0, 0)
+                        blocks.append((text, bbox))
+                    text = ' '.join([b[0] for b in blocks])
+                    return text, blocks
+                except Exception as e:
+                    print(f"OCR parse error: {e}, line: {line[:200]}")
+        cleaned = ansi_escape.sub('', result.stdout).strip()
+        return cleaned, []
+    except Exception as e:
+        return f"OCR_ERROR: {e}", []
+
+
 class StandardChecker:
     """标准规范检查器"""
 
@@ -427,38 +461,7 @@ class StandardChecker:
         results.sort(key=lambda x: x[3], reverse=True)
         return results[:limit]
 
-    def ocr_image(self, image_path):
-        if PADDLE_OCR_EXE is None:
-            return "OCR_ERROR: PaddleOCR 未找到", []
-        cmd = [str(PADDLE_OCR_EXE), f"-image_path={image_path}"]
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, cwd=str(OCR_DIR))
-            ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-            for line in result.stdout.split('\n'):
-                line = ansi_escape.sub('', line).strip()
-                if line.startswith('{'):
-                    try:
-                        ocr_result = json.loads(line)
-                        blocks = []
-                        for item in ocr_result.get('data', []):
-                            text = item.get('text', '')
-                            box = item.get('box', [])
-                            if box and len(box) == 4:
-                                xs = [p[0] for p in box]
-                                ys = [p[1] for p in box]
-                                bbox = (min(xs), min(ys), max(xs), max(ys))
-                            else:
-                                bbox = (0, 0, 0, 0)
-                            blocks.append((text, bbox))
-                        text = ' '.join([b[0] for b in blocks])
-                        return text, blocks
-                    except Exception as e:
-                        print(f"OCR parse error: {e}, line: {line[:200]}")
-            cleaned = ansi_escape.sub('', result.stdout).strip()
-            return cleaned, []
-        except Exception as e:
-            return f"OCR_ERROR: {e}", []
-
+    
     def close(self):
         if getattr(self, '_sqlite_checker', None) is not None:
             self._sqlite_checker.close()
@@ -2484,9 +2487,6 @@ class App:
         if not self.pdf_paths:
             messagebox.showwarning("提示", "请先打开文件或文件夹")
             return
-        if self.checker is None:
-            messagebox.showwarning("提示", "标准数据库正在加载中，请稍候再试")
-            return
         if self._batch_running:
             self._batch_abort = True
             self.status_var.set("正在停止批量处理...")
@@ -2517,7 +2517,7 @@ class App:
                                     fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
                                     pix.save(img_path)
                                     masked = mask_seals_pil(img_path)
-                                    text, _ = self.checker.ocr_image(masked)
+                                    text, _ = ocr_image_standalone(masked)
                                     for p in [masked, img_path]:
                                         try: os.remove(p)
                                         except: pass
@@ -2528,7 +2528,7 @@ class App:
                                             code_info[norm] = {'original': c, 'name': '', 'source': Path(path).name}
                         elif file_type == 'image':
                             masked = mask_seals_pil(path)
-                            text, _ = self.checker.ocr_image(masked)
+                            text, _ = ocr_image_standalone(masked)
                             try: os.remove(masked)
                             except: pass
                             cleaned = fullwidth_to_halfwidth(text)
@@ -2541,7 +2541,7 @@ class App:
                                 img_path = render_cad_to_image(path)
                                 if img_path:
                                     masked = mask_seals_pil(img_path)
-                                    text, _ = self.checker.ocr_image(masked)
+                                    text, _ = ocr_image_standalone(masked)
                                     for p in [masked, img_path]:
                                         try: os.remove(p)
                                         except: pass
@@ -2807,7 +2807,7 @@ class App:
 
     def start_selection(self):
         if not self.pdf_images:
-            messagebox.showwarning("提示", "请先打开PDF文件")
+            messagebox.showwarning("提示", "请先打开文件")
             return
         self.selection_mode = True
         self.status_var.set("请在预览图上拖拽选择识别区域")
@@ -3005,9 +3005,6 @@ class App:
             self._ocr_from_text_dialog()
 
     def _ocr_current_file(self):
-        if self.checker is None:
-            messagebox.showwarning("提示", "标准数据库正在加载中，请稍候再试")
-            return
         if self.file_type in ('pdf', 'image', 'cad'):
             if not self.pdf_images:
                 messagebox.showwarning("提示", "请先打开文件")
@@ -3046,7 +3043,7 @@ class App:
                                 split_x = _img.width // 2
                         for col_idx, col_path in enumerate(column_paths):
                             try:
-                                t, blocks = self.checker.ocr_image(col_path)
+                                t, blocks = ocr_image_standalone(col_path)
                                 page_texts.append(t)
                                 for block_text, bbox in blocks:
                                     x1, y1, x2, y2 = bbox
