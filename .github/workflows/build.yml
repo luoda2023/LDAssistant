@@ -43,7 +43,15 @@ jobs:
 
       - name: 转换标准数据库为 SQLite 格式
         shell: pwsh
-        run: python convert_json_to_db.py
+        run: |
+          echo "=== 调试: 检查文件 ==="
+          python --version
+          pip list 2>$null | findstr pyinstaller
+          echo "data dir:"
+          ls data/
+          echo "=== 运行转换脚本 ==="
+          python convert_json_to_db.py 2>&1
+          if ($LASTEXITCODE -ne 0) { echo "❌ 转换失败: exit code=$LASTEXITCODE"; exit $LASTEXITCODE }
 
       - name: 下载 OCR 引擎 (PaddleOCR-json)
         shell: pwsh
