@@ -147,7 +147,7 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "=== 用 choco 安装 Inno Setup ==="
-          choco install innosetup -y --no-progress
+          choco install innosetup -y --no-progress 2>&1 | Out-String | Write-Host
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) {
             $found = Get-ChildItem "C:\Program Files*" -Recurse -Filter "ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -159,12 +159,24 @@ jobs:
           if (-not $match) { throw "VERSION not found" }
           $version = $match.Matches.Groups[1].Value
           Write-Host "版本号: $version"
-          # 编译安装包
+          # 检查 ISS 脚本引用的文件是否存在
+          Write-Host "=== 检查 ISS 依赖 ==="
+          Write-Host "app_icon.ico exists: $(Test-Path app_icon.ico)"
+          Write-Host "dist/LDAssistant exists: $(Test-Path dist/LDAssistant)"
+          if (Test-Path dist/LDAssistant) {
+            Get-ChildItem dist/LDAssistant | Format-Table Name, Length
+          }
+          # 编译安装包，输出重定向到日志文件
           Write-Host "=== ISCC 编译开始 ==="
-          & $iscc /DAppVersion="$version" LDAssistant.iss 2>&1 | ForEach-Object { Write-Host $_ }
+          $logFile = "iscc_output.log"
+          & $iscc /DAppVersion="$version" LDAssistant.iss 2>&1 | Tee-Object -FilePath $logFile
           $isccExit = $LASTEXITCODE
           Write-Host "ISCC 退出码: $isccExit"
-          if ($isccExit -ne 0) { throw "ISCC failed with exit code $isccExit" }
+          Write-Host "=== ISCC 日志内容结束 ==="
+          if ($isccExit -ne 0) {
+            Write-Host "ISCC 失败! 日志已保存到 iscc_output.log"
+            throw "ISCC failed with exit code $isccExit"
+          }
           Write-Host "=== ISCC 编译完成，检查 dist 目录 ==="
           if (Test-Path dist) {
             Get-ChildItem dist -Recurse | Format-Table Name, Length, FullName
