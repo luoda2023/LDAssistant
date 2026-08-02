@@ -13,7 +13,7 @@ AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
-DefaultDirName={pf}\LDAssistant
+DefaultDirName={autopf}\LDAssistant
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 OutputDir=dist
@@ -26,7 +26,7 @@ PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64
 
 [Languages]
-Name: "chinese"; MessagesFile: "compiler:Languages\Chinese.isl"
+Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [Files]
 Source: "dist\LDAssistant\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

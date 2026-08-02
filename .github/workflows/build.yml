@@ -180,6 +180,7 @@ jobs:
           }
 
       - name: ISCC 编译安装包
+        continue-on-error: true
         shell: pwsh
         run: |
           $iscc = $env:ISCC_PATH
@@ -199,8 +200,10 @@ jobs:
       - name: 上传构建产物为 Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LDAssistant-Setup
-          path: dist/LDAssistant-Setup-*.exe
+          name: LDAssistant-build
+          path: |
+            dist/LDAssistant-Setup-*.exe
+            dist/LDAssistant/
           if-no-files-found: warn
           retention-days: 7
 
