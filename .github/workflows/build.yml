@@ -143,17 +143,14 @@ jobs:
           --exclude-module "PIL.ImageGrab" `
           standard_checker_v2.py
 
-- name: 安装 Inno Setup 并编译安装包
+      - name: 安装 Inno Setup 并编译安装包
         shell: pwsh
         run: |
           choco install innosetup --no-progress
-          # 刷新 PATH（同一步骤内生效）
           $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
-          # 提取版本号
           $match = Select-String -Path "standard_checker_v2.py" -Pattern 'VERSION\s*=\s*"([\w.]+)"'
           $version = $match.Matches.Groups[1].Value
           Write-Host "版本号: $version"
-          # 编译安装包
           iscc /DAppVersion="$version" LDAssistant.iss
 
       - name: 上传安装包到 Release
