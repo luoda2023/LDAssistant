@@ -152,7 +152,29 @@ jobs:
         run: |
           $version = python -c "import re; print(re.search(r'VERSION\s*=\s*\"([\w.]+)\"', open('standard_checker_v2.py').read()).group(1))"
           Write-Host "版本号: $version"
-          iscc /DAppVersion="$version" LDAssistant.iss
+          # 查找 ISCC.exe（choco 安装可能不在 PATH 中）
+          $isccPaths = @(
+            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+            "C:\Program Files\Inno Setup 6\ISCC.exe",
+            "C:\Program Files (x86)\Inno Setup 5\ISCC.exe",
+            "C:\Program Files\Inno Setup 5\ISCC.exe",
+            "C:\ProgramData\chocolatey\lib\innosetup\tools\ISCC.exe"
+          )
+          $iscc = $null
+          foreach ($p in $isccPaths) {
+            if (Test-Path $p) { $iscc = $p; break }
+          }
+          if (-not $iscc) {
+            # 尝试在 PATH 中查找
+            $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          }
+          if (-not $iscc) {
+            Write-Host "❌ 未找到 ISCC.exe"
+            exit 1
+          }
+          Write-Host "使用 ISCC: $iscc"
+          & $iscc /DAppVersion="$version" LDAssistant.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Write-Host "安装包路径: $(Get-Item dist\LDAssistant-Setup-*.exe | % FullName)"
           Write-Host "安装包大小: $((Get-Item dist\LDAssistant-Setup-*.exe).Length / 1MB) MB"
 
