@@ -153,7 +153,7 @@ jobs:
           Write-Host "安装包大小: $((Get-Item dist\LDAssistant-Setup-*.exe).Length / 1MB) MB"
 
       - name: 上传安装包到 Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: latest-build
           name: LDAssistant 最新构建
@@ -162,6 +162,5 @@ jobs:
             commit: ${{ github.sha }}
           files: dist/LDAssistant-Setup-*.exe
           token: ${{ secrets.GITHUB_TOKEN }}
-          overwrite: true
           draft: false
           prerelease: false
