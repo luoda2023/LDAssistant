@@ -1,8 +1,28 @@
 """下载并解压 PaddleOCR-json 到 ocr/ 目录（供 CI 构建使用）"""
-import urllib.request, urllib.error, zipfile, io, os, sys, shutil
+import urllib.request, urllib.error, zipfile, io, os, sys, shutil, time
 
 URL = "https://github.com/hiroi-sora/PaddleOCR-json/releases/download/v1.4.1/PaddleOCR-json_v1.4.1_windows_x64.7z"
 OCR_DIR = os.path.join(os.path.dirname(__file__), "ocr")
+MAX_RETRIES = 5
+
+def _download_with_retry(url, dest, retries=MAX_RETRIES):
+    """带重试的下载（GitHub 下载偶尔会超时）"""
+    for attempt in range(1, retries + 1):
+        try:
+            print(f"⬇️  下载尝试 {attempt}/{retries} ({url})...")
+            urllib.request.urlretrieve(url, dest)
+            size = os.path.getsize(dest)
+            print(f"✅ 下载完成: {size/1024/1024:.1f} MB")
+            return True
+        except Exception as e:
+            print(f"❌ 下载失败 (尝试 {attempt}/{retries}): {e}")
+            if os.path.exists(dest):
+                os.remove(dest)
+            if attempt < retries:
+                wait = attempt * 10  # 指数退避: 10s, 20s, 30s...
+                print(f"⏳ 等待 {wait} 秒后重试...")
+                time.sleep(wait)
+    return False
 
 def main():
     if os.path.isdir(OCR_DIR) and os.path.isfile(os.path.join(OCR_DIR, "PaddleOCR-json.exe")):
@@ -21,17 +41,10 @@ def main():
         shutil.rmtree(OCR_DIR)
     os.makedirs(OCR_DIR, exist_ok=True)
 
-    # 下载
-    print(f"⬇️  正在下载 PaddleOCR-json v1.4.1 ({URL})...")
+    # 下载（带重试）
     temp_path = os.path.join(OCR_DIR, "download.7z")
-    try:
-        urllib.request.urlretrieve(URL, temp_path)
-        size = os.path.getsize(temp_path)
-        print(f"✅ 下载完成: {size/1024/1024:.1f} MB")
-    except Exception as e:
-        print(f"❌ 下载失败: {e}")
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+    if not _download_with_retry(URL, temp_path):
+        print("❌ 下载失败，已耗尽所有重试次数")
         sys.exit(1)
 
     # 解压
