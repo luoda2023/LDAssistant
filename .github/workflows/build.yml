@@ -168,6 +168,25 @@ jobs:
           & $iscc /DAppVersion="$version" LDAssistant.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
 
+      - name: 列出构建产物
+        shell: pwsh
+        run: |
+          Write-Host "dist 目录内容:"
+          if (Test-Path dist) {
+            Get-ChildItem dist -Recurse | Format-Table Name, Length, FullName
+            $setupFiles = Get-ChildItem dist -Filter "LDAssistant-Setup-*.exe" -ErrorAction SilentlyContinue
+            if ($setupFiles) {
+              Write-Host "找到安装包:"
+              $setupFiles | ForEach-Object { Write-Host "  $($_.FullName) ($($_.Length) bytes)" }
+            } else {
+              Write-Host "未找到 LDAssistant-Setup-*.exe 文件!"
+              Write-Host "dist 目录下所有 .exe 文件:"
+              Get-ChildItem dist -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.FullName)" }
+            }
+          } else {
+            Write-Host "dist 目录不存在!"
+          }
+
       - name: 上传安装包到 Release
         uses: softprops/action-gh-release@v2
         with:
