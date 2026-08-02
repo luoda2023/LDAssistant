@@ -9,29 +9,29 @@ def _download_with_retry(url, dest, retries=MAX_RETRIES):
     """带重试的下载（GitHub 下载偶尔会超时）"""
     for attempt in range(1, retries + 1):
         try:
-            print(f"⬇️  下载尝试 {attempt}/{retries} ({url})...")
+            print(f"[DL]️  下载尝试 {attempt}/{retries} ({url})...")
             urllib.request.urlretrieve(url, dest)
             size = os.path.getsize(dest)
-            print(f"✅ 下载完成: {size/1024/1024:.1f} MB")
+            print(f"[OK] 下载完成: {size/1024/1024:.1f} MB")
             return True
         except Exception as e:
-            print(f"❌ 下载失败 (尝试 {attempt}/{retries}): {e}")
+            print(f"[X] 下载失败 (尝试 {attempt}/{retries}): {e}")
             if os.path.exists(dest):
                 os.remove(dest)
             if attempt < retries:
                 wait = attempt * 10  # 指数退避: 10s, 20s, 30s...
-                print(f"⏳ 等待 {wait} 秒后重试...")
+                print(f"[WAIT] 等待 {wait} 秒后重试...")
                 time.sleep(wait)
     return False
 
 def main():
     if os.path.isdir(OCR_DIR) and os.path.isfile(os.path.join(OCR_DIR, "PaddleOCR-json.exe")):
         exe_size = os.path.getsize(os.path.join(OCR_DIR, "PaddleOCR-json.exe"))
-        print(f"✅ OCR 已存在: {OCR_DIR} (PaddleOCR-json.exe {exe_size/1024:.0f} KB)")
+        print(f"[OK] OCR 已存在: {OCR_DIR} (PaddleOCR-json.exe {exe_size/1024:.0f} KB)")
         # 确保 models 目录也存在
         models_dir = os.path.join(OCR_DIR, "models")
         if os.path.isdir(models_dir):
-            print(f"✅ 模型目录已存在: {models_dir}")
+            print(f"[OK] 模型目录已存在: {models_dir}")
             return
         print("⚠️ 模型目录缺失，将重新下载")
         shutil.rmtree(OCR_DIR)
@@ -44,7 +44,7 @@ def main():
     # 下载（带重试）
     temp_path = os.path.join(OCR_DIR, "download.7z")
     if not _download_with_retry(URL, temp_path):
-        print("❌ 下载失败，已耗尽所有重试次数")
+        print("[X] 下载失败，已耗尽所有重试次数")
         sys.exit(1)
 
     # 解压
@@ -61,7 +61,7 @@ def main():
             try:
                 subprocess.run([sevenz, "x", temp_path, f"-o{OCR_DIR}", "-y"],
                               capture_output=True, timeout=120)
-                print(f"✅ 使用 {sevenz} 解压成功")
+                print(f"[OK] 使用 {sevenz} 解压成功")
                 break
             except (FileNotFoundError, subprocess.TimeoutExpired):
                 continue
@@ -71,7 +71,7 @@ def main():
                 import py7zr
                 with py7zr.SevenZipFile(temp_path, 'r') as archive:
                     archive.extractall(path=OCR_DIR)
-                print("✅ 使用 py7zr 解压成功")
+                print("[OK] 使用 py7zr 解压成功")
             except ImportError:
                 # 最后尝试: 下载并安装 py7zr
                 print("⚠️ 未找到 7z/py7zr，尝试安装 py7zr...")
@@ -80,9 +80,9 @@ def main():
                 import py7zr
                 with py7zr.SevenZipFile(temp_path, 'r') as archive:
                     archive.extractall(path=OCR_DIR)
-                print("✅ 使用 py7zr 解压成功")
+                print("[OK] 使用 py7zr 解压成功")
     except Exception as e:
-        print(f"❌ 解压失败: {e}")
+        print(f"[X] 解压失败: {e}")
         sys.exit(1)
     finally:
         if os.path.exists(temp_path):
@@ -92,7 +92,7 @@ def main():
     exe_path = os.path.join(OCR_DIR, "PaddleOCR-json.exe")
     if os.path.isfile(exe_path):
         exe_size = os.path.getsize(exe_path)
-        print(f"✅ PaddleOCR-json.exe 已就绪: {exe_size/1024:.0f} KB")
+        print(f"[OK] PaddleOCR-json.exe 已就绪: {exe_size/1024:.0f} KB")
     else:
         # 可能解压到了子目录
         for root, dirs, files in os.walk(OCR_DIR):
@@ -100,10 +100,10 @@ def main():
                 if f.lower() == "paddleocr-json.exe":
                     src = os.path.join(root, f)
                     shutil.move(src, exe_path)
-                    print(f"✅ 移动 {src} -> {exe_path}")
+                    print(f"[OK] 移动 {src} -> {exe_path}")
                     break
         if not os.path.isfile(exe_path):
-            print(f"❌ 未找到 PaddleOCR-json.exe")
+            print(f"[X] 未找到 PaddleOCR-json.exe")
             print(f"   解压目录内容: {os.listdir(OCR_DIR)}")
             sys.exit(1)
 
@@ -111,7 +111,7 @@ def main():
     models_dir = os.path.join(OCR_DIR, "models")
     if os.path.isdir(models_dir):
         model_count = len(os.listdir(models_dir))
-        print(f"✅ 模型目录就绪: {model_count} 个文件/目录")
+        print(f"[OK] 模型目录就绪: {model_count} 个文件/目录")
     else:
         print(f"⚠️ 未找到 models 目录，OCR 可能无法正常工作")
         print(f"   ocr 目录内容: {os.listdir(OCR_DIR)}")
@@ -119,8 +119,8 @@ def main():
     total_size = sum(os.path.getsize(os.path.join(dp, f))
                      for dp, dn, filenames in os.walk(OCR_DIR)
                      for f in filenames) / 1024 / 1024
-    print(f"✅ OCR 目录总大小: {total_size:.0f} MB")
-    print(f"✅ OCR 下载并解压完成: {OCR_DIR}")
+    print(f"[OK] OCR 目录总大小: {total_size:.0f} MB")
+    print(f"[OK] OCR 下载并解压完成: {OCR_DIR}")
 
 
 if __name__ == "__main__":

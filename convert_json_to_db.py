@@ -12,6 +12,10 @@ import sys
 from pathlib import Path
 from collections import Counter
 
+# 强制 UTF-8 编码输出，支持 emoji 显示（Windows CI 默认 cp1252 无法编码 emoji）
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
 _BASE_DIR = Path(__file__).parent.resolve()
 _JSON_FILE = _BASE_DIR / "data" / "all_standards_merged_20260629_092235.json"
 _DB_FILE = _BASE_DIR / "standards.db"
@@ -78,21 +82,21 @@ def _clean_status(status: str) -> str:
 def main():
     # 1. 加载 JSON
     if not _JSON_FILE.exists():
-        print(f"❌ JSON 文件不存在: {_JSON_FILE}")
+        print(f"[X] JSON 文件不存在: {_JSON_FILE}")
         sys.exit(1)
 
     json_size = _JSON_FILE.stat().st_size
-    print(f"📂 加载 JSON ({json_size / 1024 / 1024:.0f} MB)...")
+    print(f"[FILE] 加载 JSON ({json_size / 1024 / 1024:.0f} MB)...")
     with open(_JSON_FILE, 'r', encoding='utf-8') as f:
         records = json.load(f)
-    print(f"✅ 加载完成: {len(records)} 条记录")
+    print(f"[OK] 加载完成: {len(records)} 条记录")
 
     # 2. 创建 SQLite 数据库
     if _DB_FILE.exists():
         _DB_FILE.unlink()
-        print(f"🗑️  删除旧数据库")
+        print(f"[DEL]  删除旧数据库")
 
-    print(f"🔨 创建 SQLite 数据库: {_DB_FILE}")
+    print(f"[BUILD] 创建 SQLite 数据库: {_DB_FILE}")
     conn = sqlite3.connect(str(_DB_FILE))
     cursor = conn.cursor()
 
@@ -134,7 +138,7 @@ def main():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_status ON standards(status)")
 
     # 3. 批量插入数据
-    print("📝 写入数据...")
+    print("[WRITE] 写入数据...")
     insert_sql = """
         INSERT INTO standards
         (code, name, status, publisher, implement_date, detail_url,
@@ -187,12 +191,12 @@ def main():
         print(f"  {progress}/{total} ({progress * 100 // total}%)")
 
     # 4. 重建 FTS5 索引（外部内容表需要显式 rebuild）
-    print("🔨 重建 FTS5 全文索引...")
+    print("[BUILD] 重建 FTS5 全文索引...")
     cursor.execute("INSERT INTO standards_fts(standards_fts) VALUES('rebuild')")
-    print("✅ FTS5 索引重建完成")
+    print("[OK] FTS5 索引重建完成")
 
     # 5. 统计信息
-    print(f"\n✅ 转换完成!")
+    print(f"\n[OK] 转换完成!")
     print(f" 总记录: {total}")
     print(f" 数据库大小: {_DB_FILE.stat().st_size / 1024 / 1024:.0f} MB")
     print(f" 状态分布:")
@@ -200,7 +204,7 @@ def main():
         print(f"  {s}: {cnt}")
 
     # 6. 验证
-    print(f"\n🔍 验证...")
+    print(f"\n[CHECK] 验证...")
     cursor.execute("SELECT COUNT(*) FROM standards")
     count = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM standards_fts")
@@ -217,7 +221,7 @@ def main():
         print(f" - {r[0]}: {r[1]} ({r[2]})")
 
     conn.close()
-    print(f"\n✅ 完成! 数据库已保存到: {_DB_FILE}")
+    print(f"\n[OK] 完成! 数据库已保存到: {_DB_FILE}")
 
 
 if __name__ == "__main__":
@@ -225,6 +229,6 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         import traceback
-        print(f"❌ 错误: {e}")
+        print(f"[X] 错误: {e}")
         traceback.print_exc()
         sys.exit(1)

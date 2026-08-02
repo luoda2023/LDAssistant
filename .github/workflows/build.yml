@@ -43,7 +43,9 @@ jobs:
 
       - name: 转换标准数据库为 SQLite 格式
         shell: pwsh
-        run: python convert_json_to_db.py
+        run: |
+          $env:PYTHONIOENCODING='utf-8'
+          python convert_json_to_db.py
 
       - name: 下载 OCR 引擎 (PaddleOCR-json)
         shell: pwsh
