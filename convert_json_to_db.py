@@ -16,9 +16,38 @@ _BASE_DIR = Path(__file__).parent.resolve()
 _JSON_FILE = _BASE_DIR / "data" / "all_standards_merged_20260629_092235.json"
 _DB_FILE = _BASE_DIR / "standards.db"
 
-# 从 standard_db 导入统一的标准化函数（与主程序保持一致）
-sys.path.insert(0, str(_BASE_DIR))
-from standard_db import normalize_for_matching
+# 统一格式用于匹配 — 全角转半角 + 中文标点转英文 + 去空格 + OCR 修正
+# 内联此函数以避免导入 standard_db.py（CI 中可能因路径问题导入失败）
+_FULLWIDTH_RE = re.compile(r'[\uFF01-\uFF5E]')
+_PUNCT_MAP = {
+    '\u3002': '.', '\u3001': ',', '\u301C': '~',
+    '\u2014': '-', '\u2013': '-', '\u2026': '...',
+    '\u201C': '"', '\u201D': '"', '\u2018': "'", '\u2019': "'",
+    '\u00D7': 'x',
+}
+def normalize_for_matching(text):
+    if not text:
+        return ''
+    result = _FULLWIDTH_RE.sub(lambda m: chr(ord(m.group()) - 0xFEE0), text)
+    for cn, en in _PUNCT_MAP.items():
+        result = result.replace(cn, en)
+    extra = {
+        '\u00F7': '/', '\u00B7': '-', '\u2022': '-',
+        '\u2032': "'", '\u2033': '"',
+        '\u3008': '<', '\u3009': '>', '\u300A': '<', '\u300B': '>',
+        '\u3010': '[', '\u3011': ']', '\u3014': '[', '\u3015': ']',
+        '\uFF08': '(', '\uFF09': ')', '\uFF1A': ':', '\uFF1B': ';',
+        '\uFF0C': ',', '\u3000': ' ',
+    }
+    for cn, en in extra.items():
+        result = result.replace(cn, en)
+    result = re.sub(r'\s+', '', result)
+    result = re.sub(r'CJJJ', 'CJJ', result, flags=re.IGNORECASE)
+    result = re.sub(r'DGJ(?=\d)', 'DG/TJ', result, flags=re.IGNORECASE)
+    result = re.sub(r'[LlI](?=[A-Z\d])', '1', result)
+    result = re.sub(r'(?<=[A-Z\d])[LlI]', '1', result)
+    result = re.sub(r'[Oo](?=\d)', '0', result)
+    return result.upper()
 
 
 def _clean_status(status: str) -> str:
