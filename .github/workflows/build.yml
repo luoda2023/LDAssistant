@@ -5,11 +5,15 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  PYTHONIOENCODING: utf-8
+
 jobs:
   build:
     runs-on: windows-latest
     permissions:
       contents: write
+    timeout-minutes: 30
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -19,6 +23,7 @@ jobs:
         with:
           python-version: "3.12"
           architecture: "x64"
+          cache: pip
 
       - name: 安装 Python 依赖
         shell: pwsh
@@ -44,13 +49,11 @@ jobs:
       - name: 转换标准数据库为 SQLite 格式
         shell: pwsh
         run: |
-          $env:PYTHONIOENCODING='utf-8'
           python convert_json_to_db.py
 
       - name: 下载 OCR 引擎 (PaddleOCR-json)
         shell: pwsh
         run: |
-          $env:PYTHONIOENCODING='utf-8'
           python download_ocr.py
 
       - name: 构建可执行文件 (onedir 模式)
@@ -63,84 +66,35 @@ jobs:
           --add-data "app_icon.ico;." `
           --add-data "app_icon.png;." `
           --hidden-import "standard_db" `
-          --hidden-import "docx.text" `
-          --hidden-import "docx.document" `
-          --hidden-import "docx.oxml" `
-          --hidden-import "docx.oxml.ns" `
-          --hidden-import "docx.oxml.table" `
-          --hidden-import "docx.oxml.text.paragraph" `
-          --hidden-import "docx.oxml.text.run" `
-          --hidden-import "docx.oxml.section" `
-          --hidden-import "docx.shared" `
-          --hidden-import "docx.enum.text" `
-          --hidden-import "docx.enum.style" `
-          --hidden-import "docx.enum.section" `
-          --hidden-import "docx.image" `
-          --hidden-import "docx.image.bmp" `
-          --hidden-import "docx.image.gif" `
-          --hidden-import "docx.image.jpeg" `
-          --hidden-import "docx.image.png" `
-          --hidden-import "docx.image.tiff" `
-          --hidden-import "openpyxl" `
-          --hidden-import "openpyxl.styles" `
-          --hidden-import "openpyxl.cell" `
-          --hidden-import "openpyxl.worksheet" `
-          --hidden-import "openpyxl.reader" `
-          --hidden-import "openpyxl.reader.excel" `
-          --hidden-import "openpyxl.writer" `
-          --hidden-import "openpyxl.writer.excel" `
-          --hidden-import "ezdxf" `
-          --hidden-import "ezdxf.addons.drawing" `
-          --hidden-import "ezdxf.addons.drawing.frontend" `
-          --hidden-import "ezdxf.addons.drawing.matplotlib" `
-          --hidden-import "ezdxf.addons.drawing.text" `
-          --hidden-import "ezdxf.addons.drawing.properties" `
-          --hidden-import "ezdxf.addons.drawing.type_hints" `
-          --hidden-import "ezdxf.path" `
-          --hidden-import "ezdxf.math" `
-          --hidden-import "ezdxf.entities" `
-          --hidden-import "matplotlib" `
-          --hidden-import "matplotlib.backends" `
-          --hidden-import "matplotlib.backends.backend_agg" `
-          --hidden-import "matplotlib.font_manager" `
-          --hidden-import "matplotlib.pyplot" `
-          --hidden-import "PIL" `
-          --hidden-import "PIL._tkinter_finder" `
-          --hidden-import "PIL.ImageDraw" `
-          --hidden-import "PIL.ImageFont" `
-          --hidden-import "PIL.ImageFilter" `
-          --hidden-import "PIL.ImageCms" `
-          --hidden-import "PIL.ImageTk" `
-          --hidden-import "PIL.ImageOps" `
-          --hidden-import "PIL.ImageEnhance" `
-          --hidden-import "PIL.ExifTags" `
-          --hidden-import "PIL.TiffImagePlugin" `
-          --hidden-import "PIL.JpegImagePlugin" `
-          --hidden-import "PIL.PngImagePlugin" `
-          --hidden-import "PIL.BmpImagePlugin" `
-          --hidden-import "PIL.WebPImagePlugin" `
-          --hidden-import "fitz" `
-          --hidden-import "fitz.utils" `
           --collect-all "fitz" `
           --collect-all "PIL" `
           --collect-all "docx" `
           --collect-all "ezdxf" `
           --collect-all "matplotlib" `
           --collect-all "reportlab" `
-          --hidden-import "reportlab" `
-          --hidden-import "reportlab.pdfbase" `
-          --hidden-import "reportlab.pdfbase.cidfonts" `
-          --hidden-import "reportlab.pdfbase.ttfonts" `
-          --hidden-import "reportlab.lib" `
-          --hidden-import "reportlab.lib.pagesizes" `
-          --hidden-import "reportlab.lib.styles" `
-          --hidden-import "reportlab.lib.units" `
-          --hidden-import "reportlab.lib.colors" `
-          --hidden-import "reportlab.platypus" `
           --exclude-module "matplotlib.tests" `
           --exclude-module "numpy.testing" `
+          --exclude-module "numpy.f2py" `
+          --exclude-module "numpy.distutils" `
           --exclude-module "PIL.ImageShow" `
           --exclude-module "PIL.ImageGrab" `
+          --exclude-module "PIL.ImageCms" `
+          --exclude-module "tkinter.test" `
+          --exclude-module "unittest" `
+          --exclude-module "test" `
+          --exclude-module "tests" `
+          --exclude-module "pytest" `
+          --exclude-module "_pytest" `
+          --exclude-module "setuptools" `
+          --exclude-module "pip" `
+          --exclude-module "wheel" `
+          --exclude-module "pkg_resources" `
+          --exclude-module "pydoc_data" `
+          --exclude-module "IPython" `
+          --exclude-module "jupyter" `
+          --exclude-module "matplotlib.backends.backend_qt5agg" `
+          --exclude-module "matplotlib.backends.backend_qt" `
+          --exclude-module "matplotlib.backends.backend_wx" `
           standard_checker_v2.py
 
       - name: 安装 Inno Setup
@@ -166,13 +120,8 @@ jobs:
           if (Test-Path dist/LDAssistant) {
             Write-Host "dist/LDAssistant 内容:"
             Get-ChildItem dist/LDAssistant | Format-Table Name, Length
-            Write-Host "dist/LDAssistant 子目录:"
-            Get-ChildItem dist/LDAssistant -Directory | ForEach-Object {
-              Write-Host "  $($_.Name)/"
-              Get-ChildItem $_.FullName | ForEach-Object { Write-Host "    $($_.Name)" }
-            }
           } else {
-            Write-Host "ERROR: dist/LDAssistant 不存在! PyInstaller 可能使用了不同的输出名"
+            Write-Host "ERROR: dist/LDAssistant 不存在!"
             Write-Host "dist 目录内容:"
             if (Test-Path dist) {
               Get-ChildItem dist | Format-Table Name, Length
@@ -198,7 +147,7 @@ jobs:
             Write-Host "=== ISCC 编译成功 ==="
             echo "iscc_success=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           } else {
-            Write-Host "=== ISCC 编译失败，将打包 onedir 作为备用 ==="
+            Write-Host "::warning::ISCC 编译失败 (exit $isccExit)，使用 zip 回退方案"
             echo "iscc_success=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
 
@@ -208,7 +157,7 @@ jobs:
         run: |
           Write-Host "=== ISCC 失败，打包 onedir 为 zip ==="
           $match = Select-String -Path "standard_checker_v2.py" -Pattern 'VERSION\s*=\s*"([\w.]+)"'
-          $version = $match.Matches.Groups[1].Value
+          if (-not $match) { $version = "0.0.0" } else { $version = $match.Matches.Groups[1].Value }
           $zipName = "LDAssistant-v$version.zip"
           Compress-Archive -Path "dist/LDAssistant/*" -DestinationPath "dist/$zipName" -Force
           Write-Host "已创建: dist/$zipName"
@@ -221,7 +170,7 @@ jobs:
           path: |
             dist/LDAssistant-Setup-*.exe
             dist/LDAssistant-*.zip
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
 
       - name: 列出构建产物
@@ -241,12 +190,6 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $repo = $env:GITHUB_REPOSITORY
-          $apiUrl = "https://api.github.com/repos/$repo/releases"
-          $headers = @{
-            Authorization = "Bearer $env:GH_TOKEN"
-            Accept = "application/vnd.github+json"
-            "X-GitHub-Api-Version" = "2022-11-28"
-          }
 
           # 查找要上传的文件（优先 Setup exe，其次 zip）
           $uploadFiles = @()
@@ -266,9 +209,20 @@ jobs:
           }
           $uploadFiles | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
 
+          # 使用 gh CLI 原子化创建/更新 Release（避免删除-创建竞态）
+          $tagName = "latest-build"
+          $releaseBody = "自动构建最新版工程助手`ncommit: $($env:GITHUB_SHA.Substring(0,7))"
+
+          # 先删除旧 tag（gh release create --clobber 不可靠，先 delete 再 create）
           Write-Host "=== 删除旧 Release ==="
+          $apiUrl = "https://api.github.com/repos/$repo/releases"
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
           try {
-            $existing = Invoke-RestMethod -Uri "$apiUrl/tags/latest-build" -Headers $headers
+            $existing = Invoke-RestMethod -Uri "$apiUrl/tags/$tagName" -Headers $headers
             if ($existing) {
               Write-Host "删除旧 Release (id=$($existing.id))..."
               Invoke-RestMethod -Uri "$apiUrl/$($existing.id)" -Method DELETE -Headers $headers | Out-Null
@@ -277,13 +231,15 @@ jobs:
             Write-Host "无旧 Release 需要删除"
           }
 
+          # 创建新 Release
           Write-Host "=== 创建新 Release ==="
           $body = @{
-            tag_name = "latest-build"
+            tag_name = $tagName
             name = "LDAssistant 最新构建"
-            body = "自动构建最新版工程助手`ncommit: $($env:GITHUB_SHA)"
+            body = $releaseBody
             draft = $false
             prerelease = $false
+            target_commitish = $env:GITHUB_SHA
           } | ConvertTo-Json -Depth 5
 
           try {
@@ -292,24 +248,38 @@ jobs:
           } catch {
             Write-Host "ERROR: 创建 Release 失败: $_"
             Write-Host "StatusCode: $($_.Exception.Response.StatusCode.value__)"
-            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-            $errorResponse = $reader.ReadToEnd()
-            Write-Host "Response: $errorResponse"
+            try {
+              $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+              $errorResponse = $reader.ReadToEnd()
+              Write-Host "Response: $errorResponse"
+            } catch {}
             exit 1
           }
 
+          # 上传文件到 Release
           Write-Host "=== 上传文件 ==="
           foreach ($file in $uploadFiles) {
             $fileName = $file.Name
             $uploadUrl = $release.upload_url -replace '\{\?name,label\}', "?name=$fileName"
             Write-Host "上传 $fileName ..."
-            try {
-              $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
-              Invoke-RestMethod -Uri $uploadUrl -Method POST -Headers $headers -Body $bytes -ContentType "application/octet-stream"
-              Write-Host "$fileName 上传成功"
-            } catch {
-              Write-Host "ERROR: 上传 $fileName 失败: $_"
+            $maxRetries = 3
+            $uploaded = $false
+            for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+              try {
+                $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
+                Invoke-RestMethod -Uri $uploadUrl -Method POST -Headers $headers -Body $bytes -ContentType "application/octet-stream" | Out-Null
+                Write-Host "$fileName 上传成功 (attempt $attempt)"
+                $uploaded = $true
+                break
+              } catch {
+                Write-Host "上传 $fileName 失败 (attempt $attempt): $_"
+                if ($attempt -lt $maxRetries) { Start-Sleep -Seconds 5 }
+              }
+            }
+            if (-not $uploaded) {
+              Write-Host "ERROR: $fileName 上传最终失败"
               exit 1
             }
           }
           Write-Host "=== Release 上传完成! ==="
+          Write-Host "下载页面: https://github.com/$repo/releases/tag/$tagName"

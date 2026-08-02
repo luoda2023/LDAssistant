@@ -110,19 +110,39 @@ class StandardChecker:
             self._verify()
             print(f"[StandardChecker] SQLite 连接成功")
         except Exception as e:
+            # 构造失败时立即清理临时文件和连接
+            close_connection(self._conn, self._tmp_path)
+            self._conn = None
+            self._tmp_path = None
             raise RuntimeError(f"SQLite 连接失败: {e}")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        """析构时兜底清理临时文件"""
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def _verify(self):
         """验证数据库表结构"""
         c = self._conn.cursor()
-        tables = [r['name'] for r in c.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()]
-        if 'standards' not in tables:
-            raise RuntimeError(f"数据库缺少 standards 表，现有: {tables}")
-        c.execute("SELECT COUNT(*) FROM standards")
-        count = c.fetchone()[0]
-        print(f"[StandardChecker] 数据库就绪: {count} 条记录")
+        try:
+            tables = [r['name'] for r in c.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()]
+            if 'standards' not in tables:
+                raise RuntimeError(f"数据库缺少 standards 表，现有: {tables}")
+            c.execute("SELECT COUNT(*) FROM standards")
+            count = c.fetchone()[0]
+            print(f"[StandardChecker] 数据库就绪: {count} 条记录")
+        finally:
+            c.close()
 
     def check_code(self, code, name=''):
         """查询规范：返回 {'found': bool, 'status': str, ...}"""
@@ -135,149 +155,149 @@ class StandardChecker:
         }
 
         c = self._conn.cursor()
-
-        # 1) 精确匹配 norm_code
-        c.execute(
-            "SELECT * FROM standards WHERE norm_code = ? LIMIT 1",
-            (normalized,)
-        )
-        row = c.fetchone()
-        if row:
-            result.update({
-                'found': True,
-                'status': row['status'],
-                'replacement_raw': row['replacement_raw'],
-                'publisher': row['publisher'],
-                'implement_date': row['implement_date'],
-                'matched_name': row['name'],
-            })
-            # 双重确认：名称也匹配
-            if name:
-                norm_name = normalize_for_matching(name).strip()
-                db_name = normalize_for_matching(row['name']).strip()
-                if norm_name and db_name and (norm_name in db_name or db_name in norm_name):
-                    result['dual_match'] = True
-            return result
-
-        # 2) 精确匹配原始 code
-        c.execute(
-            "SELECT * FROM standards WHERE code = ? LIMIT 1",
-            (code.strip(),)
-        )
-        row = c.fetchone()
-        if row:
-            result.update({
-                'found': True,
-                'status': row['status'],
-                'replacement_raw': row['replacement_raw'],
-                'publisher': row['publisher'],
-                'implement_date': row['implement_date'],
-                'matched_name': row['name'],
-            })
-            if name:
-                norm_name = normalize_for_matching(name).strip()
-                db_name = normalize_for_matching(row['name']).strip()
-                if norm_name and db_name and (norm_name in db_name or db_name in norm_name):
-                    result['dual_match'] = True
-            return result
-
-        # 3) 名称匹配（如果有名称输入）
-        if name:
-            norm_name = normalize_for_matching(name).strip()
-            if norm_name:
-                c.execute(
-                    "SELECT * FROM standards WHERE norm_name = ? LIMIT 1",
-                    (norm_name,)
-                )
-                row = c.fetchone()
-                if row:
-                    result.update({
-                        'found': True,
-                        'status': row['status'],
-                        'replacement_raw': row['replacement_raw'],
-                        'publisher': row['publisher'],
-                        'implement_date': row['implement_date'],
-                        'matched_name': row['name'],
-                    })
-                    if code:
-                        norm_code = normalize_for_matching(code).strip()
-                        db_code = normalize_for_matching(row['code']).strip()
-                        if norm_code and db_code and (norm_code in db_code or db_code in norm_code):
-                            result['dual_match'] = True
-                    return result
-
-        # 4) FTS5 全文搜索（模糊匹配）
         try:
-            # 用 FTS5 搜索 code
-            fts_query = '"' + normalized + '"'
+            # 1) 精确匹配 norm_code
             c.execute(
-                """SELECT s.* FROM standards s
-                JOIN standards_fts fts ON s.id = fts.rowid
-                WHERE standards_fts MATCH ? LIMIT 5""",
-                (fts_query,)
+                "SELECT * FROM standards WHERE norm_code = ? LIMIT 1",
+                (normalized,)
             )
-            rows = c.fetchall()
-            if rows:
-                best = self._pick_best_match(rows, normalized, name)
-                if best:
-                    result.update({
-                        'found': True,
-                        'status': best['status'],
-                        'replacement_raw': best['replacement_raw'],
-                        'publisher': best['publisher'],
-                        'implement_date': best['implement_date'],
-                        'matched_name': best['name'],
-                    })
-                    return result
-        except Exception:
-            pass
+            row = c.fetchone()
+            if row:
+                result.update({
+                    'found': True,
+                    'status': row['status'],
+                    'replacement_raw': row['replacement_raw'],
+                    'publisher': row['publisher'],
+                    'implement_date': row['implement_date'],
+                    'matched_name': row['name'],
+                })
+                if name:
+                    norm_name = normalize_for_matching(name).strip()
+                    db_name = normalize_for_matching(row['name']).strip()
+                    if norm_name and db_name and (norm_name in db_name or db_name in norm_name):
+                        result['dual_match'] = True
+                return result
 
-        return result
+            # 2) 精确匹配原始 code
+            c.execute(
+                "SELECT * FROM standards WHERE code = ? LIMIT 1",
+                (code.strip(),)
+            )
+            row = c.fetchone()
+            if row:
+                result.update({
+                    'found': True,
+                    'status': row['status'],
+                    'replacement_raw': row['replacement_raw'],
+                    'publisher': row['publisher'],
+                    'implement_date': row['implement_date'],
+                    'matched_name': row['name'],
+                })
+                if name:
+                    norm_name = normalize_for_matching(name).strip()
+                    db_name = normalize_for_matching(row['name']).strip()
+                    if norm_name and db_name and (norm_name in db_name or db_name in norm_name):
+                        result['dual_match'] = True
+                return result
+
+            # 3) 名称匹配（如果有名称输入）
+            if name:
+                norm_name = normalize_for_matching(name).strip()
+                if norm_name:
+                    c.execute(
+                        "SELECT * FROM standards WHERE norm_name = ? LIMIT 1",
+                        (norm_name,)
+                    )
+                    row = c.fetchone()
+                    if row:
+                        result.update({
+                            'found': True,
+                            'status': row['status'],
+                            'replacement_raw': row['replacement_raw'],
+                            'publisher': row['publisher'],
+                            'implement_date': row['implement_date'],
+                            'matched_name': row['name'],
+                        })
+                        if code:
+                            norm_code = normalize_for_matching(code).strip()
+                            db_code = normalize_for_matching(row['code']).strip()
+                            if norm_code and db_code and (norm_code in db_code or db_code in norm_code):
+                                result['dual_match'] = True
+                        return result
+
+            # 4) FTS5 全文搜索（模糊匹配）
+            try:
+                fts_query = '"' + normalized.replace('"', '""') + '"'
+                c.execute(
+                    """SELECT s.* FROM standards s
+                    JOIN standards_fts fts ON s.id = fts.rowid
+                    WHERE standards_fts MATCH ? LIMIT 5""",
+                    (fts_query,)
+                )
+                rows = c.fetchall()
+                if rows:
+                    best = self._pick_best_match(rows, normalized, name)
+                    if best:
+                        result.update({
+                            'found': True,
+                            'status': best['status'],
+                            'replacement_raw': best['replacement_raw'],
+                            'publisher': best['publisher'],
+                            'implement_date': best['implement_date'],
+                            'matched_name': best['name'],
+                        })
+                        return result
+            except Exception as e:
+                print(f"[WARN] FTS query failed: {e}")
+
+            return result
+        finally:
+            c.close()
 
     def find_similar_codes(self, query, limit=20):
         """模糊搜索，返回匹配的规范列表"""
         normalized = normalize_for_matching(query)
         if len(normalized) < 2:
             return []
-
         c = self._conn.cursor()
         results = []
-
-        # 先用 LIKE 模糊匹配 code
-        c.execute(
-            """SELECT * FROM standards
-            WHERE code LIKE ? OR norm_code LIKE ?
-            LIMIT ?""",
-            (f'%{normalized}%', f'%{normalized}%', limit)
-        )
-        results.extend([dict(r) for r in c.fetchall()])
-
-        if len(results) < limit:
-            # 再用 FTS5 搜索
-            try:
-                fts_query = ' OR '.join(f'"{w}"' for w in normalized if len(w) >= 2)
-                if fts_query:
-                    c.execute(
-                        """SELECT s.* FROM standards s
-                        JOIN standards_fts fts ON s.id = fts.rowid
-                        WHERE standards_fts MATCH ? LIMIT ?""",
-                        (fts_query, limit - len(results))
-                    )
-                    seen = {r['id'] for r in results}
-                    for r in c.fetchall():
-                        if r['id'] not in seen:
-                            results.append(dict(r))
-                            seen.add(r['id'])
-            except Exception:
-                pass
-
-        return results[:limit]
+        try:
+            c.execute(
+                """SELECT * FROM standards
+                WHERE code LIKE ? OR norm_code LIKE ?
+                LIMIT ?""",
+                (f'%{normalized}%', f'%{normalized}%', limit)
+            )
+            results.extend([dict(r) for r in c.fetchall()])
+            if len(results) < limit:
+                try:
+                    fts_query = ' OR '.join(f'"{w}"' for w in normalized.split() if len(w) >= 2)
+                    if fts_query:
+                        c.execute(
+                            """SELECT s.* FROM standards s
+                            JOIN standards_fts fts ON s.id = fts.rowid
+                            WHERE standards_fts MATCH ? LIMIT ?""",
+                            (fts_query, limit - len(results))
+                        )
+                        seen = {r['id'] for r in results}
+                        for r in c.fetchall():
+                            if r['id'] not in seen:
+                                results.append(dict(r))
+                                seen.add(r['id'])
+                except Exception as e:
+                    print(f"[WARN] FTS similar search failed: {e}")
+            return results[:limit]
+        finally:
+            c.close()
 
     def get_status_counts(self):
         """获取各状态统计"""
         c = self._conn.cursor()
-        c.execute("SELECT status, COUNT(*) as cnt FROM standards GROUP BY status ORDER BY cnt DESC")
-        return {r['status']: r['cnt'] for r in c.fetchall()}
+        try:
+            c.execute("SELECT status, COUNT(*) as cnt FROM standards GROUP BY status ORDER BY cnt DESC")
+            return {r['status']: r['cnt'] for r in c.fetchall()}
+        finally:
+            c.close()
 
     def _pick_best_match(self, rows, normalized, name):
         """从多个 FTS5 结果中选最佳匹配"""

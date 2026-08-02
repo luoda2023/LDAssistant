@@ -23,7 +23,6 @@ import concurrent.futures
 import time
 import urllib.request
 import urllib.parse
-import struct
 import io
 from pathlib import Path
 from datetime import datetime
@@ -39,7 +38,7 @@ except Exception:
 
 try:
     from docx import Document
-    from docx.shared import Pt, Inches, RGBColor
+    from docx.shared import Pt, RGBColor
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     HAS_DOCX = True
 except Exception:
@@ -47,7 +46,7 @@ except Exception:
 
 
 try:
-    from PIL import Image, ImageDraw, ImageFilter, ImageCms, ImageTk, ImageFont
+    from PIL import Image, ImageDraw, ImageFilter, ImageTk, ImageFont
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -129,7 +128,7 @@ CODE_PATTERN = re.compile(
 NAME_PATTERN = re.compile(
     r'(?:[A-Z]{1,5}(?:/[A-Z]{1,2})?)\s*\d+(?:\.\d+)?-\d{4}\s+([\u4e00-\u9fff]{2,60})')
 
-OBsolete_KEYWORDS = ['废止', '作废', '代替', '被代替', '被...代替']
+OBSOLETE_KEYWORDS = ['废止', '作废', '代替', '被代替', '被...代替']
 
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif', '.webp'}
 CAD_EXTENSIONS = {'.dwg', '.dxf'}
@@ -234,7 +233,6 @@ def normalize_for_matching(text):
     result = re.sub(r'(?<=\d)[Oo]', '0', result)  # 字母 O 在数字后→0
     result = result.upper()  # 统一大写
     return result
-    return result
 
 
 def ocr_image_standalone(image_path):
@@ -309,17 +307,19 @@ class StandardChecker:
             try:
                 import sqlite3
                 conn = sqlite3.connect(str(DATA_FILE))
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                tables = [r['name'] for r in cur.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-                print(f"  SQLite tables found: {tables}")
-                target = 'standards' if 'standards' in tables else (tables[0] if tables else None)
-                if target:
-                    cur.execute(f"SELECT * FROM {target}")
-                    data = [dict(row) for row in cur.fetchall()]
-                    print(f"  Loaded {len(data)} records from SQLite table '{target}'")
-                conn.close()
+                try:
+                    conn.row_factory = sqlite3.Row
+                    cur = conn.cursor()
+                    tables = [r['name'] for r in cur.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+                    print(f"  SQLite tables found: {tables}")
+                    target = 'standards' if 'standards' in tables else (tables[0] if tables else None)
+                    if target:
+                        cur.execute(f"SELECT * FROM {target}")
+                        data = [dict(row) for row in cur.fetchall()]
+                        print(f"  Loaded {len(data)} records from SQLite table '{target}'")
+                finally:
+                    conn.close()
             except Exception as e:
                 print(f"  SQLite fallback failed: {e}")
         if data is None:
@@ -421,21 +421,27 @@ class StandardChecker:
             norm_code = db_normalize_for_matching(code)
             raw_code = code.strip()
             rows = []
+            cur = None
             try:
                 cur = self._sqlite_checker.conn.cursor()
-                cur.execute("SELECT code, name, status FROM standards_fts WHERE standards_fts MATCH ? LIMIT ?",
-                           (norm_code, limit))
-                rows = cur.fetchall()
-            except sqlite3.OperationalError:
-                rows = []
-            if not rows and raw_code:
                 try:
-                    cur = self._sqlite_checker.conn.cursor()
-                    cur.execute("SELECT code, name, status FROM standards WHERE code LIKE ? OR name LIKE ? LIMIT ?",
-                               (f'%{raw_code}%', f'%{raw_code}%', limit))
+                    cur.execute("SELECT code, name, status FROM standards_fts WHERE standards_fts MATCH ? LIMIT ?",
+                                (norm_code, limit))
                     rows = cur.fetchall()
                 except sqlite3.OperationalError:
                     rows = []
+                if not rows and raw_code:
+                    try:
+                        cur.execute("SELECT code, name, status FROM standards WHERE code LIKE ? OR name LIKE ? LIMIT ?",
+                                    (f'%{raw_code}%', f'%{raw_code}%', limit))
+                        rows = cur.fetchall()
+                    except sqlite3.OperationalError:
+                        rows = []
+            except Exception:
+                rows = []
+            finally:
+                if cur:
+                    cur.close()
             results = []
             for r in rows:
                 results.append((r['code'], r['code'], r['name'], 'sqlite'))
@@ -1008,6 +1014,7 @@ class AIChatFloatingWindow:
     def _clear_chat(self):
         self._messages = []
         self._links = []
+        self._inline_images = []
         for w in self._msg_inner.winfo_children():
             w.destroy()
         self.add_message("ai", "对话已清空，可以重新开始提问。")
@@ -1358,9 +1365,12 @@ class AIChatFloatingWindow:
             self._append_reply(f"⚠️ 错误: {e}")
 
     def _append_reply(self, reply):
-        self.window.after(0, lambda: self._do_append_reply(reply))
+        if self.window.winfo_exists():
+            self.window.after(0, lambda: self._do_append_reply(reply))
 
     def _do_append_reply(self, reply):
+        if not self.window.winfo_exists():
+            return
         self.add_message("ai", reply)
         self._status_label.config(text="就绪")
 
@@ -2947,20 +2957,20 @@ class App:
         self.pdf_canvas.delete('all')
         img_path = self.pdf_images[idx]
         try:
-            img = Image.open(img_path)
-            if self._rotation_angle != 0:
-                img = img.rotate(self._rotation_angle, expand=True, resample=Image.Resampling.BICUBIC)
-            self._current_base_image = img
-            canvas_w = self.pdf_canvas.winfo_width() or 400
-            canvas_h = self.pdf_canvas.winfo_height() or 600
-            img_w, img_h = img.size
-            if self._fit_mode.get() == 'fit_width':
-                scale = canvas_w / img_w
-            else:
-                scale = min(canvas_w / img_w, canvas_h / img_h)
-            new_w, new_h = int(img_w * scale), int(img_h * scale)
-            img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-            self.current_img = ImageTk.PhotoImage(img_resized)
+            with Image.open(img_path) as img:
+                if self._rotation_angle != 0:
+                    img = img.rotate(self._rotation_angle, expand=True, resample=Image.Resampling.BICUBIC)
+                self._current_base_image = img.copy()
+                canvas_w = self.pdf_canvas.winfo_width() or 400
+                canvas_h = self.pdf_canvas.winfo_height() or 600
+                img_w, img_h = img.size
+                if self._fit_mode.get() == 'fit_width':
+                    scale = canvas_w / img_w
+                else:
+                    scale = min(canvas_w / img_w, canvas_h / img_h)
+                new_w, new_h = int(img_w * scale), int(img_h * scale)
+                img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                self.current_img = ImageTk.PhotoImage(img_resized)
             center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
             center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
             self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
@@ -3079,13 +3089,15 @@ class App:
         self._periodic_redraw()
 
     def _periodic_redraw(self):
+        if not self.root.winfo_exists():
+            return
         if hasattr(self, '_current_base_image') and self._current_base_image and self.pdf_images:
             current_size = (self.pdf_canvas.winfo_width(), self.pdf_canvas.winfo_height())
             if current_size != getattr(self, '_last_canvas_size', None):
                 self._last_canvas_size = current_size
                 if current_size[0] > 10 and current_size[1] > 10:
                     self._redraw_current_page()
-        self.root.after(200, self._periodic_redraw)
+        self._redraw_after_id = self.root.after(200, self._periodic_redraw)
 
     def _draw_code_markers_for_page(self, page_idx, scale):
         if not hasattr(self, 'current_image_item'):
@@ -3354,6 +3366,11 @@ class App:
         self.extracted_codes = []
         self.code_locations = []
         self.list_tree.delete(*self.list_tree.get_children())
+        if hasattr(self, '_executor') and self._executor is not None:
+            try:
+                self._executor.shutdown(wait=False)
+            except Exception:
+                pass
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         self._ocr_queue = []
         self._ocr_done = False
@@ -3839,21 +3856,19 @@ class App:
         if not hasattr(self, '_current_base_image') or not self._current_base_image:
             return
         try:
-            doc = fitz.open(self.current_path)
-            page_idx = getattr(self, 'current_display_index', 0)
-            if page_idx < 0 or page_idx >= len(doc):
-                doc.close()
-                return
-            page = doc.load_page(page_idx)
-            rect = None
-            for search_text in (code, name):
-                if not search_text:
-                    continue
-                blocks = page.search_for(search_text)
-                if blocks:
-                    rect = blocks[0]
-                    break
-            doc.close()
+            with fitz.open(self.current_path) as doc:
+                page_idx = getattr(self, 'current_display_index', 0)
+                if page_idx < 0 or page_idx >= len(doc):
+                    return
+                page = doc.load_page(page_idx)
+                rect = None
+                for search_text in (code, name):
+                    if not search_text:
+                        continue
+                    blocks = page.search_for(search_text)
+                    if blocks:
+                        rect = blocks[0]
+                        break
             if not rect:
                 return
             canvas_w = self.pdf_canvas.winfo_width() or 400
@@ -4116,17 +4131,16 @@ class App:
         self.progress_var.set(0)
         self.pdf_images = []
         try:
-            doc = fitz.open(self.current_path)
-            total = len(doc)
-            for page_num in range(total):
-                page = doc.load_page(page_num)
-                pix = page.get_pixmap(dpi=200)
-                fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
-                pix.save(img_path)
-                self.pdf_images.append(img_path)
-                self.progress_var.set((page_num + 1) / total * 100)
-                self.root.update_idletasks()
-            doc.close()
+            with fitz.open(self.current_path) as doc:
+                total = len(doc)
+                for page_num in range(total):
+                    page = doc.load_page(page_num)
+                    pix = page.get_pixmap(dpi=200)
+                    fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
+                    pix.save(img_path)
+                    self.pdf_images.append(img_path)
+                    self.progress_var.set((page_num + 1) / total * 100)
+                    self.root.update_idletasks()
             self.status_var.set(f"PDF 已转换: {len(self.pdf_images)} 页")
             self.page_var.set(f"第 1 / {len(self.pdf_images)} 页")
             self.progress_var.set(0)
@@ -4252,27 +4266,37 @@ class App:
         self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
         self.root.mainloop()
     def _on_exit(self):
-        if hasattr(self, "_executor"):
-            self._executor.shutdown(wait=False)
-        import os
-        icon_tmp = getattr(self, '_icon_tmp', None)
-        if icon_tmp and os.path.exists(icon_tmp):
+        # 关闭 AcmeCAD 进程，防止孤儿进程
+        if hasattr(self, '_close_acmecad'):
             try:
-                os.unlink(icon_tmp)
+                self._close_acmecad()
             except Exception:
                 pass
+        # 取消所有 pending after 回调
+        if hasattr(self, '_redraw_after_id'):
+            try:
+                self.root.after_cancel(self._redraw_after_id)
+            except Exception:
+                pass
+        # 关闭线程池
+        if hasattr(self, "_executor"):
+            self._executor.shutdown(wait=False)
+        # 清理临时图片文件
+        import os
         for img in getattr(self, 'pdf_images', []):
-            if os.path.exists(img):
+            if img and os.path.exists(img):
                 try:
                     os.unlink(img)
                 except Exception:
                     pass
+        # 关闭标准数据库连接
         if hasattr(self, 'checker') and self.checker is not None:
             try:
                 self.checker.close()
             except Exception:
                 pass
         self.root.destroy()
+
 
 
 def main():

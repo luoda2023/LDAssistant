@@ -1,16 +1,30 @@
 """下载并解压 PaddleOCR-json 到 ocr/ 目录（供 CI 构建使用）"""
-import urllib.request, urllib.error, zipfile, io, os, sys, shutil, time
+import urllib.request
+import urllib.error
+import os
+import sys
+import shutil
+import time
 
 URL = "https://github.com/hiroi-sora/PaddleOCR-json/releases/download/v1.4.1/PaddleOCR-json_v1.4.1_windows_x64.7z"
 OCR_DIR = os.path.join(os.path.dirname(__file__), "ocr")
 MAX_RETRIES = 5
+DOWNLOAD_TIMEOUT = 120  # 单次下载超时秒数
+
 
 def _download_with_retry(url, dest, retries=MAX_RETRIES):
-    """带重试的下载（GitHub 下载偶尔会超时）"""
+    """带超时和重试的下载"""
     for attempt in range(1, retries + 1):
         try:
             print(f"[DL]  下载尝试 {attempt}/{retries} ({url})...")
-            urllib.request.urlretrieve(url, dest)
+            req = urllib.request.Request(url, headers={'User-Agent': 'LDAssistant-Build/1.0'})
+            with urllib.request.urlopen(req, timeout=DOWNLOAD_TIMEOUT) as resp:
+                with open(dest, 'wb') as f:
+                    while True:
+                        chunk = resp.read(8192)
+                        if not chunk:
+                            break
+                        f.write(chunk)
             size = os.path.getsize(dest)
             print(f"[OK] 下载完成: {size/1024/1024:.1f} MB")
             return True
@@ -19,16 +33,16 @@ def _download_with_retry(url, dest, retries=MAX_RETRIES):
             if os.path.exists(dest):
                 os.remove(dest)
             if attempt < retries:
-                wait = attempt * 10  # 指数退避: 10s, 20s, 30s...
+                wait = attempt * 10
                 print(f"[WAIT] 等待 {wait} 秒后重试...")
                 time.sleep(wait)
     return False
+
 
 def main():
     if os.path.isdir(OCR_DIR) and os.path.isfile(os.path.join(OCR_DIR, "PaddleOCR-json.exe")):
         exe_size = os.path.getsize(os.path.join(OCR_DIR, "PaddleOCR-json.exe"))
         print(f"[OK] OCR 已存在: {OCR_DIR} (PaddleOCR-json.exe {exe_size/1024:.0f} KB)")
-        # 确保 models 目录也存在
         models_dir = os.path.join(OCR_DIR, "models")
         if os.path.isdir(models_dir):
             print(f"[OK] 模型目录已存在: {models_dir}")
@@ -50,20 +64,18 @@ def main():
     # 解压
     print("[PACKAGE] 正在解压...")
     try:
-        # 7z 格式需要 7z 或调用外部工具
-        # 改用 zipfile 尝试（但 .7z 文件不是标准 zip）
-        # 尝试用系统自带的 tarfile 或调用 7z
-        # 先检查是否有 7z 命令
         import subprocess
         # 尝试用 7z.exe
         for sevenz in ["7z", "7z.exe", "C:/Program Files/7-Zip/7z.exe",
                        "C:/Program Files (x86)/7-Zip/7z.exe"]:
             try:
-                subprocess.run([sevenz, "x", temp_path, f"-o{OCR_DIR}", "-y"],
-                              capture_output=True, timeout=120)
+                result = subprocess.run([sevenz, "x", temp_path, f"-o{OCR_DIR}", "-y"],
+                                        capture_output=True, timeout=120, check=True)
                 print(f"[OK] 使用 {sevenz} 解压成功")
                 break
-            except (FileNotFoundError, subprocess.TimeoutExpired):
+            except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+                if isinstance(e, subprocess.CalledProcessError):
+                    print(f"[WARN] {sevenz} 解压返回非零退出码: {e.returncode}")
                 continue
         else:
             # 7z 不可用，尝试用 Python 的 py7zr
@@ -73,10 +85,9 @@ def main():
                     archive.extractall(path=OCR_DIR)
                 print("[OK] 使用 py7zr 解压成功")
             except ImportError:
-                # 最后尝试: 下载并安装 py7zr
                 print("[WARN] 未找到 7z/py7zr，尝试安装 py7zr...")
                 subprocess.run([sys.executable, "-m", "pip", "install", "py7zr"],
-                              capture_output=True)
+                               capture_output=True, check=True)
                 import py7zr
                 with py7zr.SevenZipFile(temp_path, 'r') as archive:
                     archive.extractall(path=OCR_DIR)
@@ -104,7 +115,7 @@ def main():
                     break
         if not os.path.isfile(exe_path):
             print(f"[X] 未找到 PaddleOCR-json.exe")
-            print(f"   解压目录内容: {os.listdir(OCR_DIR)}")
+            print(f"  解压目录内容: {os.listdir(OCR_DIR)}")
             sys.exit(1)
 
     # 验证模型目录
@@ -114,7 +125,7 @@ def main():
         print(f"[OK] 模型目录就绪: {model_count} 个文件/目录")
     else:
         print(f"[WARN] 未找到 models 目录，OCR 可能无法正常工作")
-        print(f"   ocr 目录内容: {os.listdir(OCR_DIR)}")
+        print(f"  ocr 目录内容: {os.listdir(OCR_DIR)}")
 
     total_size = sum(os.path.getsize(os.path.join(dp, f))
                      for dp, dn, filenames in os.walk(OCR_DIR)
