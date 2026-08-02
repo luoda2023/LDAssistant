@@ -145,38 +145,38 @@ jobs:
 
       - name: 安装 Inno Setup
         shell: pwsh
-        run: choco install innosetup
+        run: |
+          choco install innosetup --no-progress
+          # 刷新 PATH 并持久化到 GITHUB_PATH（跨步骤生效）
+          $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if ($iscc) {
+            $isccDir = Split-Path $iscc -Parent
+            Write-Host "ISCC found at: $iscc, adding to GITHUB_PATH: $isccDir"
+            Add-Content $env:GITHUB_PATH "$isccDir"
+          } else {
+            # 尝试已知路径
+            $knownPaths = @(
+              "C:\Program Files (x86)\Inno Setup 6",
+              "C:\Program Files\Inno Setup 6",
+              "C:\Program Files (x86)\Inno Setup 5",
+              "C:\Program Files\Inno Setup 5"
+            )
+            foreach ($p in $knownPaths) {
+              if (Test-Path "$p\ISCC.exe") {
+                Write-Host "ISCC found at: $p\ISCC.exe, adding to GITHUB_PATH: $p"
+                Add-Content $env:GITHUB_PATH "$p"
+                break
+              }
+            }
+          }
 
       - name: 提取版本号并编译安装包
         shell: pwsh
         run: |
           $version = python -c "import re; print(re.search(r'VERSION\s*=\s*\"([\w.]+)\"', open('standard_checker_v2.py').read()).group(1))"
           Write-Host "版本号: $version"
-          # 查找 ISCC.exe（choco 安装可能不在 PATH 中）
-          $isccPaths = @(
-            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
-            "C:\Program Files\Inno Setup 6\ISCC.exe",
-            "C:\Program Files (x86)\Inno Setup 5\ISCC.exe",
-            "C:\Program Files\Inno Setup 5\ISCC.exe",
-            "C:\ProgramData\chocolatey\lib\innosetup\tools\ISCC.exe"
-          )
-          $iscc = $null
-          foreach ($p in $isccPaths) {
-            if (Test-Path $p) { $iscc = $p; break }
-          }
-          if (-not $iscc) {
-            # 尝试在 PATH 中查找
-            $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
-          }
-          if (-not $iscc) {
-            Write-Host "❌ 未找到 ISCC.exe"
-            exit 1
-          }
-          Write-Host "使用 ISCC: $iscc"
-          & $iscc /DAppVersion="$version" LDAssistant.iss
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Write-Host "安装包路径: $(Get-Item dist\LDAssistant-Setup-*.exe | % FullName)"
-          Write-Host "安装包大小: $((Get-Item dist\LDAssistant-Setup-*.exe).Length / 1MB) MB"
+          iscc /DAppVersion="$version" LDAssistant.iss
 
       - name: 上传安装包到 Release
         uses: softprops/action-gh-release@v1
