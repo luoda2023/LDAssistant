@@ -146,27 +146,14 @@ jobs:
       - name: 安装 Inno Setup 并编译安装包
         shell: pwsh
         run: |
-          # 下载 Inno Setup 完整安装包
-          $innoUrl = "https://github.com/jrsoftware/innosetup/releases/download/innosetup-6.4.2/innosetup-6.4.2.exe"
-          $innoExe = "$env:TEMP\innosetup.exe"
-          $innoDir = "C:\Program Files (x86)\Inno Setup 6"
-          Write-Host "下载 Inno Setup..."
-          Invoke-WebRequest -Uri $innoUrl -OutFile $innoExe -UseBasicParsing
-          Write-Host "安装 Inno Setup..."
-          Start-Process -FilePath $innoExe -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait -NoNewWindow
-          $iscc = "$innoDir\ISCC.exe"
-          Start-Sleep -Seconds 3
-          Write-Host "ISCC: $iscc (exists: $(Test-Path $iscc))"
+          Write-Host "=== 用 choco 安装 Inno Setup ==="
+          choco install innosetup -y --no-progress
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) {
-            # 尝试查找 ISCC.exe
             $found = Get-ChildItem "C:\Program Files*" -Recurse -Filter "ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($found) {
-              $iscc = $found.FullName
-              Write-Host "找到 ISCC: $iscc"
-            } else {
-              throw "ISCC.exe not found after installation"
-            }
+            if ($found) { $iscc = $found.FullName } else { throw "ISCC.exe not found" }
           }
+          Write-Host "ISCC: $iscc"
           # 提取版本号
           $match = Select-String -Path "standard_checker_v2.py" -Pattern 'VERSION\s*=\s*"([\w.]+)"'
           if (-not $match) { throw "VERSION not found" }
@@ -174,7 +161,7 @@ jobs:
           Write-Host "版本号: $version"
           # 编译安装包
           Write-Host "=== ISCC 编译开始 ==="
-          & $iscc /DAppVersion="$version" LDAssistant.iss
+          & $iscc /DAppVersion="$version" LDAssistant.iss 2>&1 | ForEach-Object { Write-Host $_ }
           $isccExit = $LASTEXITCODE
           Write-Host "ISCC 退出码: $isccExit"
           if ($isccExit -ne 0) { throw "ISCC failed with exit code $isccExit" }
