@@ -639,24 +639,55 @@ class StandardSearchDialog(tk.Toplevel):
         self._search_recommend()
 
     def _setup_ui(self):
-        search_frame = ttk.Frame(self, padding=10)
-        search_frame.pack(side=tk.TOP, fill=tk.X)
-        ttk.Label(search_frame, text="搜索规范:").pack(side=tk.LEFT, padx=(0, 5))
+        """暗色主题搜索对话框"""
+        C = {'bg': "#1E293B", 'bg_dark': "#0F172A", 'card': "#334155",
+             'text': "#E2E8F0", 'text_muted': "#94A3B8",
+             'primary': "#3B82F6", 'primary_hover': "#2563EB"}
+        self.configure(bg=C['bg_dark'])
+
+        # 搜索行
+        search_frame = tk.Frame(self, bg=C['bg_dark'])
+        search_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=(10, 0))
+        tk.Label(search_frame, text="🔍 搜索规范:",
+                 font=("Microsoft YaHei UI", 10),
+                 bg=C['bg_dark'], fg=C['text']).pack(side=tk.LEFT, padx=(0, 8))
         self.search_var = tk.StringVar()
-        search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=50)
-        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        search_entry = tk.Entry(search_frame, textvariable=self.search_var, width=50,
+                                font=("Microsoft YaHei UI", 10),
+                                bg=C['card'], fg=C['text'],
+                                insertbackground=C['text'],
+                                borderwidth=0, highlightthickness=0, padx=6)
+        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5), ipady=4)
         search_entry.bind('<Return>', lambda e: self._do_search())
-        ttk.Button(search_frame, text="搜索", command=self._do_search).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(search_frame, text="推荐相近", command=self._search_recommend).pack(side=tk.LEFT)
+        # 搜索按钮
+        btn_search = tk.Label(search_frame, text="搜索",
+                              font=("Microsoft YaHei UI", 9, "bold"),
+                              bg=C['primary'], fg="#FFFFFF", cursor="hand2", padx=12, pady=2)
+        btn_search.pack(side=tk.LEFT, padx=(0, 3))
+        btn_search.bind('<Button-1>', lambda e: self._do_search())
+        btn_search.bind('<Enter>', lambda e: btn_search.config(bg=C['primary_hover']))
+        btn_search.bind('<Leave>', lambda e: btn_search.config(bg=C['primary']))
+        btn_recommend = tk.Label(search_frame, text="推荐相近",
+                                 font=("Microsoft YaHei UI", 9),
+                                 bg=C['card'], fg=C['text'], cursor="hand2", padx=10, pady=2)
+        btn_recommend.pack(side=tk.LEFT)
+        btn_recommend.bind('<Button-1>', lambda e: self._search_recommend())
+        btn_recommend.bind('<Enter>', lambda e: btn_recommend.config(bg=C['primary']))
+        btn_recommend.bind('<Leave>', lambda e: btn_recommend.config(bg=C['card']))
+
+        # 信息标签
         if self.code:
-            self.info_label = ttk.Label(
-                self, text=f"当前规范: {self.code}" + (f"  《{self.name}》" if self.name else ""),
-                foreground="#555555")
+            info_text = f"当前规范: {self.code}" + (f"  《{self.name}》" if self.name else "")
         else:
-            self.info_label = ttk.Label(self, text="请输入编号或名称搜索规范", foreground="#555555")
-        self.info_label.pack(side=tk.TOP, anchor=tk.W, padx=10, pady=(0, 5))
-        results_frame = ttk.Frame(self, padding=(10, 0, 10, 10))
-        results_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+            info_text = "请输入编号或名称搜索规范"
+        self.info_label = tk.Label(self, text=info_text,
+                                   font=("Microsoft YaHei UI", 9),
+                                   bg=C['bg_dark'], fg=C['text_muted'], anchor=tk.W)
+        self.info_label.pack(side=tk.TOP, anchor=tk.W, padx=10, pady=(4, 0))
+
+        # 结果列表
+        results_frame = tk.Frame(self, bg=C['bg'])
+        results_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=(10, 0))
         columns = ('code', 'name', 'status', 'action')
         self.result_tree = ttk.Treeview(results_frame, columns=columns, show='headings', height=15)
         self.result_tree.heading('code', text='规范编号')
@@ -671,9 +702,17 @@ class StandardSearchDialog(tk.Toplevel):
         scroll = ttk.Scrollbar(results_frame, orient=tk.VERTICAL, command=self.result_tree.yview)
         self.result_tree.configure(yscrollcommand=scroll.set)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        btn_frame = ttk.Frame(self, padding=(10, 0, 10, 10))
-        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
-        ttk.Button(btn_frame, text="关闭", command=self.destroy).pack(side=tk.RIGHT)
+
+        # 底部按钮
+        btn_frame = tk.Frame(self, bg=C['bg_dark'])
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
+        btn_close = tk.Label(btn_frame, text="关闭",
+                             font=("Microsoft YaHei UI", 9),
+                             bg=C['card'], fg=C['text'], cursor="hand2", padx=16, pady=2)
+        btn_close.pack(side=tk.RIGHT)
+        btn_close.bind('<Button-1>', lambda e: self.destroy())
+        btn_close.bind('<Enter>', lambda e: btn_close.config(bg=C['primary']))
+        btn_close.bind('<Leave>', lambda e: btn_close.config(bg=C['card']))
 
     def _do_search(self):
         query = self.search_var.get().strip()
@@ -796,6 +835,18 @@ class AIChatFloatingWindow:
         self._offset_y = 0
         self._messages = []
         self._links = []
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        # 颜色常量 & 字体
+        self._C = {
+            'bg': "#1E293B", 'bg_dark': "#0F172A", 'card': "#334155",
+            'text': "#E2E8F0", 'text_muted': "#94A3B8",
+            'primary': "#3B82F6", 'primary_hover': "#2563EB",
+            'select': "#1E40AF", 'success': "#22C55E", 'danger': "#EF4444",
+            'font': ("Microsoft YaHei UI", 10),
+            'font_md': ("Microsoft YaHei UI", 10, "bold"),
+            'font_sm': ("Microsoft YaHei UI", 9),
+            'font_bold': ("Microsoft YaHei UI", 9, "bold"),
+        }
         self._setup_ui()
         self._setup_drag()
         self.add_message("ai", "你好！我是标准查询 AI 助手。\n发送标准号或关键词，我可以帮你查询国家标准。\n\nOCR 识别的结果会自动显示在这里。")
@@ -817,81 +868,103 @@ class AIChatFloatingWindow:
                     continue
 
     def _setup_ui(self):
-        """美化后的 AI 对话 UI"""
+        """暗色即时通讯风格 AI 对话 UI"""
+        C = self._C
         # ── 标题栏 ──
-        titlebar = tk.Frame(self.window, bg="#1a73e8", height=36)
+        titlebar = tk.Frame(self.window, bg=C['bg_dark'], height=38)
         titlebar.pack(side=tk.TOP, fill=tk.X)
         titlebar.pack_propagate(False)
         titlebar.bind('<ButtonPress-1>', self._start_drag)
         titlebar.bind('<B1-Motion>', self._on_drag)
         self._title_label = tk.Label(titlebar, text="🤖 AI 助手",
-                                     font=("Microsoft YaHei", 10, "bold"),
-                                     bg="#1a73e8", fg="white")
-        self._title_label.pack(side=tk.LEFT, padx=10)
+                                     font=C['font_md'], bg=C['bg_dark'], fg=C['text'])
+        self._title_label.pack(side=tk.LEFT, padx=12)
         self._title_label.bind('<ButtonPress-1>', self._start_drag)
         self._title_label.bind('<B1-Motion>', self._on_drag)
 
-        # 标题栏右侧按钮
-        btn_frame = tk.Frame(titlebar, bg="#1a73e8")
-        btn_frame.pack(side=tk.RIGHT, padx=4)
-        for txt, cmd in [(self._pin_icon, self._toggle_pin),
-                         ("⚙️", self._open_config),
-                         ("🗑", self._clear_chat),
-                         ("💾", self._export_chat),
-                         ("—", self._minimize),
-                         ("✕", self._close)]:
-            b = tk.Label(btn_frame, text=txt, font=("SimSun", 9),
-                         bg="#1a73e8", fg="white", cursor="hand2", padx=3)
+        # 标题栏右侧按钮（扁平暗色）
+        btn_frame = tk.Frame(titlebar, bg=C['bg_dark'])
+        btn_frame.pack(side=tk.RIGHT, padx=6)
+        for txt, tooltip, cmd in [
+            (self._pin_icon, "置顶", self._toggle_pin),
+            ("⚙️", "设置", self._open_config),
+            ("🗑", "清空", self._clear_chat),
+            ("💾", "导出", self._export_chat),
+            ("—", "最小化", self._minimize),
+            ("✕", "关闭", self._close),
+        ]:
+            b = tk.Label(btn_frame, text=txt, font=C['font_sm'],
+                         bg=C['bg_dark'], fg=C['text_muted'], cursor="hand2", padx=4)
             b.pack(side=tk.LEFT, padx=1)
             b.bind('<Button-1>', lambda e, c=cmd: c())
+            b.bind('<Enter>', lambda e, b=b: b.config(fg=C['text']))
+            b.bind('<Leave>', lambda e, b=b: b.config(fg=C['text_muted']))
         self._pin_btn = btn_frame.winfo_children()[0]
 
         # ── 快捷查询行 ──
-        quick_row = tk.Frame(self.window, bg="#f0f4f8")
-        quick_row.pack(side=tk.TOP, fill=tk.X, padx=6, pady=4)
+        quick_row = tk.Frame(self.window, bg=C['bg'], height=34)
+        quick_row.pack(side=tk.TOP, fill=tk.X)
+        quick_row.pack_propagate(False)
+        quick_frame = tk.Frame(quick_row, bg=C['bg'])
+        quick_frame.pack(expand=True, padx=8)
         for txt, q in [("🏗️ 混凝土", "混凝土结构"), ("🔥 防火", "建筑防火"),
                        ("📋 GB 50068", "GB 50068"), ("🔍 最新", "最新发布")]:
-            btn = tk.Label(quick_row, text=txt, font=("Microsoft YaHei", 8),
-                           bg="#e8edf2", fg="#333", padx=6, pady=2,
-                           cursor="hand2", relief="flat")
+            btn = tk.Label(quick_frame, text=txt, font=C['font_sm'],
+                           bg=C['card'], fg=C['text'], padx=8, pady=2,
+                           cursor="hand2")
             btn.pack(side=tk.LEFT, padx=3)
             btn.bind('<Button-1>', lambda e, query=q: self._send_query(query))
+            btn.bind('<Enter>', lambda e, b=btn: b.config(bg=C['primary']))
+            btn.bind('<Leave>', lambda e, b=btn: b.config(bg=C['card']))
 
         # ── 消息区域 ──
-        msg_frame = tk.Frame(self.window, bg="#eef2f7")
-        msg_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
-        self._msg_canvas = tk.Canvas(msg_frame, bg="#eef2f7", highlightthickness=0, bd=0)
-        msg_scroll = ttk.Scrollbar(msg_frame, orient=tk.VERTICAL, command=self._msg_canvas.yview)
+        msg_frame = tk.Frame(self.window, bg=C['bg'])
+        msg_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self._msg_canvas = tk.Canvas(msg_frame, bg=C['bg'], highlightthickness=0, bd=0)
+        msg_scroll = tk.Scrollbar(msg_frame, orient=tk.VERTICAL, command=self._msg_canvas.yview,
+                                  bg=C['card'], fg=C['text_muted'],
+                                  troughcolor=C['bg_dark'],
+                                  activebackground=C['primary'],
+                                  highlightthickness=0, bd=0)
         self._msg_canvas.configure(yscrollcommand=msg_scroll.set)
         msg_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self._msg_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self._msg_inner = tk.Frame(self._msg_canvas, bg="#eef2f7")
+        self._msg_inner = tk.Frame(self._msg_canvas, bg=C['bg'])
         self._msg_window = self._msg_canvas.create_window(
             (0, 0), window=self._msg_inner, anchor='nw', width=380)
         self._msg_inner.bind('<Configure>', self._on_msg_configure)
 
         # ── 输入区域 ──
-        input_frame = tk.Frame(self.window, bg="#f0f4f8", bd=0)
-        input_frame.pack(side=tk.TOP, fill=tk.X, padx=6, pady=(0, 6))
-        entry_bg = tk.Frame(input_frame, bg="white", bd=1, relief="solid")
-        entry_bg.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
-        self._input_entry = tk.Text(entry_bg, height=2, font=("Microsoft YaHei", 10),
-                                    wrap=tk.WORD, bd=0, padx=6, pady=4,
-                                    bg="white", fg="#333")
+        input_frame = tk.Frame(self.window, bg=C['bg_dark'])
+        input_frame.pack(side=tk.TOP, fill=tk.X, padx=0, pady=0)
+        # 圆角输入框容器
+        entry_bg = tk.Frame(input_frame, bg=C['card'], bd=0, highlightthickness=0)
+        entry_bg.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(8, 4), pady=8)
+        self._input_entry = tk.Text(entry_bg, height=2, font=C['font'],
+                                    wrap=tk.WORD, bd=0, padx=10, pady=6,
+                                    bg=C['card'], fg=C['text'],
+                                    insertbackground=C['text'],
+                                    highlightthickness=0)
         self._input_entry.pack(fill=tk.BOTH, expand=True)
         self._input_entry.bind('<Return>', self._on_input_enter)
-        self._send_btn = tk.Label(input_frame, text="➤ 发送",
-                                  font=("Microsoft YaHei", 9, "bold"),
-                                  bg="#1a73e8", fg="white", padx=12, pady=4,
-                                  cursor="hand2")
-        self._send_btn.pack(side=tk.RIGHT)
+        self._input_entry.bind('<KeyRelease>', self._on_input_keyrelease)
+        # 发送按钮
+        send_frame = tk.Frame(input_frame, bg=C['bg_dark'])
+        send_frame.pack(side=tk.RIGHT, padx=(0, 8), pady=8)
+        self._send_btn = tk.Label(send_frame, text="➤ 发送",
+                                  font=C['font_bold'],
+                                  bg=C['primary'], fg="#FFFFFF",
+                                  padx=14, pady=5, cursor="hand2")
+        self._send_btn.pack()
         self._send_btn.bind('<Button-1>', lambda e: self._send_input())
+        self._send_btn.bind('<Enter>', lambda e: self._send_btn.config(bg=C['primary_hover']))
+        self._send_btn.bind('<Leave>', lambda e: self._send_btn.config(bg=C['primary']))
 
         # ── 状态栏 ──
-        self._status_label = tk.Label(self.window, text="就绪 ✨",
-                                      font=("Microsoft YaHei", 8), fg="#888",
-                                      bg="#eef2f7", anchor=tk.W)
-        self._status_label.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=2)
+        self._status_label = tk.Label(self.window, text="就绪 ✓",
+                                      font=C['font_sm'], fg=C['text_muted'],
+                                      bg=C['bg_dark'], anchor=tk.W)
+        self._status_label.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=3)
 
         self.window.protocol("WM_DELETE_WINDOW", self._close)
         self.window.bind('<Escape>', lambda e: self._minimize())
@@ -940,26 +1013,44 @@ class AIChatFloatingWindow:
         self.add_message("ai", "对话已清空，可以重新开始提问。")
 
     def _export_chat(self):
-        """导出 AI 对话记录为 Word 或 PDF"""
+        """导出 AI 对话记录为 Word 或 PDF（暗色主题）"""
+        C = self._C
         dialog = tk.Toplevel(self.window)
         dialog.title("导出对话记录")
-        dialog.geometry("360x140")
+        dialog.configure(bg=C['bg_dark'])
+        dialog.geometry("360x150")
         dialog.transient(self.window)
         dialog.grab_set()
         if hasattr(self.master, '_set_icon_for_toplevel'):
             self.master._set_icon_for_toplevel(dialog)
-        ttk.Label(dialog, text="请选择导出格式:", font=("SimSun", 11)).pack(anchor=tk.W, padx=14, pady=(12, 8))
+        tk.Label(dialog, text="请选择导出格式:", font=("Microsoft YaHei UI", 11),
+                 bg=C['bg_dark'], fg=C['text']).pack(anchor=tk.W, padx=16, pady=(14, 10))
+
         def do_export_docx():
             dialog.destroy()
             self._do_export_chat_docx()
+
         def do_export_pdf():
             dialog.destroy()
             self._do_export_chat_pdf()
-        btn_frame = ttk.Frame(dialog, padding=14)
-        btn_frame.pack(fill=tk.X)
-        ttk.Button(btn_frame, text="📄 导出 Word", command=do_export_docx).pack(side=tk.LEFT, padx=8)
-        ttk.Button(btn_frame, text="📕 导出 PDF", command=do_export_pdf).pack(side=tk.LEFT, padx=8)
-        ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.RIGHT)
+
+        btn_frame = tk.Frame(dialog, bg=C['bg_dark'])
+        btn_frame.pack(fill=tk.X, padx=16, pady=8)
+
+        for txt, cmd in [("📄 导出 Word", do_export_docx), ("📕 导出 PDF", do_export_pdf)]:
+            b = tk.Label(btn_frame, text=txt, font=C['font_bold'],
+                         bg=C['primary'], fg="#FFFFFF", cursor="hand2", padx=12, pady=3)
+            b.pack(side=tk.LEFT, padx=4)
+            b.bind('<Button-1>', lambda e, c=cmd: c())
+            b.bind('<Enter>', lambda e, b=b: b.config(bg=C['primary_hover']))
+            b.bind('<Leave>', lambda e, b=b: b.config(bg=C['primary']))
+
+        cancel = tk.Label(btn_frame, text="取消", font=C['font_sm'],
+                          bg=C['card'], fg=C['text'], cursor="hand2", padx=12, pady=3)
+        cancel.pack(side=tk.RIGHT, padx=4)
+        cancel.bind('<Button-1>', lambda e: dialog.destroy())
+        cancel.bind('<Enter>', lambda e: cancel.config(bg=C['primary_hover']))
+        cancel.bind('<Leave>', lambda e: cancel.config(bg=C['card']))
 
     def _build_chat_text(self):
         """将对话历史拼接为文本（返回 (title_lines, body_lines)）"""
@@ -976,7 +1067,7 @@ class AIChatFloatingWindow:
     def _do_export_chat_docx(self):
         """导出对话为 Word 文档"""
         if not HAS_DOCX:
-            messagebox.showwarning("提示", "需要安装 python-docx 库才能导出 Word")
+            messagebox.showwarning("提示", "需要安装 python-docx 库才能导出 Word", parent=self.window)
             return
         from docx import Document
         from docx.shared import Pt, RGBColor
@@ -1047,60 +1138,104 @@ class AIChatFloatingWindow:
             messagebox.showerror("错误", f"导出 PDF 失败: {e}", parent=self.window)
 
     def _open_config(self):
-        """打开AI API配置对话框"""
+        """打开AI API配置对话框（暗色主题）"""
+        C = self._C
         cfg = tk.Toplevel(self.window)
         cfg.title("AI API 配置")
-        cfg.geometry("480x320")
+        cfg.configure(bg=C['bg_dark'])
+        cfg.geometry("480x340")
         cfg.transient(self.window)
         cfg.grab_set()
 
-        ttk.Label(cfg, text="API 配置（首次使用请设置）", font=("SimSun", 11, "bold")).pack(anchor=tk.W, padx=12, pady=(10, 5))
+        # 标题
+        tk.Label(cfg, text="⚙️ API 配置", font=("Microsoft YaHei UI", 12, "bold"),
+                 bg=C['bg_dark'], fg=C['text']).pack(anchor=tk.W, padx=14, pady=(12, 2))
+        tk.Label(cfg, text="首次使用请设置 API 地址", font=("Microsoft YaHei UI", 9),
+                 bg=C['bg_dark'], fg=C['text_muted']).pack(anchor=tk.W, padx=14, pady=(0, 8))
 
-        frame = ttk.Frame(cfg, padding=12)
+        frame = tk.Frame(cfg, bg=C['bg'], padx=14, pady=8)
         frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(frame, text="API 地址:").pack(anchor=tk.W, pady=(8, 2))
+        # API 地址
+        tk.Label(frame, text="API 地址", font=("Microsoft YaHei UI", 9),
+                 bg=C['bg'], fg=C['text']).pack(anchor=tk.W, pady=(4, 2))
         api_url_var = tk.StringVar(value=self.config.get("api_url", "http://localhost:3000/api/chat"))
-        ttk.Entry(frame, textvariable=api_url_var, width=50).pack(fill=tk.X)
+        url_entry = tk.Entry(frame, textvariable=api_url_var, width=50,
+                             font=("Microsoft YaHei UI", 9),
+                             bg=C['card'], fg=C['text'],
+                             insertbackground=C['text'],
+                             borderwidth=0, highlightthickness=0, padx=6)
+        url_entry.pack(fill=tk.X, ipady=4)
 
-        ttk.Label(frame, text="API Key（可选）:").pack(anchor=tk.W, pady=(8, 2))
+        # API Key
+        key_frame = tk.Frame(frame, bg=C['bg'])
+        key_frame.pack(fill=tk.X, pady=(8, 0))
+        tk.Label(key_frame, text="API Key（可选）", font=("Microsoft YaHei UI", 9),
+                 bg=C['bg'], fg=C['text']).pack(anchor=tk.W)
+        key_row = tk.Frame(key_frame, bg=C['bg'])
+        key_row.pack(fill=tk.X, pady=(2, 0))
         api_key_var = tk.StringVar(value=self.config.get("api_key", ""))
-        key_entry = ttk.Entry(frame, textvariable=api_key_var, width=50, show="*")
-        key_entry.pack(fill=tk.X)
-
+        key_entry = tk.Entry(key_row, textvariable=api_key_var, width=45, show="*",
+                             font=("Microsoft YaHei UI", 9),
+                             bg=C['card'], fg=C['text'],
+                             insertbackground=C['text'],
+                             borderwidth=0, highlightthickness=0, padx=6)
+        key_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
         def toggle_key_show():
-            if key_entry.cget('show') == '*':
-                key_entry.config(show='')
-            else:
-                key_entry.config(show='*')
-        ttk.Button(frame, text="👁", command=toggle_key_show, width=3).pack(anchor=tk.E)
+            key_entry.config(show='' if key_entry.cget('show') == '*' else '*')
+        btn_eye = tk.Label(key_row, text="👁", font=("Microsoft YaHei UI", 9),
+                           bg=C['card'], fg=C['text'], cursor="hand2", padx=6)
+        btn_eye.pack(side=tk.LEFT, padx=(4, 0))
+        btn_eye.bind('<Button-1>', lambda e: toggle_key_show())
 
-        ttk.Label(frame, text="模型 ID:").pack(anchor=tk.W, pady=(8, 2))
+# 模型 ID
+        tk.Label(frame, text="模型 ID", font=("Microsoft YaHei UI", 9),
+                 bg=C['bg'], fg=C['text']).pack(anchor=tk.W, pady=(8, 2))
         model_var = tk.StringVar(value=self.config.get("model", "glm-5.1"))
-        model_combo = ttk.Combobox(frame, textvariable=model_var, width=47)
-        model_combo['values'] = ('glm-5.2', 'glm-5.1', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
-        model_combo.pack(fill=tk.X)
+        # 暗色自定义下拉框（替代 ttk.Combobox）
+        model_row = tk.Frame(frame, bg=C['bg'])
+        model_row.pack(fill=tk.X, pady=(2, 0))
+        model_entry = tk.Entry(model_row, textvariable=model_var, width=40,
+                               font=("Microsoft YaHei UI", 9),
+                               bg=C['card'], fg=C['text'],
+                               insertbackground=C['text'],
+                               borderwidth=0, highlightthickness=0, padx=6)
+        model_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
+        model_btn = tk.Label(model_row, text="▼", font=("Microsoft YaHei UI", 9),
+                             bg=C['card'], fg=C['text_muted'], cursor="hand2", padx=8)
+        model_btn.pack(side=tk.LEFT, padx=(0, 0))
+        model_btn.bind('<Button-1>', lambda e: _show_model_menu())
+        model_values = ('glm-5.2', 'glm-5.1', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
+
+        def _show_model_menu():
+            menu = tk.Menu(model_row, tearoff=0,
+                           bg=C['card'], fg=C['text'],
+                           activebackground=C['primary'], activeforeground="#FFFFFF",
+                           font=("Microsoft YaHei UI", 9))
+            for val in model_values:
+                menu.add_command(label=val, command=lambda v=val: model_var.set(v))
+            menu.tk_popup(model_btn.winfo_rootx(), model_btn.winfo_rooty() + model_btn.winfo_height())
 
         # 状态标签
-        status_lbl = ttk.Label(frame, text="", foreground="green")
-        status_lbl.pack(anchor=tk.W, pady=4)
+        status_lbl = tk.Label(frame, text="", font=("Microsoft YaHei UI", 9),
+                              bg=C['bg'], fg=C['success'])
+        status_lbl.pack(anchor=tk.W, pady=6)
 
         def test_connection():
-            """测试连接"""
-            status_lbl.config(text="测试中...", foreground="blue")
+            status_lbl.config(text="测试中...", fg=C['primary'])
             cfg.update()
             def do_test():
                 try:
                     url = api_url_var.get().strip()
                     data = json.dumps({"message": "你好", "stream": False}).encode('utf-8')
                     req = urllib.request.Request(url, data=data,
-                        headers={'Content-Type': 'application/json'}, method='POST')
+                                                 headers={'Content-Type': 'application/json'}, method='POST')
                     resp = urllib.request.urlopen(req, timeout=10)
                     result = json.loads(resp.read().decode('utf-8'))
                     reply = result.get('reply', '') or result.get('content', '') or 'OK'
-                    cfg.after(0, lambda: status_lbl.config(text=f"✅ 连接成功: {reply[:50]}", foreground="green"))
+                    cfg.after(0, lambda: status_lbl.config(text=f"✅ 连接成功", fg=C['success']))
                 except Exception as e:
-                    cfg.after(0, lambda: status_lbl.config(text=f"❌ 连接失败: {e}", foreground="red"))
+                    cfg.after(0, lambda: status_lbl.config(text=f"❌ 连接失败: {e}", fg=C['danger']))
             self._executor.submit(do_test)
 
         def save_config():
@@ -1115,17 +1250,40 @@ class AIChatFloatingWindow:
                 cfg.destroy()
                 self.add_message("ai", f"✅ API 配置已更新\n地址: {new_config['api_url']}\n模型: {new_config['model']}")
             else:
-                status_lbl.config(text="❌ 保存失败", foreground="red")
+                status_lbl.config(text="❌ 保存失败", fg=C['danger'])
 
-        btn_frame = ttk.Frame(cfg, padding=12)
-        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
-        ttk.Button(btn_frame, text="测试连接", command=test_connection).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(btn_frame, text="保存", command=save_config).pack(side=tk.RIGHT, padx=(5, 0))
-        ttk.Button(btn_frame, text="取消", command=cfg.destroy).pack(side=tk.RIGHT)
+        # 底部按钮
+        btn_frame = tk.Frame(cfg, bg=C['bg_dark'])
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=14, pady=10)
+
+        def make_btn(parent, text, cmd, bg_color):
+            fg = "#FFFFFF" if bg_color == C['primary'] else C['text']
+            btn = tk.Label(parent, text=text, font=("Microsoft YaHei UI", 9),
+                           bg=bg_color, fg=fg, cursor="hand2", padx=14, pady=3)
+            if text == "保存":
+                btn.pack(side=tk.RIGHT, padx=(4, 0))
+            elif text == "取消":
+                btn.pack(side=tk.RIGHT, padx=4)
+            else:
+                btn.pack(side=tk.LEFT, padx=(0, 4))
+            btn.bind('<Button-1>', lambda e, c=cmd: c())
+            btn.bind('<Enter>', lambda e, b=btn, bg=bg_color: b.config(bg=C['primary_hover']))
+            btn.bind('<Leave>', lambda e, b=btn, bg=bg_color: b.config(bg=bg_color))
+            return btn
+
+        make_btn(btn_frame, "测试连接", test_connection, C['card'])
+        make_btn(btn_frame, "取消", cfg.destroy, C['card'])
+        make_btn(btn_frame, "保存", save_config, C['primary'])
 
     def _on_msg_configure(self, event):
         self._msg_canvas.configure(scrollregion=self._msg_canvas.bbox('all'))
         self._msg_canvas.yview_moveto(1.0)
+
+    def _on_input_keyrelease(self, event):
+        """Shift+Enter 换行，纯 Enter 发送"""
+        if event.keysym == 'Return' and not (event.state & 0x1):
+            self._send_input()
+            return "break"
 
     def _on_input_enter(self, event):
         if not event.state & 0x1:
@@ -1207,71 +1365,91 @@ class AIChatFloatingWindow:
         self._status_label.config(text="就绪")
 
     def add_message(self, role, content, msg_type='text', extra=None):
-        """添加一条消息到聊天界面"""
+        """添加一条消息到聊天界面（暗色即时通讯风格）"""
+        C = self._C
         self._messages.append({"role": role, "content": content})
 
-        # ── 用户消息：气泡在右侧（保留原样式） ──
+        # ── 消息行容器 ──
+        outer = tk.Frame(self._msg_inner, bg=C['bg'])
+        outer.pack(fill=tk.X, padx=0, pady=0, anchor='e' if role == 'user' else 'w')
+
+        # ── 用户头像+角色标签 ──
+        avatar_frame = tk.Frame(outer, bg=C['bg'])
         if role == 'user':
-            outer = tk.Frame(self._msg_inner, bg="#eef2f7")
-            outer.pack(fill=tk.X, padx=8, pady=(4, 2), anchor='e')
-
-            hdr = tk.Label(outer, text="你",
-                font=("Microsoft YaHei", 8, "bold"),
-                bg="#eef2f7", fg="#555")
-            hdr.pack(anchor='e', pady=(0, 2))
-
-            if msg_type == 'text':
-                bubble = self._add_text_bubble(outer, content, role)
-            elif msg_type == 'table':
-                self._add_table_widget(outer, extra or [])
-                if content:
-                    bubble = self._add_text_bubble(outer, content, role, small=True)
-                else:
-                    bubble = None
-            elif msg_type == 'image':
-                self._add_image_widget(outer, extra)
-                if content:
-                    bubble = self._add_text_bubble(outer, content, role, small=True)
-                else:
-                    bubble = None
-            elif msg_type == 'file':
-                self._add_file_widget(outer, extra or {})
-                if content:
-                    bubble = self._add_text_bubble(outer, content, role, small=True)
-                else:
-                    bubble = None
-            else:
-                bubble = self._add_text_bubble(outer, content, role)
-
-            self._add_action_bar(outer, content, role)
-
-        # ── AI/系统消息：无气泡，左对齐纯文本 ──
+            avatar_frame.pack(fill=tk.X, pady=(6, 0), padx=(0, 12), anchor='e')
+            avatar = tk.Label(avatar_frame, text="👤", font=("Microsoft YaHei UI", 12),
+                              bg=C['bg'], fg=C['text'])
+            avatar.pack(side=tk.RIGHT, padx=(6, 0))
+            name_lbl = tk.Label(avatar_frame, text="你", font=C['font_sm'],
+                                bg=C['bg'], fg=C['text_muted'])
+            name_lbl.pack(side=tk.RIGHT)
         else:
-            outer = tk.Frame(self._msg_inner, bg="#eef2f7")
-            outer.pack(fill=tk.X, padx=8, pady=(2, 1), anchor='w')
+            avatar_frame.pack(fill=tk.X, pady=(6, 0), padx=(12, 0), anchor='w')
+            avatar = tk.Label(avatar_frame, text="🤖", font=("Microsoft YaHei UI", 12),
+                              bg=C['bg'], fg=C['text'])
+            avatar.pack(side=tk.LEFT, padx=(0, 6))
+            name_lbl = tk.Label(avatar_frame, text="AI", font=C['font_sm'],
+                                bg=C['bg'], fg=C['text_muted'])
+            name_lbl.pack(side=tk.LEFT)
 
-            if msg_type == 'text':
-                self._add_plain_text(outer, content)
-            elif msg_type == 'table':
-                self._add_table_widget(outer, extra or [])
-                if content:
-                    self._add_plain_text(outer, content, small=True)
-            elif msg_type == 'image':
-                self._add_image_widget(outer, extra)
-                if content:
-                    self._add_plain_text(outer, content, small=True)
-            elif msg_type == 'file':
-                self._add_file_widget(outer, extra or {})
-                if content:
-                    self._add_plain_text(outer, content, small=True)
-            else:
-                self._add_plain_text(outer, content)
+        # ── 气泡容器 ──
+        bubble_frame = tk.Frame(outer, bg=C['bg'])
+        bubble_frame.pack(fill=tk.X, padx=(12 if role == 'user' else 12, 12 if role == 'user' else 12),
+                          pady=(1, 0), anchor='e' if role == 'user' else 'w')
+
+        if role == 'user':
+            # 用户：蓝色气泡，右对齐
+            bubble = tk.Frame(bubble_frame, bg=C['primary'], bd=0)
+            bubble.pack(fill=tk.X, anchor='e')
+            bubble.pack_propagate(False)
+            content_frame = tk.Frame(bubble, bg=C['primary'])
+            content_frame.pack(fill=tk.X, padx=10, pady=6)
+            self._render_message_content(content_frame, content, msg_type, extra, role)
+            ts = tk.Label(bubble, text=datetime.now().strftime("%H:%M"),
+                          font=("Microsoft YaHei UI", 7), bg=C['primary'], fg="#93C5FD")
+            ts.pack(anchor='e', padx=10, pady=(0, 4))
+        else:
+            # AI：深色气泡，左对齐
+            bubble = tk.Frame(bubble_frame, bg=C['card'], bd=0)
+            bubble.pack(fill=tk.X, anchor='w')
+            bubble.pack_propagate(False)
+            content_frame = tk.Frame(bubble, bg=C['card'])
+            content_frame.pack(fill=tk.X, padx=10, pady=6)
+            self._render_message_content(content_frame, content, msg_type, extra, role)
+            ts = tk.Label(bubble, text=datetime.now().strftime("%H:%M"),
+                          font=("Microsoft YaHei UI", 7), bg=C['card'], fg=C['text_muted'])
+            ts.pack(anchor='w', padx=10, pady=(0, 4))
+
+        # ── 操作栏（悬停显示） ──
+        self._add_action_bar(outer, content, role)
 
         self._msg_canvas.after(50, self._on_msg_configure)
 
+
+    def _render_message_content(self, parent, content, msg_type, extra, role):
+        """在气泡内渲染消息内容"""
+        C = self._C
+        if msg_type == 'text':
+            self._add_text_bubble(parent, content, role)
+        elif msg_type == 'table':
+            self._add_table_widget(parent, extra or [])
+            if content:
+                self._add_text_bubble(parent, content, role, small=True)
+        elif msg_type == 'image':
+            self._add_image_widget(parent, extra)
+            if content:
+                self._add_text_bubble(parent, content, role, small=True)
+        elif msg_type == 'file':
+            self._add_file_widget(parent, extra or {})
+            if content:
+                self._add_text_bubble(parent, content, role, small=True)
+        else:
+            self._add_text_bubble(parent, content, role)
+
     def _add_action_bar(self, parent, content, role):
         """每个气泡底部的操作图标栏"""
-        bar = tk.Frame(parent, bg="#eef2f7", height=22)
+        C = self._C
+        bar = tk.Frame(parent, bg=C['bg'], height=22)
         bar.pack(fill=tk.X, pady=(0, 0), anchor='e' if role == 'user' else 'w')
         bar.pack_propagate(False)
 
@@ -1357,28 +1535,28 @@ class AIChatFloatingWindow:
             except Exception as e:
                 messagebox.showerror("错误", f"导出 PDF 失败: {e}", parent=self.window)
 
-        # 操作按钮
+# 操作按钮
         for txt, tooltip, cmd in [("📋", "复制", do_copy),
-                               ("📄", "导出 Word", do_export_single_docx),
-                               ("📕", "导出 PDF", do_export_single_pdf)]:
-            btn = tk.Label(bar, text=txt, font=("SimSun", 8),
-                       bg="#eef2f7", fg="#666", cursor="hand2", padx=3)
+                                   ("📄", "导出 Word", do_export_single_docx),
+                                   ("📕", "导出 PDF", do_export_single_pdf)]:
+            btn = tk.Label(bar, text=txt, font=C['font_sm'],
+                           bg=C['bg'], fg=C['text_muted'], cursor="hand2", padx=3)
             btn.pack(side=tk.LEFT, padx=1)
             btn.bind('<Button-1>', lambda e, c=cmd: c())
-            # 悬停效果
-            btn.bind('<Enter>', lambda e, b=btn: b.config(fg="#1a73e8"))
-            btn.bind('<Leave>', lambda e, b=btn: b.config(fg="#666"))
+            btn.bind('<Enter>', lambda e, b=btn: b.config(fg=C['text']))
+            btn.bind('<Leave>', lambda e, b=btn: b.config(fg=C['text_muted']))
 
     def _add_text_bubble(self, parent, text, role, small=False):
         """富文本气泡，带圆角风格"""
+        C = self._C
         font_size = 9 if small else 10
         if role == 'user':
-            bg = "#d2e3fc"
-            fg = "#1a1a1a"
+            bg = C['primary']
+            fg = "#FFFFFF"
             max_width = 60
         else:
-            bg = "#ffffff"
-            fg = "#1a1a1a"
+            bg = C['card']
+            fg = C['text']
             max_width = 60
 
         # 计算合适高度
@@ -1400,37 +1578,40 @@ class AIChatFloatingWindow:
 
     def _add_plain_text(self, parent, text, small=False):
         """AI/系统消息：纯文本左对齐，无气泡无操作栏"""
+        C = self._C
         font_size = 9 if small else 10
-        label = tk.Label(parent, text=text, font=("Microsoft YaHei", font_size),
-            bg="#eef2f7", fg="#1a1a1a",
-            wraplength=380, anchor='w', justify=tk.LEFT)
+        label = tk.Label(parent, text=text, font=("Microsoft YaHei UI", font_size),
+                         bg=C['bg'], fg=C['text'],
+                         wraplength=380, anchor='w', justify=tk.LEFT)
         label.pack(fill=tk.X, pady=(1, 1), anchor='w')
         return label
 
     def _insert_formatted_text(self, widget, text, default_fg, is_user):
-        """完整 Markdown 解析引擎，插入到 Text 组件中"""
+        """完整 Markdown 解析引擎，插入到 Text 组件中（暗色主题）"""
         import re
+        C = self._C
         # ── 注册 tag ──
-        widget.tag_config('bold', font=("Microsoft YaHei", 10, "bold"), foreground=default_fg)
-        widget.tag_config('italic', font=("Microsoft YaHei", 10, "italic"), foreground=default_fg)
-        widget.tag_config('h1', font=("Microsoft YaHei", 14, "bold"), foreground="#1a73e8", spacing1=6, spacing3=4)
-        widget.tag_config('h2', font=("Microsoft YaHei", 12, "bold"), foreground="#2c3e50", spacing1=4, spacing3=2)
-        widget.tag_config('h3', font=("Microsoft YaHei", 11, "bold"), foreground="#34495e", spacing1=3, spacing3=2)
-        widget.tag_config('code', font=("Consolas", 9), foreground="#c00000" if not is_user else "#ffcccc",
-                       background="#f5f5f5" if not is_user else "#3a3a3a")
-        widget.tag_config('code_block', font=("Consolas", 9), foreground="#333",
-                      background="#f0f0f0", lmargin1=12, lmargin2=12, rmargin=12,
-                      spacing1=4, spacing3=4)
-        widget.tag_config('small', font=("Microsoft YaHei", 8), foreground=default_fg)
-        widget.tag_config('red', foreground="#ff4444")
-        widget.tag_config('green', foreground="#00aa00")
-        widget.tag_config('blue', foreground="#1a73e8")
-        widget.tag_config('quote', font=("Microsoft YaHei", 9, "italic"), foreground="#666",
-                      background="#f8f8f8", lmargin1=16, lmargin2=16, spacing1=2, spacing3=2)
-        widget.tag_config('link', foreground="#1a73e8", underline=True)
+        widget.tag_config('bold', font=("Microsoft YaHei UI", 10, "bold"), foreground=default_fg)
+        widget.tag_config('italic', font=("Microsoft YaHei UI", 10, "italic"), foreground=default_fg)
+        widget.tag_config('h1', font=("Microsoft YaHei UI", 14, "bold"), foreground=C['primary'], spacing1=6, spacing3=4)
+        widget.tag_config('h2', font=("Microsoft YaHei UI", 12, "bold"), foreground=C['text'], spacing1=4, spacing3=2)
+        widget.tag_config('h3', font=("Microsoft YaHei UI", 11, "bold"), foreground=C['text_muted'], spacing1=3, spacing3=2)
+        code_bg = "#1E293B" if not is_user else "#1E3A5F"
+        widget.tag_config('code', font=("Consolas", 9), foreground="#F87171" if not is_user else "#FCA5A5",
+                         background=code_bg)
+        widget.tag_config('code_block', font=("Consolas", 9), foreground=C['text'],
+                         background=C['bg_dark'], lmargin1=12, lmargin2=12, rmargin=12,
+                         spacing1=4, spacing3=4)
+        widget.tag_config('small', font=("Microsoft YaHei UI", 8), foreground=default_fg)
+        widget.tag_config('red', foreground=C['danger'])
+        widget.tag_config('green', foreground=C['success'])
+        widget.tag_config('blue', foreground=C['primary'])
+        widget.tag_config('quote', font=("Microsoft YaHei UI", 9, "italic"), foreground=C['text_muted'],
+                         background=C['bg_dark'], lmargin1=16, lmargin2=16, spacing1=2, spacing3=2)
+        widget.tag_config('link', foreground=C['primary'], underline=True)
         widget.tag_config('bullet', lmargin1=12, lmargin2=24)
         widget.tag_config('ordered', lmargin1=12, lmargin2=24)
-        widget.tag_config('hr', foreground="#ccc", font=("SimSun", 6))
+        widget.tag_config('hr', foreground=C['text_muted'], font=("Microsoft YaHei UI", 6))
 
         lines = text.split('\n')
         code_block = False
@@ -1614,49 +1795,51 @@ class AIChatFloatingWindow:
             widget.insert(tk.END, f'[图片: {alt}]', 'small')
 
     def _add_table_widget(self, parent, table_data):
-        """在聊天中显示表格
+        """在聊天中显示表格（暗色主题）
         table_data: list of (header_list, rows_list)
         """
+        C = self._C
         if not table_data:
             return
-        headers, rows = table_data[0], table_data[1] if len(table_data) > 1 else []
+        headers, rows = table_data[0], table_data[1] if len(table_data) > 1 else ([], table_data[0])
 
-        frame = ttk.Frame(parent)
+        frame = tk.Frame(parent, bg=C['bg_dark'])
         frame.pack(fill=tk.X, pady=4)
 
         # Header
-        header_frame = ttk.Frame(frame)
+        header_frame = tk.Frame(frame, bg=C['bg_dark'])
         header_frame.pack(side=tk.TOP, fill=tk.X)
         for i, h in enumerate(headers):
-            lbl = tk.Label(header_frame, text=str(h), font=("SimSun", 9, "bold"),
-                          bg="#e8f0fe", fg="#1a73e8", padx=8, pady=3, relief="solid", bd=1)
+            lbl = tk.Label(header_frame, text=str(h), font=("Microsoft YaHei UI", 9, "bold"),
+                           bg=C['primary'], fg="#FFFFFF", padx=8, pady=3, relief="flat")
             lbl.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Rows
         for row in rows[:20]:  # max 20 rows
-            row_frame = ttk.Frame(frame)
+            row_frame = tk.Frame(frame, bg=C['bg'])
             row_frame.pack(side=tk.TOP, fill=tk.X)
             for i, cell in enumerate(row):
                 if i >= len(headers):
                     break
-                fg_color = "#1a1a1a"
+                fg_color = C['text']
                 if '废止' in str(cell) or '作废' in str(cell) or '❌' in str(cell):
-                    fg_color = "#cc0000"
+                    fg_color = C['danger']
                 elif '现行' in str(cell) or '✅' in str(cell):
-                    fg_color = "#008800"
-                lbl = tk.Label(row_frame, text=str(cell), font=("SimSun", 9),
-                              bg="#fafbfc", fg=fg_color, padx=8, pady=2, relief="solid", bd=1)
+                    fg_color = C['success']
+                lbl = tk.Label(row_frame, text=str(cell), font=("Microsoft YaHei UI", 8),
+                               bg=C['bg'], fg=fg_color, padx=8, pady=2, relief="flat")
                 lbl.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         if len(rows) > 20:
-            more = tk.Label(frame, text=f"... 还有 {len(rows) - 20} 行", font=("SimSun", 8), fg="#888")
+            more = tk.Label(frame, text=f"... 还有 {len(rows) - 20} 行", font=("Microsoft YaHei UI", 8), fg=C['text_muted'])
             more.pack(anchor=tk.W, padx=8, pady=2)
 
     def _add_image_widget(self, parent, img_path_or_photo):
         """在聊天中显示图片"""
+        C = self._C
         if not img_path_or_photo:
             return
-        frame = ttk.Frame(parent)
+        frame = tk.Frame(parent, bg=C['bg_dark'])
         frame.pack(fill=tk.X, pady=4)
         try:
             if HAS_PIL:
@@ -1666,44 +1849,56 @@ class AIChatFloatingWindow:
                     photo = ImageTk.PhotoImage(img)
                 else:
                     photo = img_path_or_photo
-                lbl = tk.Label(frame, image=photo, bg="#f0f0f0", relief="solid", bd=1)
+                lbl = tk.Label(frame, image=photo, bg=C['card'], relief="flat", bd=0)
                 lbl.image = photo  # keep reference
                 lbl.pack()
+            else:
+                tk.Label(frame, text="[图片: PIL 未安装]",
+                         font=("Microsoft YaHei UI", 8),
+                         bg=C['bg_dark'], fg=C['text_muted']).pack()
         except Exception as e:
-            tk.Label(frame, text=f"[图片加载失败: {e}]", font=("SimSun", 8), fg="#888").pack()
+            tk.Label(frame, text=f"[图片加载失败: {e}]",
+                     font=("Microsoft YaHei UI", 8),
+                     bg=C['bg_dark'], fg=C['danger']).pack()
 
     def _add_file_widget(self, parent, file_info):
-        """在聊天中显示文件附件"""
+        """在聊天中显示文件附件（暗色主题）"""
+        C = self._C
         if not file_info:
             return
-        frame = tk.Frame(parent, relief="solid", bd=1, bg="#f0f6ff")
+        frame = tk.Frame(parent, relief="flat", bd=0, bg=C['bg_dark'])
         frame.pack(fill=tk.X, pady=4, padx=2)
 
         name = file_info.get('name', 'unknown')
         size = file_info.get('size', '')
         fpath = file_info.get('path', '')
 
-        icon_lbl = tk.Label(frame, text="📎", font=("SimSun", 14), bg="#f0f6ff")
+        icon_lbl = tk.Label(frame, text="📎", font=("Microsoft YaHei UI", 14),
+                            bg=C['bg_dark'], fg=C['text'])
         icon_lbl.pack(side=tk.LEFT, padx=8, pady=6)
 
-        info_frame = tk.Frame(frame)
+        info_frame = tk.Frame(frame, bg=C['bg_dark'])
         info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=6, pady=4)
-        tk.Label(info_frame, text=name, font=("SimSun", 9, "bold"), bg="#f0f6ff", anchor=tk.W).pack(fill=tk.X)
+        tk.Label(info_frame, text=name, font=("Microsoft YaHei UI", 9, "bold"),
+                 bg=C['bg_dark'], fg=C['text'], anchor=tk.W).pack(fill=tk.X)
         if size:
-            tk.Label(info_frame, text=size, font=("SimSun", 8), fg="#666", bg="#f0f6ff", anchor=tk.W).pack(fill=tk.X)
+            tk.Label(info_frame, text=size, font=("Microsoft YaHei UI", 8),
+                     bg=C['bg_dark'], fg=C['text_muted'], anchor=tk.W).pack(fill=tk.X)
 
-            def open_file():
-                import subprocess
-                try:
-                    if os.path.exists(fpath):
-                        subprocess.run(['explorer', '/select,', fpath])
-                    else:
-                        messagebox.showinfo("文件", f"文件路径:\n{fpath}\n\n(文件可能已被清理)")
-                except Exception as e:
-                    messagebox.showerror("错误", f"无法打开文件: {e}")
+        def open_file():
+            import subprocess
+            try:
+                if os.path.exists(fpath):
+                    subprocess.run(['explorer', '/select,', fpath])
+                else:
+                    messagebox.showinfo("文件", f"文件路径:\n{fpath}\n\n(文件可能已被清理)", parent=self.window)
+            except Exception as e:
+                messagebox.showerror("错误", f"无法打开文件: {e}", parent=self.window)
 
-        tk.Button(frame, text="📂", command=open_file, font=("SimSun", 10),
-                  bd=0, bg="#e8f0fe", padx=6).pack(side=tk.RIGHT, padx=6, pady=4)
+        open_btn = tk.Label(frame, text="📂 打开", font=("Microsoft YaHei UI", 8),
+                            bg=C['primary'], fg="#FFFFFF", cursor="hand2", padx=6, pady=2)
+        open_btn.pack(side=tk.RIGHT, padx=8, pady=6)
+        open_btn.bind('<Button-1>', lambda e: open_file())
 
     def set_ocr_results(self, results):
                 """从外部设置 OCR 识别结果，以表格形式显示"""
@@ -1865,72 +2060,177 @@ class App:
 
 
     def _setup_style(self):
+        """配置全局暗色 ttk 主题"""
         style = ttk.Style()
-        try:
-            style.theme_use("vista")
-        except Exception:
-            try:
-                style.theme_use("xpnative")
-            except Exception:
-                style.theme_use("default")
-        default_font = ("SimSun", 10)
-        header_font = ("SimSun", 11, "bold")
-        title_font = ("SimSun", 16, "bold")
-        style.configure(".", font=default_font)
-        style.configure("TLabel", font=default_font, padding=4)
-        style.configure("TButton", font=default_font, padding=6)
-        style.configure("TFrame", padding=8)
-        style.configure("Header.TLabel", font=header_font)
-        style.configure("Title.TLabel", font=title_font, foreground="#1f1f1f")
-        style.configure("Primary.TButton", font=("SimSun", 10, "bold"))
-        style.configure("Action.TButton", padding=8)
-        style.configure("Treeview", rowheight=26, font=default_font)
-        style.configure("Treeview.Heading", font=header_font)
-        style.configure("Status.TLabel", background="#f0f0f0", relief="sunken", anchor="w", padding=6)
+        style.theme_use("default")
+        # 暗色调色板
+        BG = "#1E293B"
+        BG_DARK = "#0F172A"
+        CARD = "#334155"
+        TEXT = "#E2E8F0"
+        TEXT_MUTED = "#94A3B8"
+        PRIMARY = "#3B82F6"
+        PRIMARY_HOVER = "#2563EB"
+        SELECT = "#1E40AF"
+        SUCCESS = "#22C55E"
+        WARNING = "#F59E0B"
+        DANGER = "#EF4444"
+        default_font = ("Microsoft YaHei UI", 10)
+        bold_font = ("Microsoft YaHei UI", 10, "bold")
+        # 全局背景
+        style.configure(".", font=default_font, background=BG, foreground=TEXT)
+        # TLabel
+        style.configure("TLabel", font=default_font, background=BG, foreground=TEXT, padding=4)
+        # 标题
+        style.configure("Header.TLabel", font=("Microsoft YaHei UI", 11, "bold"), background=BG, foreground=TEXT)
+        style.configure("Title.TLabel", font=("Microsoft YaHei UI", 16, "bold"), foreground=TEXT, background=BG_DARK)
+        # TButton
+        style.configure("TButton", font=default_font, background=CARD, foreground=TEXT, padding=6, borderwidth=0)
+        style.map("TButton", background=[("active", PRIMARY_HOVER), ("pressed", SELECT)], foreground=[("active", "#FFFFFF")])
+        style.configure("Primary.TButton", font=bold_font, background=PRIMARY, foreground="#FFFFFF")
+        style.map("Primary.TButton", background=[("active", PRIMARY_HOVER), ("pressed", SELECT)])
+        style.configure("Action.TButton", padding=8, background=CARD, foreground=TEXT, borderwidth=0)
+        style.map("Action.TButton", background=[("active", PRIMARY), ("pressed", SELECT)])
+        style.configure("Success.TButton", background=SUCCESS, foreground="#FFFFFF")
+        style.map("Success.TButton", background=[("active", "#16A34A")])
+        # TFrame
+        style.configure("TFrame", background=BG)
+        style.configure("Card.TFrame", background=CARD)
+        style.configure("Dark.TFrame", background=BG_DARK)
+        # TEntry
+        style.configure("TEntry", fieldbackground=CARD, foreground=TEXT, insertcolor=TEXT, borderwidth=0, padding=4)
+        style.map("TEntry", fieldbackground=[("focus", BG_DARK)])
+        # TCombobox
+        style.configure("TCombobox", fieldbackground=CARD, foreground=TEXT, arrowcolor=TEXT, padding=4)
+        style.map("TCombobox", fieldbackground=[("readonly", CARD), ("focus", BG_DARK)])
+        # Treeview
+        style.configure("Treeview", rowheight=26, font=default_font, background=CARD, foreground=TEXT, fieldbackground=CARD, borderwidth=0)
+        style.map("Treeview", background=[("selected", SELECT)], foreground=[("selected", "#FFFFFF")])
+        style.configure("Treeview.Heading", font=bold_font, background=BG_DARK, foreground=TEXT, borderwidth=0)
+        # TScrollbar
+        style.configure("Vertical.TScrollbar", background=CARD, troughcolor=BG_DARK, borderwidth=0, width=10)
+        style.map("Vertical.TScrollbar", background=[("active", PRIMARY)])
+        style.configure("Horizontal.TScrollbar", background=CARD, troughcolor=BG_DARK, borderwidth=0, height=10)
+        style.map("Horizontal.TScrollbar", background=[("active", PRIMARY)])
+        # TLabelframe
+        style.configure("TLabelframe", background=BG, foreground=TEXT, borderwidth=0)
+        style.configure("TLabelframe.Label", font=default_font, background=BG, foreground=TEXT)
+        # TNotebook
+        style.configure("TNotebook", background=BG_DARK, borderwidth=0)
+        style.configure("TNotebook.Tab", background=CARD, foreground=TEXT, padding=[8, 4])
+        style.map("TNotebook.Tab", background=[("selected", BG), ("active", PRIMARY)])
+        # TSizegrip
+        style.configure("TSizegrip", background=BG_DARK)
+        # 状态栏
+        style.configure("Status.TLabel", background=BG_DARK, foreground=TEXT_MUTED, anchor="w", padding=6)
 
     def setup_ui(self):
-        # 顶部工具栏
-        topbar = ttk.Frame(self.root)
+        """暗色扁平化主界面布局"""
+        # 暗色调色板
+        C = {
+            'bg': "#1E293B", 'bg_dark': "#0F172A", 'card': "#334155",
+            'text': "#E2E8F0", 'text_muted': "#94A3B8",
+            'primary': "#3B82F6", 'primary_hover': "#2563EB",
+            'select': "#1E40AF", 'success': "#22C55E", 'danger': "#EF4444",
+        }
+
+        # ── 顶部工具栏（暗色） ──
+        topbar = tk.Frame(self.root, bg=C['bg_dark'], height=40)
         topbar.pack(side=tk.TOP, fill=tk.X)
+        topbar.pack_propagate(False)
 
-        ttk.Button(topbar, text="📂 打开文件", command=self.open_file).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="📁 打开文件夹", command=self.open_folder).pack(side=tk.LEFT, padx=2)
-        ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
-        ttk.Button(topbar, text="⬆ 上一页", command=self._prev_page, width=6).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="⬇ 下一页", command=self._next_page, width=6).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="🔍+", command=self._zoom_in, width=4).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="🔍-", command=self._zoom_out, width=4).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="↻", command=self._rotate_cw, width=3).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="↺", command=self._rotate_ccw, width=3).pack(side=tk.LEFT, padx=2)
-        ttk.Radiobutton(topbar, text="适应页面", variable=self._fit_mode,
-                        value='fit_page', command=self._redraw_current_page).pack(side=tk.LEFT, padx=2)
-        ttk.Radiobutton(topbar, text="适应宽度", variable=self._fit_mode,
-                        value='fit_width', command=self._redraw_current_page).pack(side=tk.LEFT, padx=2)
-        ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
-        ttk.Button(topbar, text="⬜ 选择区域", command=self.start_selection).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="❌ 清除区域", command=self.clear_region).pack(side=tk.LEFT, padx=2)
-        ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
-        ttk.Button(topbar, text="🔍 OCR", command=self.start_ocr, style="Primary.TButton").pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="📋 批量处理", command=self.batch_process_all).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="✅ 检查规范", command=self.check_standards, style="Primary.TButton").pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="📄 导出报告", command=self.export_doc).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="📊 导出 Excel", command=self.export_excel).pack(side=tk.LEFT, padx=2)
-        ttk.Separator(topbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=4)
-        ttk.Button(topbar, text="📊 结果面板", command=self._toggle_results_panel).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="📄 缩略图", command=self._toggle_thumbnail_panel).pack(side=tk.LEFT, padx=2)
-        ttk.Button(topbar, text="🤖 AI", command=self._toggle_ai_chat, style="Primary.TButton").pack(side=tk.LEFT, padx=2)
+        def _make_toolbar_label(parent, text, cmd, tooltip=""):
+            lbl = tk.Label(parent, text=text, font=("Microsoft YaHei UI", 9),
+                           bg=C['bg_dark'], fg=C['text'], cursor="hand2", padx=6, pady=2)
+            lbl.pack(side=tk.LEFT, padx=1)
+            lbl.bind('<Button-1>', lambda e: cmd())
+            lbl.bind('<Enter>', lambda e: lbl.config(bg=C['primary'], fg="#FFFFFF"))
+            lbl.bind('<Leave>', lambda e: lbl.config(bg=C['bg_dark'], fg=C['text']))
+            return lbl
 
+        # 工具栏按钮组
+        _make_toolbar_label(topbar, "📂 打开文件", self.open_file)
+        _make_toolbar_label(topbar, "📁 打开文件夹", self.open_folder)
+        sep = tk.Label(topbar, text="│", bg=C['bg_dark'], fg=C['text_muted'], padx=2)
+        sep.pack(side=tk.LEFT)
+        _make_toolbar_label(topbar, "⬆ 上一页", self._prev_page)
+        _make_toolbar_label(topbar, "⬇ 下一页", self._next_page)
+        _make_toolbar_label(topbar, "🔍+", self._zoom_in)
+        _make_toolbar_label(topbar, "🔍-", self._zoom_out)
+        _make_toolbar_label(topbar, "↻", self._rotate_cw)
+        _make_toolbar_label(topbar, "↺", self._rotate_ccw)
+
+        # 适应模式单选按钮（用 Label 模拟）
+        fit_var = self._fit_mode
+        for txt, val in [("适应页面", 'fit_page'), ("适应宽度", 'fit_width')]:
+            bg = C['primary'] if fit_var.get() == val else C['card']
+            lbl = tk.Label(topbar, text=txt, font=("Microsoft YaHei UI", 9),
+                           bg=bg, fg=C['text'], cursor="hand2", padx=6, pady=2)
+            lbl.pack(side=tk.LEFT, padx=1)
+            def _on_click(v=val, lb=lbl):
+                fit_var.set(v)
+                self._redraw_current_page()
+                # 更新所有适应按钮背景
+                for w in topbar.winfo_children():
+                    if isinstance(w, tk.Label) and w.cget('text') in ("适应页面", "适应宽度"):
+                        w.config(bg=C['primary'] if w.cget('text') == ("适应页面" if v == 'fit_page' else "适应宽度") else C['card'])
+            lbl.bind('<Button-1>', lambda e, c=_on_click: c())
+            lbl.bind('<Enter>', lambda e, lb=lbl: lb.config(bg=C['primary_hover']))
+            lbl.bind('<Leave>', lambda e, lb=lbl, v=val: lb.config(bg=C['primary'] if fit_var.get() == v else C['card']))
+
+        sep2 = tk.Label(topbar, text="│", bg=C['bg_dark'], fg=C['text_muted'], padx=2)
+        sep2.pack(side=tk.LEFT)
+        _make_toolbar_label(topbar, "⬜ 选择区域", self.start_selection)
+        _make_toolbar_label(topbar, "❌ 清除区域", self.clear_region)
+        sep3 = tk.Label(topbar, text="│", bg=C['bg_dark'], fg=C['text_muted'], padx=2)
+        sep3.pack(side=tk.LEFT)
+
+        # 主要操作按钮（高亮）
+        btn_ocr = tk.Label(topbar, text="🔍 OCR", font=("Microsoft YaHei UI", 9, "bold"),
+                           bg=C['primary'], fg="#FFFFFF", cursor="hand2", padx=10, pady=2)
+        btn_ocr.pack(side=tk.LEFT, padx=2)
+        btn_ocr.bind('<Button-1>', lambda e: self.start_ocr())
+        btn_ocr.bind('<Enter>', lambda e: btn_ocr.config(bg=C['primary_hover']))
+        btn_ocr.bind('<Leave>', lambda e: btn_ocr.config(bg=C['primary']))
+
+        _make_toolbar_label(topbar, "📋 批量处理", self.batch_process_all)
+
+        btn_check = tk.Label(topbar, text="✅ 检查规范", font=("Microsoft YaHei UI", 9, "bold"),
+                             bg=C['success'], fg="#FFFFFF", cursor="hand2", padx=10, pady=2)
+        btn_check.pack(side=tk.LEFT, padx=2)
+        btn_check.bind('<Button-1>', lambda e: self.check_standards())
+        btn_check.bind('<Enter>', lambda e: btn_check.config(bg="#16A34A"))
+        btn_check.bind('<Leave>', lambda e: btn_check.config(bg=C['success']))
+
+        _make_toolbar_label(topbar, "📄 导出报告", self.export_doc)
+        _make_toolbar_label(topbar, "📊 导出 Excel", self.export_excel)
+        sep4 = tk.Label(topbar, text="│", bg=C['bg_dark'], fg=C['text_muted'], padx=2)
+        sep4.pack(side=tk.LEFT)
+        _make_toolbar_label(topbar, "📊 结果面板", self._toggle_results_panel)
+        _make_toolbar_label(topbar, "📄 缩略图", self._toggle_thumbnail_panel)
+
+        btn_ai = tk.Label(topbar, text="🤖 AI", font=("Microsoft YaHei UI", 9, "bold"),
+                          bg=C['primary'], fg="#FFFFFF", cursor="hand2", padx=10, pady=2)
+        btn_ai.pack(side=tk.LEFT, padx=2)
+        btn_ai.bind('<Button-1>', lambda e: self._toggle_ai_chat())
+        btn_ai.bind('<Enter>', lambda e: btn_ai.config(bg=C['primary_hover']))
+        btn_ai.bind('<Leave>', lambda e: btn_ai.config(bg=C['primary']))
+
+        # 右侧信息
         self.page_var = tk.StringVar(value="第 0 / 0 页")
-        ttk.Label(topbar, textvariable=self.page_var).pack(side=tk.RIGHT, padx=8)
+        page_lbl = tk.Label(topbar, textvariable=self.page_var,
+                            font=("Microsoft YaHei UI", 9), bg=C['bg_dark'], fg=C['text_muted'])
+        page_lbl.pack(side=tk.RIGHT, padx=8)
         self._preview_name_var = tk.StringVar(value="")
-        ttk.Label(topbar, textvariable=self._preview_name_var,
-                  foreground="#c00000", font=("SimSun", 10, "bold")).pack(side=tk.RIGHT, padx=8)
+        name_lbl = tk.Label(topbar, textvariable=self._preview_name_var,
+                            font=("Microsoft YaHei UI", 9, "bold"), bg=C['bg_dark'], fg=C['danger'])
+        name_lbl.pack(side=tk.RIGHT, padx=8)
 
-        # 主预览区域（全窗口）
-        preview_container = ttk.Frame(self.root)
+        # ── 主预览区域 ──
+        preview_container = tk.Frame(self.root, bg=C['bg'])
         preview_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        self.pdf_canvas = tk.Canvas(preview_container, bg="#f3f3f3", highlightthickness=0)
+        self.pdf_canvas = tk.Canvas(preview_container, bg=C['bg'], highlightthickness=0)
         self.pdf_canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.pdf_canvas.bind('<Configure>', self._on_canvas_resize)
         self.pdf_canvas.bind('<MouseWheel>', self._on_mouse_wheel)
@@ -1939,16 +2239,22 @@ class App:
         self.pdf_canvas.bind('<ButtonRelease-2>', self._on_pan_end)
         self._resize_after_id = None
 
-        # 底部状态栏
-        bottombar = ttk.Frame(self.root)
+        # ── 底部状态栏 ──
+        bottombar = tk.Frame(self.root, bg=C['bg_dark'], height=28)
         bottombar.pack(side=tk.BOTTOM, fill=tk.X)
+        bottombar.pack_propagate(False)
 
-        queue_frame = ttk.Frame(bottombar)
+        queue_frame = tk.Frame(bottombar, bg=C['bg_dark'])
         queue_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4, pady=2)
-        self.queue_listbox = tk.Listbox(queue_frame, height=1, font=("SimSun", 8), exportselection=False, bg="#f8f8f8")
+        self.queue_listbox = tk.Listbox(queue_frame, height=1,
+                                        font=("Microsoft YaHei UI", 8), exportselection=False,
+                                        bg=C['card'], fg=C['text'],
+                                        selectbackground=C['select'], selectforeground="#FFFFFF",
+                                        borderwidth=0, highlightthickness=0)
         self.queue_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
         self.queue_listbox.bind('<<ListboxSelect>>', self._on_queue_select)
-        self.queue_count_label = ttk.Label(queue_frame, text="0 个文件", foreground="#888", font=("SimSun", 8))
+        self.queue_count_label = tk.Label(queue_frame, text="0 个文件",
+                                          font=("Microsoft YaHei UI", 8), bg=C['bg_dark'], fg=C['text_muted'])
         self.queue_count_label.pack(side=tk.RIGHT)
 
         self.progress_var = tk.DoubleVar(value=0.0)
@@ -1970,6 +2276,7 @@ class App:
             self._results_panel = tk.Toplevel(self.root)
             self._results_panel.title("OCR / 规范列表 / 检查结果")
             self._set_icon_for_toplevel(self._results_panel)
+            self._results_panel.configure(bg="#1E293B")
             self._results_panel.geometry("500x400")
             self._results_panel.attributes('-topmost', True)
             self._setup_results_panel_ui()
@@ -1982,24 +2289,37 @@ class App:
             self._results_visible = True
 
     def _setup_results_panel_ui(self):
+        C = {'bg': "#1E293B", 'bg_dark': "#0F172A", 'card': "#334155",
+             'text': "#E2E8F0", 'text_muted': "#94A3B8",
+             'primary': "#3B82F6", 'select': "#1E40AF"}
         panel = self._results_panel
         nb = ttk.Notebook(panel)
         nb.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.notebook = nb
 
-        ocr_frame = ttk.Frame(nb)
+        # OCR 文本标签页
+        ocr_frame = tk.Frame(nb, bg=C['bg'])
         nb.add(ocr_frame, text="OCR 文本")
-        self.ocr_text = tk.Text(ocr_frame, wrap=tk.WORD, font=("SimSun", 9))
+        self.ocr_text = tk.Text(ocr_frame, wrap=tk.WORD,
+                                font=("Microsoft YaHei UI", 10),
+                                bg=C['card'], fg=C['text'],
+                                insertbackground=C['text'],
+                                borderwidth=0, highlightthickness=0,
+                                padx=8, pady=4)
         ocr_scroll = ttk.Scrollbar(ocr_frame, orient=tk.VERTICAL, command=self.ocr_text.yview)
         self.ocr_text.configure(yscrollcommand=ocr_scroll.set)
         ocr_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.ocr_text.pack(fill=tk.BOTH, expand=True)
 
-        list_frame = ttk.Frame(nb)
+        # 规范列表标签页
+        list_frame = tk.Frame(nb, bg=C['bg'])
         nb.add(list_frame, text="规范列表")
-        list_toolbar = ttk.Frame(list_frame)
+        list_toolbar = tk.Frame(list_frame, bg=C['bg_dark'])
         list_toolbar.pack(side=tk.TOP, fill=tk.X)
-        ttk.Label(list_toolbar, text="双击移除，单击定位").pack(side=tk.LEFT)
+        hint = tk.Label(list_toolbar, text="双击移除，单击定位",
+                        font=("Microsoft YaHei UI", 9),
+                        bg=C['bg_dark'], fg=C['text_muted'], padx=8)
+        hint.pack(side=tk.LEFT)
         list_columns = ('no', 'code', 'name', 'source')
         self.list_tree = ttk.Treeview(list_frame, columns=list_columns, show='headings', selectmode='extended')
         self.list_tree.heading('no', text='序号')
@@ -2017,7 +2337,8 @@ class App:
         self.list_tree.bind('<Double-Button-1>', self.remove_selected_code)
         self.list_tree.bind('<<TreeviewSelect>>', self.on_code_selected)
 
-        check_frame = ttk.Frame(nb)
+        # 检查结果标签页
+        check_frame = tk.Frame(nb, bg=C['bg'])
         nb.add(check_frame, text="检查结果")
         columns = ('code', 'name', 'status', 'replacement', 'action')
         self.check_tree = ttk.Treeview(check_frame, columns=columns, show='tree headings', selectmode='extended')
@@ -2046,18 +2367,19 @@ class App:
             self._thumb_panel = tk.Toplevel(self.root)
             self._thumb_panel.title("文件缩略图")
             self._set_icon_for_toplevel(self._thumb_panel)
+            self._thumb_panel.configure(bg="#1E293B")
             self._thumb_panel.geometry("120x500")
             self._thumb_panel.attributes('-topmost', True)
-            self.thumb_canvas = tk.Canvas(self._thumb_panel, bg="#e8e8e8", highlightthickness=0, width=110)
+            self.thumb_canvas = tk.Canvas(self._thumb_panel, bg="#1E293B", highlightthickness=0, width=110)
             self.thumb_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
             thumb_scroll = ttk.Scrollbar(self._thumb_panel, orient=tk.VERTICAL, command=self.thumb_canvas.yview)
             thumb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
             self.thumb_canvas.configure(yscrollcommand=thumb_scroll.set)
-            self.thumb_frame = ttk.Frame(self.thumb_canvas)
+            self.thumb_frame = tk.Frame(self.thumb_canvas, bg="#1E293B")
             self.thumb_scroll_window = self.thumb_canvas.create_window(
                 (0, 0), window=self.thumb_frame, anchor='nw', width=110)
             self.thumb_frame.bind('<Configure>',
-                lambda e: self.thumb_canvas.configure(scrollregion=self.thumb_canvas.bbox('all')))
+                                  lambda e: self.thumb_canvas.configure(scrollregion=self.thumb_canvas.bbox('all')))
         if self._thumb_visible:
             self._thumb_panel.withdraw()
             self._thumb_visible = False
@@ -3577,70 +3899,125 @@ class App:
             self._show_ai_config_dialog(force=True)
 
     def _show_ai_config_dialog(self, force=False):
-        """显示 AI API 配置对话框"""
+        """显示 AI API 配置对话框（暗色主题）"""
+        C = {'bg': "#1E293B", 'bg_dark': "#0F172A", 'card': "#334155",
+             'text': "#E2E8F0", 'text_muted': "#94A3B8",
+             'primary': "#3B82F6", 'primary_hover': "#2563EB",
+             'success': "#22C55E", 'danger': "#EF4444"}
         config = _load_ai_config()
         dialog = tk.Toplevel(self.root)
         dialog.title("AI 助手配置")
-        dialog.geometry("500x350")
+        dialog.configure(bg=C['bg_dark'])
+        dialog.geometry("520x380")
         dialog.transient(self.root)
         dialog.grab_set()
 
-        ttk.Label(dialog, text="🤖 AI 助手 API 配置", font=("SimSun", 12, "bold")).pack(anchor=tk.W, padx=16, pady=(10, 5))
-
+        # 标题
+        tk.Label(dialog, text="🤖 AI 助手 API 配置", font=("Microsoft YaHei UI", 12, "bold"),
+                 bg=C['bg_dark'], fg=C['text']).pack(anchor=tk.W, padx=16, pady=(12, 2))
         if force:
-            ttk.Label(dialog, text="首次使用请配置 AI API 信息（使用本地服务可直接保存）", foreground="#c00000").pack(anchor=tk.W, padx=16, pady=(0, 8))
+            tk.Label(dialog, text="首次使用请配置 AI API 信息（使用本地服务可直接保存）",
+                     font=("Microsoft YaHei UI", 9), bg=C['bg_dark'], fg=C['danger']).pack(anchor=tk.W, padx=16, pady=(0, 8))
 
-        frame = ttk.Frame(dialog, padding=16)
+        frame = tk.Frame(dialog, bg=C['bg'], padx=16, pady=8)
         frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(frame, text="API 地址:").pack(anchor=tk.W, pady=(8, 2))
+        # API 地址
+        tk.Label(frame, text="API 地址", font=("Microsoft YaHei UI", 9),
+                 bg=C['bg'], fg=C['text']).pack(anchor=tk.W, pady=(4, 2))
         api_url_var = tk.StringVar(value=config.get("api_url", "http://localhost:3000/api/chat"))
-        ttk.Entry(frame, textvariable=api_url_var, width=50).pack(fill=tk.X)
+        url_entry = tk.Entry(frame, textvariable=api_url_var, width=50,
+                             font=("Microsoft YaHei UI", 9),
+                             bg=C['card'], fg=C['text'],
+                             insertbackground=C['text'],
+                             borderwidth=0, highlightthickness=0, padx=6)
+        url_entry.pack(fill=tk.X, ipady=4)
 
-        ttk.Label(frame, text="API Key（可选，本地服务留空）:").pack(anchor=tk.W, pady=(8, 2))
+        # API Key
+        tk.Label(frame, text="API Key（可选，本地服务留空）", font=("Microsoft YaHei UI", 9),
+                 bg=C['bg'], fg=C['text']).pack(anchor=tk.W, pady=(6, 2))
+        key_row = tk.Frame(frame, bg=C['bg'])
+        key_row.pack(fill=tk.X)
         api_key_var = tk.StringVar(value=config.get("api_key", ""))
-        key_entry = ttk.Entry(frame, textvariable=api_key_var, width=50, show="*")
-        key_entry.pack(fill=tk.X)
-
+        key_entry = tk.Entry(key_row, textvariable=api_key_var, width=45, show="*",
+                             font=("Microsoft YaHei UI", 9),
+                             bg=C['card'], fg=C['text'],
+                             insertbackground=C['text'],
+                             borderwidth=0, highlightthickness=0, padx=6)
+        key_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
         def toggle_key_show():
-            if key_entry.cget('show') == '*':
-                key_entry.config(show='')
-            else:
-                key_entry.config(show='*')
-        ttk.Button(frame, text="👁", command=toggle_key_show, width=3).pack(anchor=tk.E)
+            key_entry.config(show='' if key_entry.cget('show') == '*' else '*')
+        btn_eye = tk.Label(key_row, text="👁", font=("Microsoft YaHei UI", 9),
+                           bg=C['card'], fg=C['text'], cursor="hand2", padx=6)
+        btn_eye.pack(side=tk.LEFT, padx=(4, 0))
+        btn_eye.bind('<Button-1>', lambda e: toggle_key_show())
 
-        ttk.Label(frame, text="模型 ID:").pack(anchor=tk.W, pady=(8, 2))
+        # 模型 ID
+        tk.Label(frame, text="模型 ID", font=("Microsoft YaHei UI", 9),
+                 bg=C['bg'], fg=C['text']).pack(anchor=tk.W, pady=(6, 2))
         model_var = tk.StringVar(value=config.get("model", "glm-5.1"))
-        model_combo = ttk.Combobox(frame, textvariable=model_var, width=47)
-        model_combo['values'] = ('glm-5.2', 'glm-5.1', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
-        model_combo.pack(fill=tk.X)
+        # 暗色自定义下拉框（替代 ttk.Combobox）
+        model_row = tk.Frame(frame, bg=C['bg'])
+        model_row.pack(fill=tk.X, pady=(2, 0))
+        model_entry = tk.Entry(model_row, textvariable=model_var, width=40,
+                               font=("Microsoft YaHei UI", 9),
+                               bg=C['card'], fg=C['text'],
+                               insertbackground=C['text'],
+                               borderwidth=0, highlightthickness=0, padx=6)
+        model_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
+        model_btn = tk.Label(model_row, text="▼", font=("Microsoft YaHei UI", 9),
+                             bg=C['card'], fg=C['text_muted'], cursor="hand2", padx=8)
+        model_btn.pack(side=tk.LEFT, padx=(0, 0))
+        model_values = ('glm-5.2', 'glm-5.1', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
 
-        # 本地服务快捷按钮
-        local_frame = ttk.Frame(frame)
-        local_frame.pack(fill=tk.X, pady=(8, 2))
-        ttk.Label(local_frame, text="快捷:", foreground="#888").pack(side=tk.LEFT)
-        ttk.Button(local_frame, text="本地服务 (3000)", command=lambda: api_url_var.set("http://localhost:3000/api/chat")).pack(side=tk.LEFT, padx=2)
-        ttk.Button(local_frame, text="智谱 GLM", command=lambda: [api_url_var.set("https://open.bigmodel.cn/api/paas/v4/chat/completions"), model_var.set("glm-4.9")]).pack(side=tk.LEFT, padx=2)
-        ttk.Button(local_frame, text="DeepSeek", command=lambda: [api_url_var.set("https://api.deepseek.com/v1/chat/completions"), model_var.set("deepseek-chat")]).pack(side=tk.LEFT, padx=2)
+        def _show_model_menu():
+            menu = tk.Menu(model_row, tearoff=0,
+                           bg=C['card'], fg=C['text'],
+                           activebackground=C['primary'], activeforeground="#FFFFFF",
+                           font=("Microsoft YaHei UI", 9))
+            for val in model_values:
+                menu.add_command(label=val, command=lambda v=val: model_var.set(v))
+            menu.tk_popup(model_btn.winfo_rootx(), model_btn.winfo_rooty() + model_btn.winfo_height())
 
-        status_lbl = ttk.Label(frame, text="", foreground="green")
+        model_btn.bind('<Button-1>', lambda e: _show_model_menu())
+
+        # 快捷按钮
+        local_frame = tk.Frame(frame, bg=C['bg'])
+        local_frame.pack(fill=tk.X, pady=(6, 0))
+        tk.Label(local_frame, text="快捷:", font=("Microsoft YaHei UI", 9),
+                 bg=C['bg'], fg=C['text_muted']).pack(side=tk.LEFT)
+        for txt, cb in [
+            ("本地服务 (3000)", lambda: api_url_var.set("http://localhost:3000/api/chat")),
+            ("智谱 GLM", lambda: [api_url_var.set("https://open.bigmodel.cn/api/paas/v4/chat/completions"), model_var.set("glm-4.9")]),
+            ("DeepSeek", lambda: [api_url_var.set("https://api.deepseek.com/v1/chat/completions"), model_var.set("deepseek-chat")])
+        ]:
+            btn = tk.Label(local_frame, text=txt, font=("Microsoft YaHei UI", 8),
+                           bg=C['card'], fg=C['text'], cursor="hand2", padx=6, pady=1)
+            btn.pack(side=tk.LEFT, padx=2)
+            btn.bind('<Button-1>', lambda e, c=cb: c())
+            btn.bind('<Enter>', lambda e, b=btn: b.config(bg=C['primary']))
+            btn.bind('<Leave>', lambda e, b=btn: b.config(bg=C['card']))
+
+        # 状态标签
+        status_lbl = tk.Label(frame, text="", font=("Microsoft YaHei UI", 9),
+                              bg=C['bg'], fg=C['success'])
         status_lbl.pack(anchor=tk.W, pady=4)
 
         def test_connection():
-            status_lbl.config(text="测试中...", foreground="blue")
+            status_lbl.config(text="测试中...", fg=C['primary'])
             dialog.update()
             def do_test():
                 try:
                     url = api_url_var.get().strip()
                     data = json.dumps({"message": "你好", "stream": False}).encode('utf-8')
                     req = urllib.request.Request(url, data=data,
-                        headers={'Content-Type': 'application/json'}, method='POST')
+                                                 headers={'Content-Type': 'application/json'}, method='POST')
                     resp = urllib.request.urlopen(req, timeout=10)
                     result = json.loads(resp.read().decode('utf-8'))
                     reply = result.get('reply', '') or result.get('content', '') or 'OK'
-                    dialog.after(0, lambda: status_lbl.config(text=f"✅ 连接成功: {reply[:50]}", foreground="green"))
+                    dialog.after(0, lambda: status_lbl.config(text="✅ 连接成功", fg=C['success']))
                 except Exception as e:
-                    dialog.after(0, lambda: status_lbl.config(text=f"❌ 连接失败: {str(e)[:80]}", foreground="red"))
+                    dialog.after(0, lambda: status_lbl.config(text=f"❌ 连接失败: {str(e)[:80]}", fg=C['danger']))
             self._executor.submit(do_test)
 
         def save_config():
@@ -3654,23 +4031,38 @@ class App:
                 return
             if _save_ai_config(new_config):
                 self.ai_config = new_config
-                # 同步到 AI 聊天窗口
                 try:
                     if self.ai_chat is not None:
                         self.ai_chat.config.update(self.ai_config)
                 except Exception:
                     pass
-                status_lbl.config(text="✅ 配置已保存", foreground="green")
+                status_lbl.config(text="✅ 配置已保存", fg=C['success'])
                 dialog.after(800, dialog.destroy)
             else:
-                status_lbl.config(text="❌ 保存失败: 请检查文件权限", foreground="red")
+                status_lbl.config(text="❌ 保存失败: 请检查文件权限", fg=C['danger'])
                 messagebox.showerror("保存失败", "无法写入配置文件:\n" + str(_CONFIG_FILE) + "\n请检查文件权限或磁盘空间。", parent=dialog)
 
-        btn_frame = ttk.Frame(dialog, padding=12)
-        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
-        ttk.Button(btn_frame, text="测试连接", command=test_connection).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(btn_frame, text="保存", command=save_config).pack(side=tk.RIGHT, padx=(5, 0))
-        ttk.Button(btn_frame, text="取消", command=dialog.destroy).pack(side=tk.RIGHT)
+        # 底部按钮
+        btn_frame = tk.Frame(dialog, bg=C['bg_dark'])
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=16, pady=10)
+        for txt, cmd, style in [
+            ("测试连接", test_connection, C['card']),
+            ("取消", dialog.destroy, C['card']),
+            ("保存", save_config, C['primary']),
+        ]:
+            bg = style
+            fg = "#FFFFFF" if bg == C['primary'] else C['text']
+            btn = tk.Label(btn_frame, text=txt, font=("Microsoft YaHei UI", 9),
+                           bg=bg, fg=fg, cursor="hand2", padx=14, pady=3)
+            if txt == "保存":
+                btn.pack(side=tk.RIGHT, padx=(4, 0))
+            elif txt == "取消":
+                btn.pack(side=tk.RIGHT, padx=4)
+            else:
+                btn.pack(side=tk.LEFT, padx=(0, 4))
+            btn.bind('<Button-1>', lambda e, c=cmd: c())
+            btn.bind('<Enter>', lambda e, b=btn, bg=bg: b.config(bg=C['primary_hover']))
+            btn.bind('<Leave>', lambda e, b=btn, bg=bg: b.config(bg=bg))
 
         if force:
             dialog.protocol("WM_DELETE_WINDOW", lambda: None)  # 首次使用不能关闭
