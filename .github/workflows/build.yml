@@ -49,7 +49,9 @@ jobs:
 
       - name: 下载 OCR 引擎 (PaddleOCR-json)
         shell: pwsh
-        run: python download_ocr.py
+        run: |
+          $env:PYTHONIOENCODING='utf-8'
+          python download_ocr.py
 
       - name: 构建可执行文件 (onedir 模式)
         shell: pwsh
