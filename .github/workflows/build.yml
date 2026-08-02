@@ -143,47 +143,58 @@ jobs:
           --exclude-module "PIL.ImageGrab" `
           standard_checker_v2.py
 
-      - name: 安装 Inno Setup 并编译安装包
+      - name: 安装 Inno Setup
         shell: pwsh
         run: |
           Write-Host "=== 用 choco 安装 Inno Setup ==="
-          choco install innosetup -y --no-progress 2>&1 | Out-String | Write-Host
+          choco install innosetup -y --no-progress
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          Write-Host "ISCC exists: $(Test-Path $iscc)"
           if (-not (Test-Path $iscc)) {
             $found = Get-ChildItem "C:\Program Files*" -Recurse -Filter "ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($found) { $iscc = $found.FullName } else { throw "ISCC.exe not found" }
+            if ($found) { $iscc = $found.FullName; Write-Host "Found ISCC: $iscc" } else { throw "ISCC.exe not found" }
           }
+          echo "ISCC_PATH=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "ISCC_PATH=$iscc"
+
+      - name: 检查 ISS 依赖
+        shell: pwsh
+        run: |
+          Write-Host "app_icon.ico exists: $(Test-Path app_icon.ico)"
+          Write-Host "dist/LDAssistant exists: $(Test-Path dist/LDAssistant)"
+          Write-Host "LDAssistant.iss exists: $(Test-Path LDAssistant.iss)"
+          if (Test-Path dist/LDAssistant) {
+            Write-Host "dist/LDAssistant 内容:"
+            Get-ChildItem dist/LDAssistant | Format-Table Name, Length
+            Write-Host "dist/LDAssistant 子目录:"
+            Get-ChildItem dist/LDAssistant -Directory | ForEach-Object {
+              Write-Host "  $($_.Name)/"
+              Get-ChildItem $_.FullName | ForEach-Object { Write-Host "    $($_.Name)" }
+            }
+          } else {
+            Write-Host "ERROR: dist/LDAssistant 不存在! PyInstaller 可能使用了不同的输出名"
+            Write-Host "dist 目录内容:"
+            if (Test-Path dist) {
+              Get-ChildItem dist | Format-Table Name, Length
+            }
+          }
+
+      - name: ISCC 编译安装包
+        shell: pwsh
+        run: |
+          $iscc = $env:ISCC_PATH
           Write-Host "ISCC: $iscc"
-          # 提取版本号
           $match = Select-String -Path "standard_checker_v2.py" -Pattern 'VERSION\s*=\s*"([\w.]+)"'
           if (-not $match) { throw "VERSION not found" }
           $version = $match.Matches.Groups[1].Value
           Write-Host "版本号: $version"
-          # 检查 ISS 脚本引用的文件是否存在
-          Write-Host "=== 检查 ISS 依赖 ==="
-          Write-Host "app_icon.ico exists: $(Test-Path app_icon.ico)"
-          Write-Host "dist/LDAssistant exists: $(Test-Path dist/LDAssistant)"
-          if (Test-Path dist/LDAssistant) {
-            Get-ChildItem dist/LDAssistant | Format-Table Name, Length
-          }
-          # 编译安装包，输出重定向到日志文件
           Write-Host "=== ISCC 编译开始 ==="
-          $logFile = "iscc_output.log"
-          & $iscc /DAppVersion="$version" LDAssistant.iss 2>&1 | Tee-Object -FilePath $logFile
+          & $iscc /DAppVersion="$version" LDAssistant.iss 2>&1
           $isccExit = $LASTEXITCODE
           Write-Host "ISCC 退出码: $isccExit"
-          Write-Host "=== ISCC 日志内容结束 ==="
-          if ($isccExit -ne 0) {
-            Write-Host "ISCC 失败! 日志已保存到 iscc_output.log"
-            throw "ISCC failed with exit code $isccExit"
-          }
-          Write-Host "=== ISCC 编译完成，检查 dist 目录 ==="
-          if (Test-Path dist) {
-            Get-ChildItem dist -Recurse | Format-Table Name, Length, FullName
-          } else {
-            Write-Host "dist 目录不存在!"
-            throw "dist 目录在 ISCC 编译后不存在"
-          }
+          if ($isccExit -ne 0) { throw "ISCC failed with exit code $isccExit" }
+          Write-Host "=== ISCC 编译完成 ==="
+          Get-ChildItem dist -Filter "*.exe" | Format-Table Name, Length, FullName
 
       - name: 上传构建产物为 Artifact
         uses: actions/upload-artifact@v4
