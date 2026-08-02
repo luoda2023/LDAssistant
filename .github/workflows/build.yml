@@ -162,5 +162,6 @@ jobs:
             commit: ${{ github.sha }}
           files: dist/LDAssistant-Setup-*.exe
           token: ${{ secrets.GITHUB_TOKEN }}
+          overwrite: true
           draft: false
           prerelease: false
