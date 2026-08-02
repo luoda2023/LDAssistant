@@ -9,7 +9,7 @@ def _download_with_retry(url, dest, retries=MAX_RETRIES):
     """带重试的下载（GitHub 下载偶尔会超时）"""
     for attempt in range(1, retries + 1):
         try:
-            print(f"[DL]️  下载尝试 {attempt}/{retries} ({url})...")
+            print(f"[DL]  下载尝试 {attempt}/{retries} ({url})...")
             urllib.request.urlretrieve(url, dest)
             size = os.path.getsize(dest)
             print(f"[OK] 下载完成: {size/1024/1024:.1f} MB")
@@ -33,7 +33,7 @@ def main():
         if os.path.isdir(models_dir):
             print(f"[OK] 模型目录已存在: {models_dir}")
             return
-        print("⚠️ 模型目录缺失，将重新下载")
+        print("[WARN] 模型目录缺失，将重新下载")
         shutil.rmtree(OCR_DIR)
 
     # 清理旧目录
@@ -48,7 +48,7 @@ def main():
         sys.exit(1)
 
     # 解压
-    print("📦 正在解压...")
+    print("[PACKAGE] 正在解压...")
     try:
         # 7z 格式需要 7z 或调用外部工具
         # 改用 zipfile 尝试（但 .7z 文件不是标准 zip）
@@ -74,7 +74,7 @@ def main():
                 print("[OK] 使用 py7zr 解压成功")
             except ImportError:
                 # 最后尝试: 下载并安装 py7zr
-                print("⚠️ 未找到 7z/py7zr，尝试安装 py7zr...")
+                print("[WARN] 未找到 7z/py7zr，尝试安装 py7zr...")
                 subprocess.run([sys.executable, "-m", "pip", "install", "py7zr"],
                               capture_output=True)
                 import py7zr
@@ -113,7 +113,7 @@ def main():
         model_count = len(os.listdir(models_dir))
         print(f"[OK] 模型目录就绪: {model_count} 个文件/目录")
     else:
-        print(f"⚠️ 未找到 models 目录，OCR 可能无法正常工作")
+        print(f"[WARN] 未找到 models 目录，OCR 可能无法正常工作")
         print(f"   ocr 目录内容: {os.listdir(OCR_DIR)}")
 
     total_size = sum(os.path.getsize(os.path.join(dp, f))
