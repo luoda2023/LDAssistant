@@ -146,21 +146,22 @@ jobs:
       - name: 安装 Inno Setup 并编译安装包
         shell: pwsh
         run: |
-          # 安装 Inno Setup（忽略 choco 的退出码，choco 偶尔在成功时也返回非零）
-          choco install innosetup -y --no-progress 2>&1
-          Write-Host "choco exit code: $LASTEXITCODE"
-          # 刷新 PATH
-          $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
-          # 查找 ISCC.exe
-          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
-          if (-not $iscc) { $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" }
-          if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
-          if (-not (Test-Path $iscc)) { $iscc = "C:\ProgramData\chocolatey\lib\innosetup\tools\ISCC.exe" }
-          Write-Host "ISCC: $iscc"
-          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found" }
+          # 下载 Inno Setup 便携版（免安装）
+          $innoUrl = "https://github.com/jrsoftware/innosetup/releases/download/innosetup-6.4.2/innosetup-6.4.2.exe"
+          $innoExe = "$env:TEMP\innosetup.exe"
+          Write-Host "下载 Inno Setup..."
+          Invoke-WebRequest -Uri $innoUrl -OutFile $innoExe -UseBasicParsing
+          # 解压到临时目录
+          $innoDir = "$env:TEMP\innosetup"
+          mkdir $innoDir -Force | Out-Null
+          Write-Host "解压 Inno Setup..."
+          Start-Process -FilePath $innoExe -ArgumentList "/VERYSILENT /DIR=$innoDir /NORESTART /NOICONS" -Wait -NoNewWindow
+          $iscc = "$innoDir\ISCC.exe"
+          Write-Host "ISCC: $iscc (exists: $(Test-Path $iscc))"
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found after extraction" }
           # 提取版本号
           $match = Select-String -Path "standard_checker_v2.py" -Pattern 'VERSION\s*=\s*"([\w.]+)"'
-          if (-not $match) { throw "VERSION not found in standard_checker_v2.py" }
+          if (-not $match) { throw "VERSION not found" }
           $version = $match.Matches.Groups[1].Value
           Write-Host "版本号: $version"
           # 编译安装包
