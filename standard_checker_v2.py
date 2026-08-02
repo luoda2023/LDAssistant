@@ -1801,7 +1801,8 @@ class AIChatFloatingWindow:
         C = self._C
         if not table_data:
             return
-        headers, rows = table_data[0], table_data[1] if len(table_data) > 1 else ([], table_data[0])
+        headers = table_data[0] if len(table_data) > 0 else []
+        rows = table_data[1] if len(table_data) > 1 else []
 
         frame = tk.Frame(parent, bg=C['bg_dark'])
         frame.pack(fill=tk.X, pady=4)
@@ -2415,9 +2416,12 @@ class App:
             self.ocr_results = []
             self.extracted_codes = []
             self.code_locations = []
-            self.list_tree.delete(*self.list_tree.get_children())
-            self.check_tree.delete(*self.check_tree.get_children())
-            self.ocr_text.delete('1.0', tk.END)
+            if hasattr(self, 'list_tree'):
+                self.list_tree.delete(*self.list_tree.get_children())
+            if hasattr(self, 'check_tree'):
+                self.check_tree.delete(*self.check_tree.get_children())
+            if hasattr(self, 'ocr_text'):
+                self.ocr_text.delete('1.0', tk.END)
             self._rotation_angle = 0
             if self.file_type == 'pdf':
                 self.convert_pdf_to_images()
@@ -2625,6 +2629,7 @@ class App:
                 win32gui.EnumWindows(_search, found)
                 if found:
                     acme_main = found[-1]
+                    self._acme_find_count = 0
                     self.root.after(300, lambda: _hide_acme_ui(acme_main))
                     self.root.after(1500, lambda: _embed_acme(acme_main))
                 else:
@@ -2640,9 +2645,6 @@ class App:
                             self._acme_proc.wait(timeout=3)
                         except Exception:
                             pass
-                        self._acme_find_count = 0
-                self._acme_find_count = 0
-                self.root.after(400, _find_and_init)
 
         except Exception as e:
             messagebox.showerror("CAD 错误", f"打开 DWG 失败:\n{e}")
@@ -2770,6 +2772,8 @@ class App:
         self._clear_thumbnails()
         if not self.pdf_paths:
             return
+        if not hasattr(self, 'thumb_frame'):
+            return
         for widget in self.thumb_frame.winfo_children():
             widget.destroy()
         for i, path in enumerate(self.pdf_paths[:50]):
@@ -2791,8 +2795,9 @@ class App:
 
     def _clear_thumbnails(self):
         self._thumbnail_images = []
-        for widget in self.thumb_frame.winfo_children():
-            widget.destroy()
+        if hasattr(self, 'thumb_frame'):
+            for widget in self.thumb_frame.winfo_children():
+                widget.destroy()
 
     def _on_thumb_click_internal(self, idx):
         if 0 <= idx < len(self.pdf_paths):
@@ -2907,7 +2912,7 @@ class App:
                     self.root.after(0, lambda: self.status_var.set("批量处理已中止"))
                     self.root.after(0, lambda: self.progress_var.set(0))
                 else:
-                    self.root.after(0, lambda: self._batch_finished(all_codes, all_code_info))
+                    self.root.after(0, lambda: self._batch_finished(list(all_code_info.keys()), all_code_info))
             except Exception as e:
                 self.root.after(0, lambda: self.status_var.set(f"批量处理出错: {e}"))
             finally:
@@ -3186,13 +3191,15 @@ class App:
         for item in selected:
             code = self.list_tree.item(item, 'values')[1]
             norm = normalize_for_matching(code)
-            if norm in self.extracted_codes:
-                self.extracted_codes.remove(norm)
+            for stored in list(self.extracted_codes):
+                if normalize_for_matching(stored) == norm:
+                    self.extracted_codes.remove(stored)
+                    break
             self.list_tree.delete(item)
         for i, item in enumerate(self.list_tree.get_children(), 1):
-            self.list_tree.item(item, values=(i, self.list_tree.item(item, 'values')[1]))
+            vals = self.list_tree.item(item, 'values')
+            self.list_tree.item(item, values=(i, *vals[1:]))
         self.status_var.set(f"已移除选中项，剩余 {len(self.extracted_codes)} 个规范")
-
     def on_code_selected(self, event=None):
         selected = self.list_tree.selection()
         if not selected:
@@ -4208,7 +4215,7 @@ class App:
         self.code_locations = []
         self.extracted_codes = []
         self.list_tree.delete(*self.list_tree.get_children())
-        self.check_tree.delete(*self.list_tree.get_children())
+        self.check_tree.delete(*self.check_tree.get_children())
         self.pdf_canvas.delete('all')
         full_text = ""
         rendered = False
