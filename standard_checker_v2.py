@@ -66,16 +66,16 @@ except Exception:
 
 # CAD support
 try:
- import ezdxf
- from ezdxf.addons.drawing import Frontend, RenderContext
- from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
- import matplotlib
- matplotlib.use('Agg')
- import matplotlib.pyplot as plt
- HAS_CAD = True
+    import ezdxf
+    from ezdxf.addons.drawing import Frontend, RenderContext
+    from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    HAS_CAD = True
 except Exception as _cad_err:
- HAS_CAD = False
- print(f"[WARN] ezdxf/matplotlib 导入失败，DXF 渲染不可用: {_cad_err}", flush=True)
+    HAS_CAD = False
+    print(f"[WARN] ezdxf/matplotlib 导入失败，DXF 渲染不可用: {_cad_err}", flush=True)
 
 # Fix blurry text on high-DPI Windows displays
 try:
@@ -590,7 +590,7 @@ def mask_seals_pil(image_path, out_path=None):
         return image_path
 
 
-def render_cad_to_image(dxf_path, dpi=150):
+def render_cad_to_image(dxf_path, dpi=300):
     """将 DXF 文件渲染为 PNG 图片（仅支持 DXF 格式）"""
     if not HAS_CAD:
         return None
@@ -1988,6 +1988,7 @@ class App:
         self._acme_proc = None # AcmeCAD 进程
         self._acme_main_hwnd = None # AcmeCAD 主窗口句柄
         self._acme_find_count = 0 # 查找 AcmeCAD 窗口计数器
+        self._render_dpi = self._get_render_dpi() # 动态渲染 DPI
         self.root = tk.Tk()
         self._name_index = {}
         self.root.title(APP_TITLE)
@@ -2401,6 +2402,16 @@ class App:
             self._thumb_visible = True
             self._update_thumbnails()
 
+    def _get_render_dpi(self):
+        """根据显示器 DPI 缩放比例动态计算渲染 DPI，消除高 DPI 屏幕上的文字虚边"""
+        try:
+            import ctypes
+            scale = ctypes.windll.shcore.GetScaleFactorForDevice(0)  # 返回 100/125/150/200 等
+            dpi = max(300, int(200 * scale / 100))
+            return min(dpi, 400)  # 上限 400，避免内存过大
+        except Exception:
+            return 300  # 默认 300 DPI，远高于原来的 200
+
     def _detect_file_type(self, path):
         ext = Path(path).suffix.lower()
         if ext == '.pdf':
@@ -2436,6 +2447,10 @@ class App:
             self._rotation_angle = 0
             if self.file_type == 'pdf':
                 self.convert_pdf_to_images()
+            elif self.file_type == 'docx':
+                self._load_docx_file()
+            elif self.file_type == 'ofd':
+                self._load_ofd_file()
             elif self.file_type == 'image':
                 self._load_image_file()
             elif self.file_type == 'cad':
@@ -2447,6 +2462,142 @@ class App:
             messagebox.showerror("文件加载错误", f"无法打开文件:\n{path}\n\n错误: {e}")
             self.status_var.set("文件加载失败")
             return False
+
+    def _load_docx_file(self):
+        """加载 Word 文档：优先用 Word COM 转为 PDF 再渲染（保留排版/表格/图片），
+        无法转换时回退到文本提取（含表格内容）。"""
+        if not self.current_path or self.file_type != 'docx':
+            return
+        self.status_var.set("正在加载 Word 文档...")
+        self.pdf_images = []
+        self._rotation_angle = 0
+        self._zoom_level = 1.0
+        self._pan_image_x = 0
+        self._pan_image_y = 0
+
+        # 策略1：Word COM 转 PDF 再 fitz 高 DPI 渲染
+        pdf_path = self._docx_to_pdf_via_com()
+        if pdf_path and HAS_FITZ:
+            try:
+                self.status_var.set("正在渲染 Word 文档...")
+                self.progress_var.set(0)
+                with fitz.open(pdf_path) as doc:
+                    total = len(doc)
+                    for page_num in range(total):
+                        page = doc.load_page(page_num)
+                        pix = page.get_pixmap(dpi=self._render_dpi)
+                        fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
+                        pix.save(img_path)
+                        self.pdf_images.append(img_path)
+                        self.progress_var.set((page_num + 1) / total * 100)
+                        self.root.update_idletasks()
+                    self.status_var.set(f"Word 文档已渲染: {len(self.pdf_images)} 页")
+                    self.page_var.set(f"第 1 / {len(self.pdf_images)} 页")
+                    self.progress_var.set(0)
+                    if self.pdf_images:
+                        self.show_page(0)
+                    # 同时提取纯文本用于规范识别
+                    self._extract_text_from_docx()
+                    return
+            except Exception as e:
+                print(f"[WARN] Word-PDF 渲染失败: {e}")
+            finally:
+                # 清理临时 PDF
+                try:
+                    if pdf_path and Path(pdf_path).exists():
+                        Path(pdf_path).unlink()
+                except Exception:
+                    pass
+        elif pdf_path:
+            try:
+                if Path(pdf_path).exists():
+                    Path(pdf_path).unlink()
+            except Exception:
+                pass
+
+        # 策略2：纯文本提取回退（含表格内容）
+        self.status_var.set("Word COM 不可用，使用文本提取模式...")
+        self.extract_text_file()
+
+    def _docx_to_pdf_via_com(self):
+        """通过 Word COM 自动化将 docx 转为临时 PDF 文件。成功返回路径，失败返回 None。"""
+        try:
+            import win32com.client
+            word = win32com.client.Dispatch("Word.Application")
+            word.Visible = False
+            word.DisplayAlerts = False
+            doc = word.Documents.Open(str(Path(self.current_path).resolve()))
+            fd, pdf_path = tempfile.mkstemp(suffix='.pdf')
+            os.close(fd)
+            # 17 = wdFormatPDF
+            doc.SaveAs(pdf_path, FileFormat=17)
+            doc.Close(False)
+            word.Quit()
+            return pdf_path
+        except Exception as e:
+            print(f"[WARN] Word COM 转换失败: {e}")
+            return None
+
+    def _extract_text_from_docx(self):
+        """从 docx 提取纯文本（含表格内容）用于规范编号识别"""
+        try:
+            if not HAS_DOCX:
+                return
+            doc = Document(self.current_path)
+            parts = []
+            # 段落文本
+            for p in doc.paragraphs:
+                if p.text.strip():
+                    parts.append(p.text)
+            # 表格文本
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        if cell.text.strip():
+                            parts.append(cell.text)
+            full_text = '\n'.join(parts)
+            self.ocr_results = [full_text]
+            self._extract_codes_from_text(full_text)
+        except Exception as e:
+            print(f"[WARN] docx 文本提取失败: {e}")
+
+    def _load_ofd_file(self):
+        """加载 OFD 文件：尝试用 PyMuPDF 直接打开（MuPDF 1.29+ 支持 OFD）"""
+        if not self.current_path:
+            return
+        self.status_var.set("正在加载 OFD 文档...")
+        self.pdf_images = []
+        self._rotation_angle = 0
+        self._zoom_level = 1.0
+        if not HAS_FITZ:
+            messagebox.showwarning("OFD 错误",
+                "打开 OFD 文件需要安装 PyMuPDF 库。")
+            self.status_var.set("OFD 加载失败")
+            return
+        try:
+            self.status_var.set("正在渲染 OFD 文档...")
+            self.progress_var.set(0)
+            with fitz.open(self.current_path) as doc:
+                total = len(doc)
+                for page_num in range(total):
+                    page = doc.load_page(page_num)
+                    pix = page.get_pixmap(dpi=self._render_dpi)
+                    fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
+                    pix.save(img_path)
+                    self.pdf_images.append(img_path)
+                    self.progress_var.set((page_num + 1) / total * 100)
+                    self.root.update_idletasks()
+                self.status_var.set(f"OFD 文档已渲染: {len(self.pdf_images)} 页")
+                self.page_var.set(f"第 1 / {len(self.pdf_images)} 页")
+                self.progress_var.set(0)
+                if self.pdf_images:
+                    self.show_page(0)
+        except Exception as e:
+            messagebox.showerror("OFD 错误",
+                f"无法打开 OFD 文件:\n{self.current_path}\n\n"
+                f"错误: {e}\n\n"
+                "提示：OFD 格式需要 MuPDF 1.29+ 支持。")
+            self.status_var.set("OFD 加载失败")
 
     def _load_image_file(self):
         if not self.current_path or self.file_type != 'image':
@@ -2937,7 +3088,7 @@ class App:
                             with fitz.open(path) as doc:
                                 for page_num in range(min(len(doc), 5)):
                                     page = doc.load_page(page_num)
-                                    pix = page.get_pixmap(dpi=200)
+                                    pix = page.get_pixmap(dpi=self._render_dpi)
                                     fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
                                     pix.save(img_path)
                                     masked = mask_seals_pil(img_path)
@@ -3047,12 +3198,14 @@ class App:
                 img_w, img_h = img.size
                 if self._fit_mode.get() == 'fit_width':
                     scale = canvas_w / img_w
+                    # fit_width 模式下，若缩放后高度超出画布则改用适应模式避免内容溢出
+                    if img_h * scale > canvas_h:
+                        scale = min(canvas_w / img_w, canvas_h / img_h)
                 else:
                     scale = min(canvas_w / img_w, canvas_h / img_h)
                 new_w, new_h = int(img_w * scale), int(img_h * scale)
                 img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
                 self.current_img = ImageTk.PhotoImage(img_resized)
-            center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
             center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
             self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
             self.page_var.set(f"第 {idx + 1} / {len(self.pdf_images)} 页")
@@ -3132,8 +3285,6 @@ class App:
         self.pdf_canvas.config(cursor="")
 
     def _redraw_current_page(self, canvas_w=None, canvas_h=None):
-        if not HAS_FITZ:
-            return
         if not hasattr(self, '_current_base_image') or not self._current_base_image:
             return
         if not self.pdf_images:
@@ -3145,6 +3296,9 @@ class App:
         canvas_h = canvas_h or self.pdf_canvas.winfo_height() or 600
         if self._fit_mode.get() == 'fit_width':
             base_scale = canvas_w / img_w
+            # fit_width 模式下，若缩放后高度超出画布则改用适应模式
+            if img_h * base_scale > canvas_h:
+                base_scale = min(canvas_w / img_w, canvas_h / img_h)
         else:
             base_scale = min(canvas_w / img_w, canvas_h / img_h)
         scale = base_scale * getattr(self, '_zoom_level', 1.0)
@@ -3160,7 +3314,6 @@ class App:
         if hasattr(self, 'current_display_index'):
             self._draw_code_markers_for_page(self.current_display_index, scale)
         self._highlight_rect_id = None
-
     def _on_canvas_resize(self, event):
         if hasattr(self, '_current_base_image') and self._current_base_image and self.pdf_images:
             self._redraw_current_page()
@@ -3955,7 +4108,7 @@ class App:
             canvas_w = self.pdf_canvas.winfo_width() or 400
             canvas_h = self.pdf_canvas.winfo_height() or 600
             img_w, img_h = self._current_base_image.size
-            dpi = 200
+            dpi = self._render_dpi
             scale_factor = dpi / 72.0
             base_scale = min(canvas_w / img_w, canvas_h / img_h)
             zoom = getattr(self, '_zoom_level', 1.0)
@@ -4216,7 +4369,7 @@ class App:
                 total = len(doc)
                 for page_num in range(total):
                     page = doc.load_page(page_num)
-                    pix = page.get_pixmap(dpi=200)
+                    pix = page.get_pixmap(dpi=self._render_dpi)
                     fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
                     pix.save(img_path)
                     self.pdf_images.append(img_path)
