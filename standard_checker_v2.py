@@ -1965,6 +1965,8 @@ class App:
         self.current_path = None
         self.file_type = None
         self.pdf_images = []
+        self._fitz_doc = None  # fitz doc for lazy render
+        self._total_pages = 0  # PDF/OFD total pages
         self.ocr_results = []
         self.extracted_codes = []
         self.extracted_code_info = {}
@@ -2463,46 +2465,100 @@ class App:
             self.status_var.set("文件加载失败")
             return False
 
+    def _cleanup_temp_images(self):
+        """清理临时图片文件"""
+        for img_path in self.pdf_images:
+            try:
+                if img_path and Path(img_path).exists() and img_path != self.current_path:
+                    os.remove(img_path)
+            except Exception:
+                pass
+        self.pdf_images = []
+
+    def _close_fitz_doc(self):
+        """关闭 fitz 文档对象并清理临时图片"""
+        self._cleanup_temp_images()
+        if self._fitz_doc:
+            try:
+                self._fitz_doc.close()
+            except Exception:
+                pass
+            self._fitz_doc = None
+            self._total_pages = 0
+
+    def _render_page_to_image(self, page_idx):
+        """用 fitz 按需渲染单页为临时图片，返回图片路径"""
+        if not self._fitz_doc:
+            return None
+        try:
+            page = self._fitz_doc.load_page(page_idx)
+            pix = page.get_pixmap(dpi=self._render_dpi)
+            fd, img_path = tempfile.mkstemp(suffix='.png')
+            os.close(fd)
+            pix.save(img_path)
+            return img_path
+        except Exception as e:
+            print(f"Render page {page_idx} error: {e}")
+            return None
+
+    def _load_pdf_lazy(self):
+        """PDF 按需渲染：打开时只读取页数并渲染第 1 页，翻页时才渲染目标页"""
+        if not self.current_path or self.file_type != 'pdf' or not HAS_FITZ:
+            return
+        self._close_fitz_doc()
+        self._close_acmecad()
+        self.status_var.set("正在打开 PDF...")
+        try:
+            self._fitz_doc = fitz.open(self.current_path)
+            self._total_pages = len(self._fitz_doc)
+            if self._total_pages == 0:
+                self.status_var.set("PDF 为空")
+                return
+            img_path = self._render_page_to_image(0)
+            if img_path:
+                self.pdf_images = [None] * self._total_pages
+                self.pdf_images[0] = img_path
+                self.status_var.set(f"PDF 已打开: {self._total_pages} 页")
+                self.page_var.set(f"第 1 / {self._total_pages} 页")
+                self.show_page(0)
+        except Exception as e:
+            messagebox.showerror("PDF 错误", f"无法打开 PDF:\n{self.current_path}\n\n错误: {e}")
+            self.status_var.set("PDF 加载失败")
+
     def _load_docx_file(self):
-        """加载 Word 文档：优先用 Word COM 转为 PDF 再渲染（保留排版/表格/图片），
+        """加载 Word 文档：优先用 Word COM 转为临时 PDF 再按需渲染（保留排版/表格/图片），
         无法转换时回退到文本提取（含表格内容）。"""
         if not self.current_path or self.file_type != 'docx':
             return
+        self._close_fitz_doc()
+        self._close_acmecad()
         self.status_var.set("正在加载 Word 文档...")
-        self.pdf_images = []
         self._rotation_angle = 0
         self._zoom_level = 1.0
         self._pan_image_x = 0
         self._pan_image_y = 0
 
-        # 策略1：Word COM 转 PDF 再 fitz 高 DPI 渲染
+        # 策略1：Word COM 转 PDF 再 fitz 按需渲染
         pdf_path = self._docx_to_pdf_via_com()
         if pdf_path and HAS_FITZ:
             try:
-                self.status_var.set("正在渲染 Word 文档...")
-                self.progress_var.set(0)
-                with fitz.open(pdf_path) as doc:
-                    total = len(doc)
-                    for page_num in range(total):
-                        page = doc.load_page(page_num)
-                        pix = page.get_pixmap(dpi=self._render_dpi)
-                        fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
-                        pix.save(img_path)
-                        self.pdf_images.append(img_path)
-                        self.progress_var.set((page_num + 1) / total * 100)
-                        self.root.update_idletasks()
-                    self.status_var.set(f"Word 文档已渲染: {len(self.pdf_images)} 页")
-                    self.page_var.set(f"第 1 / {len(self.pdf_images)} 页")
-                    self.progress_var.set(0)
-                    if self.pdf_images:
-                        self.show_page(0)
-                    # 同时提取纯文本用于规范识别
-                    self._extract_text_from_docx()
+                self._fitz_doc = fitz.open(pdf_path)
+                self._total_pages = len(self._fitz_doc)
+                if self._total_pages == 0:
+                    self.status_var.set("Word 文档为空")
                     return
+                img_path = self._render_page_to_image(0)
+                if img_path:
+                    self.pdf_images = [None] * self._total_pages
+                    self.pdf_images[0] = img_path
+                    self.status_var.set(f"Word 文档已打开: {self._total_pages} 页")
+                    self.page_var.set(f"第 1 / {self._total_pages} 页")
+                    self.show_page(0)
+                self._extract_text_from_docx()
+                return
             except Exception as e:
                 print(f"[WARN] Word-PDF 渲染失败: {e}")
             finally:
-                # 清理临时 PDF
                 try:
                     if pdf_path and Path(pdf_path).exists():
                         Path(pdf_path).unlink()
@@ -2562,36 +2618,34 @@ class App:
             print(f"[WARN] docx 文本提取失败: {e}")
 
     def _load_ofd_file(self):
-        """加载 OFD 文件：尝试用 PyMuPDF 直接打开（MuPDF 1.29+ 支持 OFD）"""
+        """加载 OFD 文件：用 PyMuPDF 直接打开并按需渲染（MuPDF 1.29+ 支持 OFD）"""
         if not self.current_path:
             return
+        self._close_fitz_doc()
+        self._close_acmecad()
         self.status_var.set("正在加载 OFD 文档...")
-        self.pdf_images = []
         self._rotation_angle = 0
         self._zoom_level = 1.0
+        self._pan_image_x = 0
+        self._pan_image_y = 0
         if not HAS_FITZ:
             messagebox.showwarning("OFD 错误",
                 "打开 OFD 文件需要安装 PyMuPDF 库。")
             self.status_var.set("OFD 加载失败")
             return
         try:
-            self.status_var.set("正在渲染 OFD 文档...")
-            self.progress_var.set(0)
-            with fitz.open(self.current_path) as doc:
-                total = len(doc)
-                for page_num in range(total):
-                    page = doc.load_page(page_num)
-                    pix = page.get_pixmap(dpi=self._render_dpi)
-                    fd, img_path = tempfile.mkstemp(suffix='.png'); os.close(fd)
-                    pix.save(img_path)
-                    self.pdf_images.append(img_path)
-                    self.progress_var.set((page_num + 1) / total * 100)
-                    self.root.update_idletasks()
-                self.status_var.set(f"OFD 文档已渲染: {len(self.pdf_images)} 页")
-                self.page_var.set(f"第 1 / {len(self.pdf_images)} 页")
-                self.progress_var.set(0)
-                if self.pdf_images:
-                    self.show_page(0)
+            self._fitz_doc = fitz.open(self.current_path)
+            self._total_pages = len(self._fitz_doc)
+            if self._total_pages == 0:
+                self.status_var.set("OFD 文档为空")
+                return
+            img_path = self._render_page_to_image(0)
+            if img_path:
+                self.pdf_images = [None] * self._total_pages
+                self.pdf_images[0] = img_path
+                self.status_var.set(f"OFD 文档已打开: {self._total_pages} 页")
+                self.page_var.set(f"第 1 / {self._total_pages} 页")
+                self.show_page(0)
         except Exception as e:
             messagebox.showerror("OFD 错误",
                 f"无法打开 OFD 文件:\n{self.current_path}\n\n"
@@ -2602,6 +2656,8 @@ class App:
     def _load_image_file(self):
         if not self.current_path or self.file_type != 'image':
             return
+        self._close_fitz_doc()
+        self._close_acmecad()
         self.status_var.set("正在加载图片...")
         self.pdf_images = []
         try:
@@ -2623,10 +2679,13 @@ class App:
         try:
             # DWG → 启动 AcmeCAD 嵌入到预览区
             if ext == '.dwg':
+                self._close_fitz_doc()
                 self._load_cad_with_acmecad()
                 return
 
             # DXF → ezdxf 渲染
+            self._close_fitz_doc()
+            self._close_acmecad()
             self.status_var.set("正在渲染 CAD 图纸 (DXF)...")
             self.pdf_images = []
             if not HAS_CAD:
@@ -3187,7 +3246,25 @@ class App:
         if idx < 0 or idx >= len(self.pdf_images):
             return
         self.pdf_canvas.delete('all')
+        # 按需渲染：如果该页尚未渲染，先渲染
+        if self.pdf_images[idx] is None and self._fitz_doc:
+            self.status_var.set(f"正在渲染第 {idx+1} 页...")
+            self.root.update_idletasks()
+            img_path = self._render_page_to_image(idx)
+            if img_path:
+                self.pdf_images[idx] = img_path
+                # 清理其它已渲染的临时页（只保留当前页，节省内存）
+                for i in range(len(self.pdf_images)):
+                    if i != idx and self.pdf_images[i] and self.pdf_images[i] != self.current_path:
+                        try:
+                            os.remove(self.pdf_images[i])
+                        except Exception:
+                            pass
+                        self.pdf_images[i] = None
+                self.status_var.set(f"第 {idx+1} / {len(self.pdf_images)} 页")
         img_path = self.pdf_images[idx]
+        if img_path is None:
+            return
         try:
             with Image.open(img_path) as img:
                 if self._rotation_angle != 0:
@@ -3206,15 +3283,16 @@ class App:
                 new_w, new_h = int(img_w * scale), int(img_h * scale)
                 img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
                 self.current_img = ImageTk.PhotoImage(img_resized)
-            center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
-            self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
-            self.page_var.set(f"第 {idx + 1} / {len(self.pdf_images)} 页")
-            self.current_display_index = idx
-            if self.selector:
-                self.selector.image_item_id = self.current_image_item
-            if self.ocr_region:
-                self._draw_region_overlay(self.ocr_region, scale)
-            self._draw_code_markers_for_page(idx, scale)
+                center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
+                center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
+                self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
+                self.page_var.set(f"第 {idx + 1} / {len(self.pdf_images)} 页")
+                self.current_display_index = idx
+                if self.selector:
+                    self.selector.image_item_id = self.current_image_item
+                if self.ocr_region:
+                    self._draw_region_overlay(self.ocr_region, scale)
+                self._draw_code_markers_for_page(idx, scale)
         except Exception as e:
             messagebox.showerror("图片错误", f"无法显示图片:\n{img_path}\n\n错误: {e}")
             self.status_var.set("图片显示失败")
@@ -3590,6 +3668,16 @@ class App:
             if not self.pdf_images:
                 messagebox.showwarning("提示", "请先打开文件")
                 return
+            # 按需渲染模式下，如果有未渲染的页，先全部渲染
+            if self._fitz_doc:
+                self.status_var.set("正在为 OCR 准备所有页面...")
+                self.root.update_idletasks()
+                for i in range(len(self.pdf_images)):
+                    if self.pdf_images[i] is None:
+                        self.pdf_images[i] = self._render_page_to_image(i)
+                    self.progress_var.set((i + 1) / len(self.pdf_images) * 50)
+                    self.root.update_idletasks()
+                self.progress_var.set(0)
         else:
             messagebox.showwarning("提示", "不支持的文件格式")
             return
@@ -4456,6 +4544,8 @@ class App:
     def extract_text_file(self):
         if not self.current_path:
             return
+        self._close_fitz_doc()
+        self._close_acmecad()
         self.status_var.set("正在提取文本...")
         self.progress_var.set(0)
         self.ocr_results = []
