@@ -11,5 +11,8 @@ reportlab>=4.0.0
 ezdxf>=1.2.0
 matplotlib>=3.7.0
 
+# Windows COM/窗口嵌入（DWG查看器需要）
+pywin32>=306
+
 # 打包
 pyinstaller>=6.0.0

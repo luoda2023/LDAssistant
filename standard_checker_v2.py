@@ -800,10 +800,24 @@ class StandardSearchDialog(tk.Toplevel):
 
 # ===== AI 配置持久化 =====
 _CONFIG_FILE = Path.home() / ".ldassistant_config.json"
+_USAGE_FILE = Path.home() / ".ldassistant_usage.json"
+
+# 免费模型配置（无需用户设置即可使用，100次免费额度）
+_FREE_MODEL_CONFIG = {
+    "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+    "api_key": "1d0f8e5f7c3a4b5e9d8f2a1c6b7e3d5f",
+    "model": "glm-4-flash",
+}
+_FREE_QUOTA = 100  # 免费额度100次
 
 def _load_ai_config():
     """加载 AI API 配置"""
-    default = {"api_url": "http://localhost:3000/api/chat", "api_key": "", "model": "glm-5.1"}
+    default = {
+        "api_url": _FREE_MODEL_CONFIG["api_url"],
+        "api_key": _FREE_MODEL_CONFIG["api_key"],
+        "model": _FREE_MODEL_CONFIG["model"],
+        "use_free_model": True,  # 默认使用免费模型
+    }
     try:
         if _CONFIG_FILE.exists():
             with open(_CONFIG_FILE, 'r', encoding='utf-8') as f:
@@ -811,6 +825,24 @@ def _load_ai_config():
     except Exception:
         pass
     return default
+
+def _load_usage():
+    """加载免费使用次数"""
+    try:
+        if _USAGE_FILE.exists():
+            with open(_USAGE_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f).get("free_uses", 0)
+    except Exception:
+        pass
+    return 0
+
+def _save_usage(count):
+    """保存免费使用次数"""
+    try:
+        with open(_USAGE_FILE, 'w', encoding='utf-8') as f:
+            json.dump({"free_uses": count}, f)
+    except Exception:
+        pass
 
 def _save_ai_config(config):
     """保存 AI API 配置"""
@@ -829,6 +861,7 @@ class AIChatFloatingWindow:
     def __init__(self, master, config=None):
         self.master = master
         self.config = config or _load_ai_config()
+        self._free_uses = _load_usage()
         self.window = tk.Toplevel(master)
         self.window.title("AI 助手")
         self.window.geometry("420x560")
@@ -856,7 +889,13 @@ class AIChatFloatingWindow:
         }
         self._setup_ui()
         self._setup_drag()
-        self.add_message("ai", "你好！我是标准查询 AI 助手。\n发送标准号或关键词，我可以帮你查询国家标准。\n\nOCR 识别的结果会自动显示在这里。")
+        remaining = max(0, _FREE_QUOTA - self._free_uses)
+        self.add_message("ai",
+            f"你好！我是标准查询 AI 助手。\n"
+            f"发送标准号或关键词，我可以帮你查询国家标准。\n\n"
+            f"🎁 当前使用免费模型（glm-4-flash），剩余 {remaining}/{_FREE_QUOTA} 次。\n"
+            f"用完后可在「⚙️ 配置」中设置自己的 API Key。\n\n"
+            f"OCR 识别的结果会自动显示在这里。")
 
     def _set_ai_icon(self):
         """给 AI 聊天窗口设置图标（兼容 PyInstaller onedir 路径）"""
@@ -968,9 +1007,10 @@ class AIChatFloatingWindow:
         self._send_btn.bind('<Leave>', lambda e: self._send_btn.config(bg=C['primary']))
 
         # ── 状态栏 ──
-        self._status_label = tk.Label(self.window, text="就绪 ✓",
-                                      font=C['font_sm'], fg=C['text_muted'],
-                                      bg=C['bg_dark'], anchor=tk.W)
+        remaining = max(0, _FREE_QUOTA - self._free_uses)
+        self._status_label = tk.Label(self.window, text=f"就绪 ✓  |  免费剩余: {remaining}/{_FREE_QUOTA} 次",
+            font=C['font_sm'], fg=C['text_muted'],
+            bg=C['bg_dark'], anchor=tk.W)
         self._status_label.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=3)
 
         self.window.protocol("WM_DELETE_WINDOW", self._close)
@@ -1157,17 +1197,18 @@ class AIChatFloatingWindow:
 
         # 标题
         tk.Label(cfg, text="⚙️ API 配置", font=("Microsoft YaHei UI", 12, "bold"),
-                 bg=C['bg_dark'], fg=C['text']).pack(anchor=tk.W, padx=14, pady=(12, 2))
-        tk.Label(cfg, text="首次使用请设置 API 地址", font=("Microsoft YaHei UI", 9),
-                 bg=C['bg_dark'], fg=C['text_muted']).pack(anchor=tk.W, padx=14, pady=(0, 8))
+            bg=C['bg_dark'], fg=C['text']).pack(anchor=tk.W, padx=14, pady=(12, 2))
+        remaining = max(0, _FREE_QUOTA - _load_usage())
+        tk.Label(cfg, text=f"免费模型可用，剩余 {remaining}/{_FREE_QUOTA} 次", font=("Microsoft YaHei UI", 9),
+            bg=C['bg_dark'], fg=C['success']).pack(anchor=tk.W, padx=14, pady=(0, 8))
 
         frame = tk.Frame(cfg, bg=C['bg'], padx=14, pady=8)
         frame.pack(fill=tk.BOTH, expand=True)
 
         # API 地址
-        tk.Label(frame, text="API 地址", font=("Microsoft YaHei UI", 9),
-                 bg=C['bg'], fg=C['text']).pack(anchor=tk.W, pady=(4, 2))
-        api_url_var = tk.StringVar(value=self.config.get("api_url", "http://localhost:3000/api/chat"))
+        tk.Label(frame, text="API 地址（留空默认使用免费模型）", font=("Microsoft YaHei UI", 9),
+            bg=C['bg'], fg=C['text']).pack(anchor=tk.W, pady=(4, 2))
+        api_url_var = tk.StringVar(value=self.config.get("api_url", _FREE_MODEL_CONFIG["api_url"]))
         url_entry = tk.Entry(frame, textvariable=api_url_var, width=50,
                              font=("Microsoft YaHei UI", 9),
                              bg=C['card'], fg=C['text'],
@@ -1199,7 +1240,7 @@ class AIChatFloatingWindow:
 # 模型 ID
         tk.Label(frame, text="模型 ID", font=("Microsoft YaHei UI", 9),
                  bg=C['bg'], fg=C['text']).pack(anchor=tk.W, pady=(8, 2))
-        model_var = tk.StringVar(value=self.config.get("model", "glm-5.1"))
+        model_var = tk.StringVar(value=self.config.get("model", _FREE_MODEL_CONFIG["model"]))
         # 暗色自定义下拉框（替代 ttk.Combobox）
         model_row = tk.Frame(frame, bg=C['bg'])
         model_row.pack(fill=tk.X, pady=(2, 0))
@@ -1213,7 +1254,7 @@ class AIChatFloatingWindow:
                              bg=C['card'], fg=C['text_muted'], cursor="hand2", padx=8)
         model_btn.pack(side=tk.LEFT, padx=(0, 0))
         model_btn.bind('<Button-1>', lambda e: _show_model_menu())
-        model_values = ('glm-5.2', 'glm-5.1', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
+        model_values = ('glm-4-flash', 'glm-4', 'glm-4-air', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
 
         def _show_model_menu():
             menu = tk.Menu(model_row, tearoff=0,
@@ -1246,19 +1287,25 @@ class AIChatFloatingWindow:
                     cfg.after(0, lambda: status_lbl.config(text=f"❌ 连接失败: {e}", fg=C['danger']))
             self._executor.submit(do_test)
 
-        def save_config():
-            new_config = {
-                "api_url": api_url_var.get().strip(),
-                "api_key": api_key_var.get().strip(),
-                "model": model_var.get().strip()
-            }
-            if _save_ai_config(new_config):
-                self.config = new_config
-                self._status_label.config(text="配置已保存")
-                cfg.destroy()
-                self.add_message("ai", f"✅ API 配置已更新\n地址: {new_config['api_url']}\n模型: {new_config['model']}")
+    def save_config():
+        api_key_val = api_key_var.get().strip()
+        new_config = {
+            "api_url": api_url_var.get().strip(),
+            "api_key": api_key_val,
+            "model": model_var.get().strip(),
+            "use_free_model": len(api_key_val) == 0,  # 无API Key时使用免费模型
+        }
+        if _save_ai_config(new_config):
+            self.config = new_config
+            remaining = max(0, _FREE_QUOTA - self._free_uses)
+            self._status_label.config(text=f"配置已保存  |  免费剩余: {remaining}/{_FREE_QUOTA} 次")
+            cfg.destroy()
+            if new_config["use_free_model"]:
+                self.add_message("ai", f"✅ 已切换到免费模型（剩余 {remaining} 次免费额度）")
             else:
-                status_lbl.config(text="❌ 保存失败", fg=C['danger'])
+                self.add_message("ai", f"✅ API 配置已更新\n地址: {new_config['api_url']}\n模型: {new_config['model']}")
+        else:
+            status_lbl.config(text="❌ 保存失败", fg=C['danger'])
 
         # 底部按钮
         btn_frame = tk.Frame(cfg, bg=C['bg_dark'])
@@ -1312,9 +1359,17 @@ class AIChatFloatingWindow:
 
     def _call_llm_api(self, user_text):
         try:
-            api_url = self.config.get("api_url", "http://localhost:3000/api/chat")
-            api_key = self.config.get("api_key", "")
-            model = self.config.get("model", "glm-5.1")
+            # 检查免费额度
+            use_free = self.config.get("use_free_model", True)
+            if use_free and self._free_uses >= _FREE_QUOTA:
+                self._append_reply(
+                    f"⚠️ 免费额度已用完（{_FREE_QUOTA} 次）。\n\n"
+                    f"请在「⚙️ 配置」中设置您自己的 API Key 和模型，即可继续使用。")
+                return
+
+            api_url = self.config.get("api_url", _FREE_MODEL_CONFIG["api_url"])
+            api_key = self.config.get("api_key", _FREE_MODEL_CONFIG["api_key"])
+            model = self.config.get("model", _FREE_MODEL_CONFIG["model"])
             # Build messages with configurable model
             msgs = [{"role": m["role"], "content": m["content"]} for m in self._messages[:-1]]
             # If no API key, use the simple chat endpoint
@@ -1347,7 +1402,7 @@ class AIChatFloatingWindow:
             resp = urllib.request.urlopen(req, timeout=30)
             result = json.loads(resp.read().decode('utf-8'))
             reply = result.get('reply', '') or result.get('content', '') or \
-                    result.get('choices', [{}])[0].get('message', {}).get('content', '') or str(result)
+                result.get('choices', [{}])[0].get('message', {}).get('content', '') or str(result)
             search_results = result.get('search_results', [])
             if search_results:
                 reply += "\n\n📋 **搜索结果**\n"
@@ -1356,12 +1411,19 @@ class AIChatFloatingWindow:
                     name = r.get('name', '')
                     status = r.get('status', '')
                     reply += f"\n• **{code}** {name} [{status}]"
+            # 免费模型扣减额度
+            if use_free:
+                self._free_uses += 1
+                _save_usage(self._free_uses)
+                remaining = max(0, _FREE_QUOTA - self._free_uses)
+                self.window.after(0, lambda: self._status_label.config(
+                    text=f"就绪 ✓  |  免费剩余: {remaining}/{_FREE_QUOTA} 次"))
             self._append_reply(reply)
         except urllib.error.HTTPError as e:
             body = e.read().decode('utf-8', errors='replace')[:200]
             self._append_reply(f"⚠️ 服务器错误 ({e.code}): {body}")
         except urllib.error.URLError:
-            self._append_reply("⚠️ 无法连接服务器 (端口 3000)。\n请确保 server.js 已启动：\nnode server.js")
+            self._append_reply("⚠️ 无法连接 AI 服务器。\n请检查网络连接或在「⚙️ 配置」中设置自定义 API。")
         except Exception as e:
             self._append_reply(f"⚠️ 错误: {e}")
 
@@ -2000,6 +2062,7 @@ class App:
         self._set_app_icon()
         self._fit_mode = tk.StringVar(value='fit_page')
         self.ai_chat = None
+        self._pending_ocr_results = None  # OCR结果缓存（AI窗口未打开时）
         self._results_panel = None
         self._results_visible = False
         self._thumb_panel = None
@@ -3777,7 +3840,7 @@ class App:
                         if code.replace(' ', '') in cname.replace(' ', '') or cname.replace(' ', '') in code.replace(' ', ''):
                             matched_name = name_map[cname]
                             break
-                    self.extracted_code_info[code] = {'name': matched_name, 'original': code}
+                    self.extracted_code_info[normalize_for_matching(code)] = {'name': matched_name, 'original': code}
                     first_page, first_bbox = page_code_blocks[code][0]
                     self.code_locations.append({'code': code, 'page': first_page, 'bbox': first_bbox})
                 self._ocr_queue.append(('codes', self.extracted_codes))
@@ -4312,7 +4375,7 @@ class App:
         model_btn = tk.Label(model_row, text="▼", font=("Microsoft YaHei UI", 9),
                              bg=C['card'], fg=C['text_muted'], cursor="hand2", padx=8)
         model_btn.pack(side=tk.LEFT, padx=(0, 0))
-        model_values = ('glm-5.2', 'glm-5.1', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
+        model_values = ('glm-4-flash', 'glm-4', 'glm-4-air', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
 
         def _show_model_menu():
             menu = tk.Menu(model_row, tearoff=0,
@@ -4414,27 +4477,31 @@ class App:
     def _toggle_ai_chat(self):
         if self.ai_chat is None:
             self.ai_chat = AIChatFloatingWindow(self.root, config=self.ai_config)
-        self.ai_chat.show()
-        if self.extracted_codes:
-            results = []
-            for code in self.extracted_codes:
-                info = self.extracted_code_info.get(normalize_for_matching(code), {})
-                check_result = None
-                for c, r in self.check_results:
-                    if normalize_for_matching(c) == normalize_for_matching(code):
-                        check_result = r
-                        break
-                results.append({
-                    'code': info.get('original', code),
-                    'name': info.get('name', ''),
-                    'source': info.get('source', ''),
-                    'status': check_result.get('status', '') if check_result else '',
-                    'found': check_result.get('found', False) if check_result else False
-                })
-            self.ai_chat.set_ocr_results(results)
+            self.ai_chat.show()
+            # 如果有缓存的OCR结果，先推送
+            if getattr(self, '_pending_ocr_results', None):
+                self.ai_chat.set_ocr_results(self._pending_ocr_results)
+                self._pending_ocr_results = None
+            elif self.extracted_codes:
+                results = []
+                for code in self.extracted_codes:
+                    info = self.extracted_code_info.get(normalize_for_matching(code), {})
+                    check_result = None
+                    for c, r in self.check_results:
+                        if normalize_for_matching(c) == normalize_for_matching(code):
+                            check_result = r
+                            break
+                    results.append({
+                        'code': info.get('original', code),
+                        'name': info.get('name', ''),
+                        'source': info.get('source', ''),
+                        'status': check_result.get('status', '') if check_result else '',
+                        'found': check_result.get('found', False) if check_result else False
+                    })
+                self.ai_chat.set_ocr_results(results)
 
     def _push_ocr_to_ai(self):
-        if self.ai_chat is None or not self.extracted_codes:
+        if not self.extracted_codes:
             return
         results = []
         for code in self.extracted_codes:
@@ -4444,6 +4511,11 @@ class App:
                 'name': info.get('name', ''),
                 'source': info.get('source', ''),
             })
+        if self.ai_chat is None:
+            # 缓存结果，等AI窗口打开后再推送
+            self._pending_ocr_results = results
+            return
+        self._pending_ocr_results = None
         self.ai_chat.set_ocr_results(results)
 
     def convert_pdf_to_images(self):
