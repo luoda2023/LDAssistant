@@ -663,7 +663,7 @@ class StandardSearchDialog(tk.Toplevel):
                                 font=("Microsoft YaHei UI", 10),
                                 bg=C['card'], fg=C['text'],
                                 insertbackground=C['text'],
-                                borderwidth=0, highlightthickness=0, padx=6)
+                                borderwidth=0, highlightthickness=0)
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5), ipady=4)
         search_entry.bind('<Return>', lambda e: self._do_search())
         # 搜索按钮
@@ -1172,7 +1172,7 @@ class AIChatFloatingWindow:
                              font=("Microsoft YaHei UI", 9),
                              bg=C['card'], fg=C['text'],
                              insertbackground=C['text'],
-                             borderwidth=0, highlightthickness=0, padx=6)
+                             borderwidth=0, highlightthickness=0)
         url_entry.pack(fill=tk.X, ipady=4)
 
         # API Key
@@ -1187,7 +1187,7 @@ class AIChatFloatingWindow:
                              font=("Microsoft YaHei UI", 9),
                              bg=C['card'], fg=C['text'],
                              insertbackground=C['text'],
-                             borderwidth=0, highlightthickness=0, padx=6)
+                             borderwidth=0, highlightthickness=0)
         key_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
         def toggle_key_show():
             key_entry.config(show='' if key_entry.cget('show') == '*' else '*')
@@ -1207,7 +1207,7 @@ class AIChatFloatingWindow:
                                font=("Microsoft YaHei UI", 9),
                                bg=C['card'], fg=C['text'],
                                insertbackground=C['text'],
-                               borderwidth=0, highlightthickness=0, padx=6)
+                               borderwidth=0, highlightthickness=0)
         model_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
         model_btn = tk.Label(model_row, text="▼", font=("Microsoft YaHei UI", 9),
                              bg=C['card'], fg=C['text_muted'], cursor="hand2", padx=8)
@@ -4186,7 +4186,7 @@ class App:
                              font=("Microsoft YaHei UI", 9),
                              bg=C['card'], fg=C['text'],
                              insertbackground=C['text'],
-                             borderwidth=0, highlightthickness=0, padx=6)
+                             borderwidth=0, highlightthickness=0)
         url_entry.pack(fill=tk.X, ipady=4)
 
         # API Key
@@ -4199,7 +4199,7 @@ class App:
                              font=("Microsoft YaHei UI", 9),
                              bg=C['card'], fg=C['text'],
                              insertbackground=C['text'],
-                             borderwidth=0, highlightthickness=0, padx=6)
+                             borderwidth=0, highlightthickness=0)
         key_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
         def toggle_key_show():
             key_entry.config(show='' if key_entry.cget('show') == '*' else '*')
@@ -4219,7 +4219,7 @@ class App:
                                font=("Microsoft YaHei UI", 9),
                                bg=C['card'], fg=C['text'],
                                insertbackground=C['text'],
-                               borderwidth=0, highlightthickness=0, padx=6)
+                               borderwidth=0, highlightthickness=0)
         model_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4)
         model_btn = tk.Label(model_row, text="▼", font=("Microsoft YaHei UI", 9),
                              bg=C['card'], fg=C['text_muted'], cursor="hand2", padx=8)
