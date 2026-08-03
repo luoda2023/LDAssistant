@@ -2743,6 +2743,7 @@ class App:
             # DWG → 启动 AcmeCAD 嵌入到预览区
             if ext == '.dwg':
                 self._close_fitz_doc()
+                self._close_acmecad()
                 self._load_cad_with_acmecad()
                 return
 
@@ -2940,10 +2941,12 @@ class App:
                         win32con.RDW_INVALIDATE | win32con.RDW_UPDATENOW)
                     # 重新枚举，把还没隐藏的小 UI 也藏掉（二次清理）
                     win32gui.EnumChildWindows(acme_main, _hide_cb, [])
-                    if try_count < 5:
-                        self.root.after(150, lambda: _hide_acme_ui(acme_main, try_count + 1))
+                    if try_count < 15:
+                        self.root.after(500, lambda: _hide_acme_ui(acme_main, try_count + 1))
                 except Exception as e:
                     print(f"_hide_acme_ui error: {e}")
+            if try_count < 15:
+                self.root.after(500, lambda: _hide_acme_ui(acme_main, try_count + 1))
 
             def _embed_acme(acme_main, try_count=0):
                 """把 AcmeCAD 嵌入到我们预览区，定位到画布尺寸"""
@@ -2975,8 +2978,8 @@ class App:
                     self.page_var.set("CAD 预览")
                 except Exception as e:
                     print(f"_embed_acme error (try {try_count}): {e}")
-                    if try_count < 6:
-                        self.root.after(200, lambda: _embed_acme(acme_main, try_count + 1))
+                    if try_count < 10:
+                        self.root.after(300, lambda: _embed_acme(acme_main, try_count + 1))
 
             def _find_and_init():
                 """搜索 AcmeCAD 主窗口，找到后隐藏 UI 并嵌入"""
@@ -2990,10 +2993,10 @@ class App:
                 if found:
                     acme_main = found[-1]
                     self._acme_find_count = 0
-                    self.root.after(300, lambda: _hide_acme_ui(acme_main))
-                    self.root.after(1500, lambda: _embed_acme(acme_main))
+                    self.root.after(1000, lambda: _hide_acme_ui(acme_main))
+                    self.root.after(2500, lambda: _embed_acme(acme_main))
                 else:
-                    if self._acme_find_count < 40:
+                    if self._acme_find_count < 60:
                         self._acme_find_count += 1
                         self.root.after(250, _find_and_init)
                     else:
