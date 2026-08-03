@@ -28,10 +28,10 @@ jobs:
       - name: 安装 Python 依赖
         shell: pwsh
         run: |
-      python -m pip install --upgrade pip
-      pip install pyinstaller reportlab py7zr
-      pip install PyMuPDF python-docx Pillow openpyxl ezdxf matplotlib
-      pip install pywin32
+          python -m pip install --upgrade pip
+          pip install pyinstaller reportlab py7zr
+          pip install PyMuPDF python-docx Pillow openpyxl ezdxf matplotlib
+          pip install pywin32
 
       - name: 验证依赖
         shell: pwsh
@@ -43,7 +43,7 @@ jobs:
           python -c "import ezdxf; print('ezdxf OK')"
           python -c "import matplotlib; print('matplotlib OK')"
           python -c "import pyparsing; print('pyparsing OK')"
-        python -c "import win32gui; print('pywin32 OK')"
+          python -c "import win32gui; print('pywin32 OK')"
 
       - name: 解压标准数据库
         shell: pwsh
@@ -78,15 +78,13 @@ jobs:
             --collect-all "matplotlib" `
             --collect-all "reportlab" `
             --collect-all "pyparsing" `
---hidden-import "win32gui" `
---hidden-import "win32con" `
---hidden-import "win32api" `
---hidden-import "win32process" `
---hidden-import "win32com" `
---hidden-import "win32com.client" `
---hidden-import "pythoncom" `
---collect-all "win32ctypes" `
---collect-all "pywin32_system32" `
+            --hidden-import "win32gui" `
+            --hidden-import "win32con" `
+            --hidden-import "win32api" `
+            --hidden-import "win32process" `
+            --hidden-import "win32com" `
+            --hidden-import "win32com.client" `
+            --hidden-import "pythoncom" `
             --exclude-module "matplotlib.tests" `
             --exclude-module "numpy.testing" `
             --exclude-module "numpy.f2py" `
@@ -161,23 +159,23 @@ jobs:
             Write-Host "=== ISCC 编译成功 ==="
             echo "iscc_success=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           } else {
-            Write-Host "::warning::ISCC 编译失败 (exit $isccExit)，使用 zip 回退方案"
+            Write-Host "::warning::ISCC 编译失败 (exit $isccExit)，将用 zip 代替"
             echo "iscc_success=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
 
-      - name: 打包 PyInstaller onedir 为 zip（备用方案）
+      - name: 备用 PyInstaller onedir 打zip代替
         if: steps.iscc.outputs.iscc_success != 'true'
         shell: pwsh
         run: |
-          Write-Host "=== ISCC 失败，打包 onedir 为 zip ==="
+          Write-Host "=== ISCC 失败，备用 onedir 打 zip ==="
           $match = Select-String -Path "standard_checker_v2.py" -Pattern 'VERSION\s*=\s*"([\w.]+)"'
           if (-not $match) { $version = "0.0.0" } else { $version = $match.Matches.Groups[1].Value }
           $zipName = "LDAssistant-v$version.zip"
           Compress-Archive -Path "dist/LDAssistant/*" -DestinationPath "dist/$zipName" -Force
-          Write-Host "已创建: dist/$zipName"
+          Write-Host "已生成: dist/$zipName"
           Get-ChildItem "dist/$zipName" | Format-Table Name, Length
 
-      - name: 上传构建产物为 Artifact
+      - name: 上传构建产物 Artifact
         uses: actions/upload-artifact@v4
         with:
           name: LDAssistant-build
@@ -187,7 +185,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: 列出构建产物
+      - name: 列出构建目录
         shell: pwsh
         run: |
           Write-Host "=== dist 目录内容 ==="
@@ -197,7 +195,7 @@ jobs:
             Write-Host "dist 目录不存在!"
           }
 
-      - name: 上传到 Release
+      - name: 发布到 Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -205,29 +203,29 @@ jobs:
           $ErrorActionPreference = "Stop"
           $repo = $env:GITHUB_REPOSITORY
 
-          # 查找要上传的文件（优先 Setup exe，其次 zip）
+          # 决定上传的构建产物（优先 Setup exe，否则 zip）
           $uploadFiles = @()
           $setupFiles = Get-ChildItem dist -Filter "LDAssistant-Setup-*.exe" -ErrorAction SilentlyContinue
           if ($setupFiles) {
             $uploadFiles += $setupFiles
-            Write-Host "找到 ISCC 安装包:"
+            Write-Host "找到 ISCC 构建产物:"
           } else {
             $zipFiles = Get-ChildItem dist -Filter "LDAssistant-*.zip" -ErrorAction SilentlyContinue
             if ($zipFiles) {
               $uploadFiles += $zipFiles
-              Write-Host "找到 zip 包（ISCC 编译失败，使用备用方案）:"
+              Write-Host "找到 zip 产物（ISCC 编译失败所以用 zip）:"
             } else {
-              Write-Host "ERROR: 未找到任何可上传的文件"
+              Write-Host "ERROR: 找不到可上传的构建产物"
               exit 1
             }
           }
           $uploadFiles | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
 
-          # 使用 gh CLI 原子化创建/更新 Release（避免删除-创建竞态）
+          # 使用 gh CLI 删除并重建 Release
           $tagName = "latest-build"
-          $releaseBody = "自动构建最新版工程助手`ncommit: $($env:GITHUB_SHA.Substring(0,7))"
+          $releaseBody = "标准检查助手最新构建`ncommit: $($env:GITHUB_SHA.Substring(0,7))"
 
-          # 先删除旧 tag
+          # 删除旧 tag
           Write-Host "=== 删除旧 Release ==="
           $apiUrl = "https://api.github.com/repos/$repo/releases"
           $headers = @{
@@ -242,7 +240,7 @@ jobs:
               Invoke-RestMethod -Uri "$apiUrl/$($existing.id)" -Method DELETE -Headers $headers | Out-Null
             }
           } catch {
-            Write-Host "无旧 Release 需要删除"
+            Write-Host "无旧 Release 需删除"
           }
 
           # 创建新 Release
@@ -291,9 +289,9 @@ jobs:
               }
             }
             if (-not $uploaded) {
-              Write-Host "ERROR: $fileName 上传最终失败"
+              Write-Host "ERROR: $fileName 上传全部失败"
               exit 1
             }
           }
           Write-Host "=== Release 上传完成! ==="
-          Write-Host "下载页面: https://github.com/$repo/releases/tag/$tagName"
+          Write-Host "下载地址: https://github.com/$repo/releases/tag/$tagName"
