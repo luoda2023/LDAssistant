@@ -46,3 +46,4 @@ _*.js
 ocr/
 # 但允许 download_ocr.py 脚本提交
 !download_ocr.py
+downloads/
