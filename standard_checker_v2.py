@@ -66,15 +66,16 @@ except Exception:
 
 # CAD support
 try:
-    import ezdxf
-    from ezdxf.addons.drawing import Frontend, RenderContext
-    from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    HAS_CAD = True
-except Exception:
-    HAS_CAD = False
+ import ezdxf
+ from ezdxf.addons.drawing import Frontend, RenderContext
+ from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+ import matplotlib
+ matplotlib.use('Agg')
+ import matplotlib.pyplot as plt
+ HAS_CAD = True
+except Exception as _cad_err:
+ HAS_CAD = False
+ print(f"[WARN] ezdxf/matplotlib 导入失败，DXF 渲染不可用: {_cad_err}", flush=True)
 
 # Fix blurry text on high-DPI Windows displays
 try:
@@ -2495,10 +2496,86 @@ class App:
             messagebox.showerror("CAD 错误", f"加载 CAD 文件出错:\n{self.current_path}\n\n错误: {e}")
             self.status_var.set("CAD 加载失败")
 
+    def _find_acmecad_path(self):
+        """查找 AcmeCAD 可执行文件路径：
+        1. 注册表 App Paths / Uninstall 键
+        2. 常见安装目录扫描
+        3. 硬编码默认路径（兼容旧版）
+        """
+        import os, glob
+
+        # (1) 注册表搜索
+        try:
+            import winreg
+            for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+                for subkey in (
+                    r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\AcmeCAD.exe",
+                    r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\AcmeCAD2023-v8.10.6.1560-Chs.exe",
+                ):
+                    try:
+                        with winreg.OpenKey(root, subkey) as k:
+                            p, _ = winreg.QueryValueEx(k, "")
+                            if p and Path(p).exists():
+                                return p
+                    except OSError:
+                        pass
+                # Uninstall 键搜索 InstallLocation
+                try:
+                    with winreg.OpenKey(root,
+                        r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                        0, winreg.KEY_READ) as base:
+                        i = 0
+                        while True:
+                            try:
+                                sub = winreg.EnumKey(base, i)
+                                i += 1
+                            except OSError:
+                                break
+                            try:
+                                with winreg.OpenKey(base, sub) as k:
+                                    name, _ = winreg.QueryValueEx(k, "DisplayName")
+                                    val, _ = winreg.QueryValueEx(k, "InstallLocation")
+                                    if "acme" in name.lower() and val:
+                                        candidate = Path(val)
+                                        for exe in candidate.glob("*.exe"):
+                                            if "acme" in exe.name.lower():
+                                                return str(exe)
+                            except OSError:
+                                pass
+                except OSError:
+                    pass
+        except Exception:
+            pass
+
+        # (2) 常见安装目录扫描
+        candidates = []
+        for drive in ("D:", "C:", "E:", "F:"):
+            candidates.extend([
+                fr"{drive}\Program Files",
+                fr"{drive}\Program Files (x86)",
+                fr"{drive}",
+                fr"{drive}\Apps",
+            ])
+        for base_dir in candidates:
+            if not Path(base_dir).exists():
+                continue
+            for pattern in ("AcmeCAD*.exe", "acme*.exe"):
+                for hit in glob.glob(str(Path(base_dir) / "**" / pattern),
+                                     recursive=True):
+                    return hit
+            for d in Path(base_dir).iterdir():
+                if d.is_dir() and "acme" in d.name.lower():
+                    for exe in d.glob("*.exe"):
+                        if "acme" in exe.name.lower():
+                            return str(exe)
+
+        # (3) 硬编码默认路径（兼容旧版安装）
+        return r"D:/Program Files/AcmeCAD2023-v8.10.6.1560-Chs.exe"
+
     def _load_cad_with_acmecad(self):
         """用 AcmeCAD 打开 DWG 并嵌入到预览区。只保留中间黑色绘图区，
         菜单栏、工具栏、状态栏全部隐藏，窗口充满整个预览画布。"""
-        acme_path = r"D:/Program Files/AcmeCAD2023-v8.10.6.1560-Chs.exe"
+        acme_path = self._find_acmecad_path()
         if not Path(acme_path).exists():
             messagebox.showwarning("CAD 错误",
                 f"找不到 AcmeCAD:\n{acme_path}\n\n"
@@ -2648,17 +2725,21 @@ class App:
                         self.root.after(250, _find_and_init)
                     else:
                         messagebox.showerror("CAD 错误",
-                            "无法获取 AcmeCAD 窗口，请确认 AcmeCAD 已正确安装。\n\n"
-                            "提示：请关闭任何正在运行的 AcmeCAD 后再试。")
+                        "无法获取 AcmeCAD 窗口，请确认 AcmeCAD 已正确安装。\n\n"
+                        "提示：请关闭任何正在运行的 AcmeCAD 后再试。")
                         self._acme_proc.terminate()
                         try:
                             self._acme_proc.wait(timeout=3)
                         except Exception:
                             pass
 
+            # ★ 关键修复：启动窗口搜索流程（原代码遗漏了这一行，导致
+            # AcmeCAD 进程启动后嵌入逻辑从未运行，DWG 无法显示）
+            self._acme_find_count = 0
+            self.root.after(500, _find_and_init)
         except Exception as e:
             messagebox.showerror("CAD 错误", f"打开 DWG 失败:\n{e}")
-        self.status_var.set("打开 DWG 失败")
+            self.status_var.set("打开 DWG 失败")
 
     def _close_acmecad(self):
         """关闭嵌入的 AcmeCAD 实例"""
