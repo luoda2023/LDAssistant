@@ -41,6 +41,7 @@ jobs:
           python -c "import openpyxl; print('openpyxl OK')"
           python -c "import ezdxf; print('ezdxf OK')"
           python -c "import matplotlib; print('matplotlib OK')"
+          python -c "import pyparsing; print('pyparsing OK')"
 
       - name: 解压标准数据库
         shell: pwsh
@@ -60,42 +61,44 @@ jobs:
         shell: pwsh
         run: |
           python -m PyInstaller --onedir --windowed --name "LDAssistant" `
-          --icon "app_icon.ico" `
-          --add-data "standards.db;." `
-          --add-data "ocr;ocr" `
-          --add-data "app_icon.ico;." `
-          --add-data "app_icon.png;." `
-          --hidden-import "standard_db" `
-          --collect-all "fitz" `
-          --collect-all "PIL" `
-          --collect-all "docx" `
-          --collect-all "ezdxf" `
-          --collect-all "matplotlib" `
-          --collect-all "reportlab" `
-          --exclude-module "matplotlib.tests" `
-          --exclude-module "numpy.testing" `
-          --exclude-module "numpy.f2py" `
-          --exclude-module "numpy.distutils" `
-          --exclude-module "PIL.ImageShow" `
-          --exclude-module "PIL.ImageGrab" `
-          --exclude-module "PIL.ImageCms" `
-          --exclude-module "tkinter.test" `
-          --exclude-module "unittest" `
-          --exclude-module "test" `
-          --exclude-module "tests" `
-          --exclude-module "pytest" `
-          --exclude-module "_pytest" `
-          --exclude-module "setuptools" `
-          --exclude-module "pip" `
-          --exclude-module "wheel" `
-          --exclude-module "pkg_resources" `
-          --exclude-module "pydoc_data" `
-          --exclude-module "IPython" `
-          --exclude-module "jupyter" `
-          --exclude-module "matplotlib.backends.backend_qt5agg" `
-          --exclude-module "matplotlib.backends.backend_qt" `
-          --exclude-module "matplotlib.backends.backend_wx" `
-          standard_checker_v2.py
+            --icon "app_icon.ico" `
+            --add-data "standards.db;." `
+            --add-data "ocr;ocr" `
+            --add-data "app_icon.ico;." `
+            --add-data "app_icon.png;." `
+            --hidden-import "standard_db" `
+            --hidden-import "unittest" `
+            --hidden-import "pyparsing" `
+            --collect-all "fitz" `
+            --collect-all "PIL" `
+            --collect-all "docx" `
+            --collect-all "ezdxf" `
+            --collect-all "matplotlib" `
+            --collect-all "reportlab" `
+            --collect-all "pyparsing" `
+            --exclude-module "matplotlib.tests" `
+            --exclude-module "numpy.testing" `
+            --exclude-module "numpy.f2py" `
+            --exclude-module "numpy.distutils" `
+            --exclude-module "PIL.ImageShow" `
+            --exclude-module "PIL.ImageGrab" `
+            --exclude-module "PIL.ImageCms" `
+            --exclude-module "tkinter.test" `
+            --exclude-module "test" `
+            --exclude-module "tests" `
+            --exclude-module "pytest" `
+            --exclude-module "_pytest" `
+            --exclude-module "setuptools" `
+            --exclude-module "pip" `
+            --exclude-module "wheel" `
+            --exclude-module "pkg_resources" `
+            --exclude-module "pydoc_data" `
+            --exclude-module "IPython" `
+            --exclude-module "jupyter" `
+            --exclude-module "matplotlib.backends.backend_qt5agg" `
+            --exclude-module "matplotlib.backends.backend_qt" `
+            --exclude-module "matplotlib.backends.backend_wx" `
+            standard_checker_v2.py
 
       - name: 安装 Inno Setup
         shell: pwsh
@@ -213,7 +216,7 @@ jobs:
           $tagName = "latest-build"
           $releaseBody = "自动构建最新版工程助手`ncommit: $($env:GITHUB_SHA.Substring(0,7))"
 
-          # 先删除旧 tag（gh release create --clobber 不可靠，先 delete 再 create）
+          # 先删除旧 tag
           Write-Host "=== 删除旧 Release ==="
           $apiUrl = "https://api.github.com/repos/$repo/releases"
           $headers = @{
