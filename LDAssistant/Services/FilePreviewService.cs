@@ -171,7 +171,6 @@ namespace LDAssistant.Services
     //  Word 格式化渲染 — 保留字体大小、粗体、表格、图片
     // ═══════════════════════════════════════════════════════════
 
-    /// <summary>Word 文档中的块元素</summary>
     private abstract class DocBlock
     {
         public abstract void Draw(SD.Graphics g, ref float y, float maxW, ref float maxH);
@@ -193,19 +192,12 @@ namespace LDAssistant.Services
             var fontStyle = SD.FontStyle.Regular;
             if (Bold) fontStyle |= SD.FontStyle.Bold;
             if (Italic) fontStyle |= SD.FontStyle.Italic;
-            var font = new SD.Font("微软雅黑", FontSize, fontStyle);
-            var brush = new SD.SolidBrush(Color);
-            var fmt = new SD.StringFormat { Trimming = SD.StringTrimming.WordWrap };
+            using var font = new SD.Font("微软雅黑", FontSize, fontStyle);
+            using var brush = new SD.SolidBrush(Color);
+            using var fmt = new SD.StringFormat { Trimming = SD.StringTrimming.EllipsisCharacter, FormatFlags = SD.StringFormatFlags.NoClip };
             var layout = new SD.RectangleF(40, y, maxW - 80, 5000);
             var sz = g.MeasureString(Text, font, (int)(maxW - 80), fmt);
-            if (IsHeading || IsTitle)
-            {
-                g.DrawString(Text, font, brush, layout, fmt);
-            }
-            else
-            {
-                g.DrawString(Text, font, brush, layout, fmt);
-            }
+            g.DrawString(Text, font, brush, layout, fmt);
             y += sz.Height + 4;
             if (y > maxH) maxH = y;
         }
@@ -231,7 +223,6 @@ namespace LDAssistant.Services
     private class DocTableBlock : DocBlock
     {
         public List<List<string>> Rows { get; set; } = new();
-        public List<float> ColWidths { get; set; } = new();
 
         public override void Draw(SD.Graphics g, ref float y, float maxW, ref float maxH)
         {
@@ -240,15 +231,13 @@ namespace LDAssistant.Services
             float tableW = maxW - 80;
             float colW = tableW / cols;
 
-            var headerFont = new SD.Font("微软雅黑", 10, SD.FontStyle.Bold);
-            var cellFont = new SD.Font("微软雅黑", 10);
-            var headerBg = new SD.SolidBrush(SD.Color.FromArgb(0x42, 0xA5, 0xF5));
-            var altBg = new SD.SolidBrush(SD.Color.FromArgb(0xF5, 0xF5, 0xF5));
-            var borderPen = new SD.Pen(SD.Color.FromArgb(0xCC, 0xCC, 0xCC), 1);
-            var textBrush = new SD.SolidBrush(SD.Color.Black);
-
-            // 计算行高
-            var fmt = new SD.StringFormat { Trimming = SD.StringTrimming.WordWrap };
+            using var headerFont = new SD.Font("微软雅黑", 10, SD.FontStyle.Bold);
+            using var cellFont = new SD.Font("微软雅黑", 10);
+            using var headerBg = new SD.SolidBrush(SD.Color.FromArgb(0x42, 0xA5, 0xF5));
+            using var altBg = new SD.SolidBrush(SD.Color.FromArgb(0xF5, 0xF5, 0xF5));
+            using var borderPen = new SD.Pen(SD.Color.FromArgb(0xCC, 0xCC, 0xCC), 1);
+            using var textBrush = new SD.SolidBrush(SD.Color.Black);
+            using var fmt = new SD.StringFormat { Trimming = SD.StringTrimming.EllipsisCharacter, FormatFlags = SD.StringFormatFlags.NoClip };
             var rowHeights = new float[Rows.Count];
 
             for (int r = 0; r < Rows.Count; r++)
@@ -320,17 +309,19 @@ namespace LDAssistant.Services
 
             // 获取图片关系
             var imageParts = new Dictionary<string, SD.Bitmap>();
-            foreach (var rel in mainPart.GetRelationshipsByType("http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"))
+            foreach (var rel in mainPart.HyperlinkRelationships)
+            {
+                // skip hyperlinks
+            }
+            // 遍历 ImageParts
+            foreach (var ipart in mainPart.ImageParts)
             {
                 try
                 {
-                    var part = mainPart.GetPartById(rel.Id);
-                    if (part != null)
-                    {
-                        using var stream = part.GetStream();
-                        var img = new SD.Bitmap(stream);
-                        imageParts[rel.Id] = img;
-                    }
+                    using var stream = ipart.GetStream();
+                    var img = new SD.Bitmap(stream);
+                    var rid = mainPart.GetIdOfPart(ipart);
+                    imageParts[rid] = img;
                 }
                 catch { }
             }
@@ -383,10 +374,13 @@ namespace LDAssistant.Services
         g.Clear(SD.Color.White);
 
         // 标题
-        var titleFont = new SD.Font("微软雅黑", 14, SD.FontStyle.Bold);
-        var titleBrush = new SD.SolidBrush(SD.Color.FromArgb(0x1A, 0x23, 0x7A));
-        g.DrawString(Path.GetFileName(path), titleFont, titleBrush, 40, 16);
-        g.DrawLine(new SD.Pen(SD.Color.FromArgb(0x21, 0x96, 0xF3), 2), 40, 44, canvasW - 40, 44);
+        using (var titleFont = new SD.Font("微软雅黑", 14, SD.FontStyle.Bold))
+        using (var titleBrush = new SD.SolidBrush(SD.Color.FromArgb(0x1A, 0x23, 0x7A)))
+        using (var titlePen = new SD.Pen(SD.Color.FromArgb(0x21, 0x96, 0xF3), 2))
+        {
+            g.DrawString(Path.GetFileName(path), titleFont, titleBrush, 40, 16);
+            g.DrawLine(titlePen, 40, 44, canvasW - 40, 44);
+        }
 
         float drawY = 60;
         float drawMaxH = 60;
@@ -395,7 +389,12 @@ namespace LDAssistant.Services
             b.Draw(g, ref drawY, canvasW, ref drawMaxH);
         }
 
-        return ConvertBitmap(bmp);
+        var result = ConvertBitmap(bmp);
+        bmp.Dispose();
+        // 释放 Word 图片资源
+        foreach (var kv in imageParts)
+            try { kv.Value?.Dispose(); } catch { }
+        return result;
     }
 
     /// <summary>解析 Word 段落 → 文本块或图片块</summary>
@@ -558,11 +557,12 @@ namespace LDAssistant.Services
         using var g = SD.Graphics.FromImage(bmp);
         g.Clear(SD.Color.White);
 
-        var titleFont = new SD.Font("微软雅黑", 16, SD.FontStyle.Bold);
-        var textFont = new SD.Font("微软雅黑", 12);
-        var titleBrush = new SD.SolidBrush(SD.Color.FromArgb(0, 51, 102));
-        var textBrush = new SD.SolidBrush(SD.Color.Black);
-        var linePen = new SD.Pen(SD.Color.FromArgb(0, 120, 200), 2);
+        using var titleFont = new SD.Font("微软雅黑", 16, SD.FontStyle.Bold);
+        using var textFont = new SD.Font("微软雅黑", 12);
+        using var titleBrush = new SD.SolidBrush(SD.Color.FromArgb(0, 51, 102));
+        using var textBrush = new SD.SolidBrush(SD.Color.Black);
+        using var grayBrush = new SD.SolidBrush(SD.Color.Gray);
+        using var linePen = new SD.Pen(SD.Color.FromArgb(0, 120, 200), 2);
 
         g.DrawString(title, titleFont, titleBrush, margin, 12);
         g.DrawLine(linePen, margin, 40, w - margin, 40);
@@ -572,15 +572,16 @@ namespace LDAssistant.Services
         {
             if (cy + lineH > h - margin)
             {
-                g.DrawString("...（内容截断）", textFont,
-                    new SD.SolidBrush(SD.Color.Gray), margin, cy);
+                g.DrawString("...（内容截断）", textFont, grayBrush, margin, cy);
                 break;
             }
             g.DrawString(ln, textFont, textBrush, margin, cy);
             cy += lineH;
         }
 
-        return ConvertBitmap(bmp);
+        var result = ConvertBitmap(bmp);
+        bmp.Dispose();
+        return result;
     }
 
         /// <summary>System.Drawing.Bitmap → WPF BitmapSource</summary>
