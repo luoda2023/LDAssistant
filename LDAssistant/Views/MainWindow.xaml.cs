@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -25,10 +25,11 @@ namespace LDAssistant.Views
 
         // ═════════════ 数据 ═════════════
         public ObservableCollection<PageThumbItem> PageThumbs { get; } = new();
-        public ObservableCollection<CheckResult> CodeList { get; } = new();
-        public ObservableCollection<CheckResult> CheckList { get; } = new();
 
-        // 批量文件列表（内部用）
+        // 内部数据（不绑定到 UI，推送到 AI 窗口）
+        private List<CheckResult> _lastCodes = new();
+        private List<CheckResult> _lastResults = new();
+        private string _lastOcrText = "";
         private List<FileBatchItem> _batchFiles = new();
 
         // ═════════════ 状态 ═════════════
@@ -43,8 +44,6 @@ namespace LDAssistant.Views
             InitializeComponent();
 
             ThumbList.ItemsSource = PageThumbs;
-            CodeGrid.ItemsSource = CodeList;
-            CheckGrid.ItemsSource = CheckList;
 
             // 初始化 OCR
             var (exe, dir) = OcrService.FindOcrPath();
@@ -88,6 +87,30 @@ namespace LDAssistant.Views
             foreach (var p in candidates)
                 if (File.Exists(p)) return Path.GetFullPath(p);
             return null;
+        }
+
+        // ═════════════ AI 窗口 ═════════════
+        private AiChatWindow _aiWindow;
+
+        private void ShowAiWindow()
+        {
+            if (_aiWindow == null || !_aiWindow.IsVisible)
+            {
+                _aiWindow = new AiChatWindow(_ai);
+                _aiWindow.Show();
+            }
+            else
+            {
+                _aiWindow.Activate();
+            }
+        }
+
+        /// <summary>推送系统消息到 AI 窗口</summary>
+        private void PushToAi(string title, string content)
+        {
+            ShowAiWindow();
+            var msg = $"## {title}\n\n{content}";
+            _aiWindow.AddMessage("系统", msg);
         }
 
         // ═════════════ 打开文件 ═════════════
@@ -195,7 +218,6 @@ namespace LDAssistant.Views
                     catch { }
                 }
 
-                // 默认选第一页
                 Dispatcher.Invoke(() =>
                 {
                     if (PageThumbs.Count > 0)
@@ -306,7 +328,7 @@ namespace LDAssistant.Views
             }
         }
 
-        // ═════════════ OCR ═════════════
+        // ═════════════ OCR — 结果推送到 AI 窗口 ═════════════
         private void BtnOcr_Click(object sender, RoutedEventArgs e)
         {
             if (_currentFilePath == null) return;
@@ -346,13 +368,19 @@ namespace LDAssistant.Views
                         Progress.Value = 100;
                         if (result.Success)
                         {
-                            OcrTextBox.Text = result.FullText;
-                            OcrInfo.Text = $"识别到 {result.Items.Count} 行文字";
+                            _lastOcrText = result.FullText;
                             StatusText.Text = $"OCR 完成 — {result.Items.Count} 行";
+
+                            // 推送到 AI 窗口
+                            var preview = result.FullText.Length > 2000
+                                ? result.FullText.Substring(0, 2000) + "\n\n... (文本已截断，完整文本已保存)"
+                                : result.FullText;
+                            PushToAi("OCR 识别结果", $"识别到 **{result.Items.Count}** 行文字：\n\n```\n{preview}\n```");
                         }
                         else
                         {
                             StatusText.Text = result.FullText;
+                            PushToAi("OCR 失败", result.FullText);
                         }
                     });
                 }
@@ -368,7 +396,7 @@ namespace LDAssistant.Views
             });
         }
 
-        // ═════════════ 规范检查 ═════════════
+        // ═════════════ 规范检查 — 结果推送到 AI 窗口 ═════════════
         private void BtnCheck_Click(object sender, RoutedEventArgs e)
         {
             if (_checker == null)
@@ -378,23 +406,22 @@ namespace LDAssistant.Views
                 return;
             }
 
-            var text = OcrTextBox.Text;
+            var text = _lastOcrText;
             if (string.IsNullOrWhiteSpace(text))
             {
-                MessageBox.Show("请先进行 OCR 识别或粘贴文本，再执行规范检查。",
+                MessageBox.Show("请先进行 OCR 识别，再执行规范检查。",
                     "无文本", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             var codes = CodeExtractor.Extract(text);
-            CodeList.Clear();
-            CheckList.Clear();
-            foreach (var c in codes)
-                CodeList.Add(c);
+            _lastCodes = codes.ToList();
+            _lastResults.Clear();
 
             if (codes.Count == 0)
             {
                 StatusText.Text = "未识别到规范编号";
+                PushToAi("规范检查", "未识别到任何规范编号。");
                 return;
             }
 
@@ -405,26 +432,43 @@ namespace LDAssistant.Views
 
             ThreadPool.QueueUserWorkItem(_ =>
             {
+                var sb = new StringBuilder();
+                sb.Append($"识别到 **{total}** 个规范编号，检查结果如下：\n\n");
+                sb.Append("| 序号 | 编号 | 名称 | 状态 | 替代信息 |\n");
+                sb.Append("|------|------|------|------|----------|\n");
+
                 for (int i = 0; i < total; i++)
                 {
                     var c = codesArray[i];
                     var result = _checker.CheckCode(c.Code, c.Name);
+                    _lastResults.Add(result);
+
+                    var name = string.IsNullOrEmpty(result.Name) ? c.Name ?? "" : result.Name;
+                    sb.Append($"| {i + 1} | `{result.Code}` | {name} | {result.Status} | {result.Replacement} |\n");
 
                     Dispatcher.Invoke(() =>
                     {
-                        CheckList.Add(result);
                         Progress.Value = (i + 1.0) / total * 100;
                         StatusText.Text = $"检查中: {i + 1}/{total}";
                     });
                 }
 
+                // 汇总统计
+                var valid = _lastResults.Count(r => r.Status == "现行");
+                var obsolete = _lastResults.Count(r => r.Status == "作废" || r.Status == "废止");
+                var replaced = _lastResults.Count(r => r.Status == "被代替" || r.Status == "被替代");
+                var notFound = _lastResults.Count(r => r.Status == "未找到");
+
+                sb.Append($"\n### 汇总\n");
+                sb.Append($"- ✅ 现行: **{valid}**\n");
+                sb.Append($"- ❌ 作废: **{obsolete}**\n");
+                sb.Append($"- 🔄 被替代: **{replaced}**\n");
+                sb.Append($"- ❓ 未找到: **{notFound}**\n");
+
                 Dispatcher.Invoke(() =>
                 {
-                    var valid = CheckList.Count(r => r.Status == "现行");
-                    var obsolete = CheckList.Count(r => r.Status == "作废" || r.Status == "废止");
-                    var replaced = CheckList.Count(r => r.Status == "被代替" || r.Status == "被替代");
-                    var notFound = CheckList.Count(r => r.Status == "未找到");
                     StatusText.Text = $"检查完成 — 现行:{valid} 作废:{obsolete} 替代:{replaced} 未找到:{notFound}";
+                    PushToAi("规范检查结果", sb.ToString());
                 });
             });
         }
@@ -517,31 +561,51 @@ namespace LDAssistant.Views
 
                 Dispatcher.Invoke(() =>
                 {
-                    CodeList.Clear();
-                    CheckList.Clear();
-                    foreach (var c in unique)
-                        CodeList.Add(c);
+                    _lastCodes = unique;
+                    _lastResults.Clear();
+
+                    var sb = new StringBuilder();
+                    sb.Append($"批量处理完成，共扫描 **{allFiles.Count}** 个文件，识别到 **{unique.Count}** 个唯一规范编号。\n\n");
 
                     if (_checker != null)
                     {
-                        foreach (var c in unique)
+                        sb.Append("| 序号 | 编号 | 名称 | 状态 | 替代信息 |\n");
+                        sb.Append("|------|------|------|------|----------|\n");
+
+                        for (int i = 0; i < unique.Count; i++)
                         {
+                            var c = unique[i];
                             var r = _checker.CheckCode(c.Code, c.Name);
-                            CheckList.Add(r);
+                            _lastResults.Add(r);
+
+                            var name = string.IsNullOrEmpty(r.Name) ? c.Name ?? "" : r.Name;
+                            sb.Append($"| {i + 1} | `{r.Code}` | {name} | {r.Status} | {r.Replacement} |\n");
                         }
 
-                        var valid = CheckList.Count(r => r.Status == "现行");
-                        var obsolete = CheckList.Count(r => r.Status == "作废" || r.Status == "废止");
-                        var replaced = CheckList.Count(r => r.Status == "被代替" || r.Status == "被替代");
-                        StatusText.Text = $"批量完成 — 共 {unique.Count} 个编号 | 现行:{valid} 作废:{obsolete} 替代:{replaced}";
+                        var valid = _lastResults.Count(r => r.Status == "现行");
+                        var obsolete = _lastResults.Count(r => r.Status == "作废" || r.Status == "废止");
+                        var replaced = _lastResults.Count(r => r.Status == "被代替" || r.Status == "被替代");
+                        var notFound = _lastResults.Count(r => r.Status == "未找到");
+
+                        sb.Append($"\n### 汇总\n");
+                        sb.Append($"- ✅ 现行: **{valid}**\n");
+                        sb.Append($"- ❌ 作废: **{obsolete}**\n");
+                        sb.Append($"- 🔄 被替代: **{replaced}**\n");
+                        sb.Append($"- ❓ 未找到: **{notFound}**\n");
+
+                        StatusText.Text = $"批量完成 — {unique.Count} 个编号 | 现行:{valid} 作废:{obsolete} 替代:{replaced}";
                     }
                     else
                     {
-                        StatusText.Text = $"批量完成 — 共 {unique.Count} 个编号（数据库未加载，未检查）";
+                        sb.Append("（数据库未加载，未检查状态）\n\n");
+                        for (int i = 0; i < unique.Count; i++)
+                            sb.Append($"{i + 1}. `{unique[i].Code}` — {unique[i].Name}\n");
+                        StatusText.Text = $"批量完成 — {unique.Count} 个编号（未检查）";
                     }
 
                     Progress.Value = 100;
                     _isBatchRunning = false;
+                    PushToAi("批量检查结果", sb.ToString());
                 });
             });
         }
@@ -549,7 +613,7 @@ namespace LDAssistant.Views
         // ═════════════ 导出 ═════════════
         private void BtnExportWord_Click(object sender, RoutedEventArgs e)
         {
-            if (CheckList.Count == 0)
+            if (_lastResults.Count == 0)
             {
                 MessageBox.Show("没有检查结果可导出。请先执行规范检查。",
                     "无数据", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -562,7 +626,7 @@ namespace LDAssistant.Views
                 try
                 {
                     var fileName = _currentFilePath != null ? Path.GetFileName(_currentFilePath) : "批量文件";
-                    ExportService.ExportWord(dlg.FileName, fileName, CheckList.ToList());
+                    ExportService.ExportWord(dlg.FileName, fileName, _lastResults);
                     StatusText.Text = $"已导出: {Path.GetFileName(dlg.FileName)}";
                     MessageBox.Show($"已导出到:\n{dlg.FileName}", "导出成功",
                         MessageBoxButton.OK, MessageBoxImage.Information);
@@ -577,7 +641,7 @@ namespace LDAssistant.Views
 
         private void BtnExportExcel_Click(object sender, RoutedEventArgs e)
         {
-            if (CheckList.Count == 0)
+            if (_lastResults.Count == 0)
             {
                 MessageBox.Show("没有检查结果可导出。请先执行规范检查。",
                     "无数据", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -590,7 +654,7 @@ namespace LDAssistant.Views
                 try
                 {
                     var fileName = _currentFilePath != null ? Path.GetFileName(_currentFilePath) : "批量文件";
-                    ExportService.ExportExcel(dlg.FileName, fileName, CheckList.ToList());
+                    ExportService.ExportExcel(dlg.FileName, fileName, _lastResults);
                     StatusText.Text = $"已导出: {Path.GetFileName(dlg.FileName)}";
                     MessageBox.Show($"已导出到:\n{dlg.FileName}", "导出成功",
                         MessageBoxButton.OK, MessageBoxImage.Information);
@@ -603,29 +667,23 @@ namespace LDAssistant.Views
             }
         }
 
-        // ═════════════ AI 对话窗口 ═════════════
-        private AiChatWindow _aiWindow;
-
+        // ═════════════ AI 按钮 ═════════════
         private void BtnAi_Click(object sender, RoutedEventArgs e)
         {
-            if (_aiWindow == null || !_aiWindow.IsVisible)
-            {
-                _aiWindow = new AiChatWindow(_ai);
-                _aiWindow.Show();
-            }
-            else
-            {
-                _aiWindow.Activate();
-            }
+            ShowAiWindow();
 
-            if (!string.IsNullOrEmpty(OcrTextBox.Text))
+            // 设置上下文
+            if (!string.IsNullOrEmpty(_lastOcrText) || _lastResults.Count > 0)
             {
-                var codes = CodeList.Select(c => $"{c.Code} {c.Name}").ToList();
-                if (codes.Count > 0)
+                var context = "";
+                if (_lastResults.Count > 0)
                 {
-                    var context = $"已识别到以下规范编号:\n{string.Join("\n", codes)}\n\nOCR 文本:\n{OcrTextBox.Text}";
-                    _aiWindow.SetContext(context);
+                    var codes = _lastResults.Select(r => $"{r.Code} {r.Name} [{r.Status}]").ToList();
+                    context += $"已识别到以下规范编号及检查结果:\n{string.Join("\n", codes)}\n\n";
                 }
+                if (!string.IsNullOrEmpty(_lastOcrText))
+                    context += $"OCR 文本:\n{_lastOcrText}";
+                _aiWindow.SetContext(context);
             }
         }
 
