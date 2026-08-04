@@ -31,8 +31,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller reportlab py7zr
           pip install PyMuPDF python-docx Pillow openpyxl ezdxf matplotlib
-          pip install pywin32
-
+          
       - name: 验证依赖
         shell: pwsh
         run: |
@@ -43,8 +42,7 @@ jobs:
           python -c "import ezdxf; print('ezdxf OK')"
           python -c "import matplotlib; print('matplotlib OK')"
           python -c "import pyparsing; print('pyparsing OK')"
-          python -c "import win32gui; print('pywin32 OK')"
-
+  
       - name: 解压标准数据库
         shell: pwsh
         run: python decompress_data.py
@@ -78,14 +76,7 @@ jobs:
             --collect-all "matplotlib" `
             --collect-all "reportlab" `
             --collect-all "pyparsing" `
-            --hidden-import "win32gui" `
-            --hidden-import "win32con" `
-            --hidden-import "win32api" `
-            --hidden-import "win32process" `
-            --hidden-import "win32com" `
-            --hidden-import "win32com.client" `
-            --hidden-import "pythoncom" `
-            --exclude-module "matplotlib.tests" `
+                                        --exclude-module "matplotlib.tests" `
             --exclude-module "numpy.testing" `
             --exclude-module "numpy.f2py" `
             --exclude-module "numpy.distutils" `

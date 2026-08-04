@@ -2049,9 +2049,6 @@ class App:
         self._batch_abort = False
         self._thumbnail_images = []
         self._rotation_angle = 0
-        self._acme_proc = None # AcmeCAD 进程
-        self._acme_main_hwnd = None # AcmeCAD 主窗口句柄
-        self._acme_find_count = 0 # 查找 AcmeCAD 窗口计数器
         self._render_dpi = self._get_render_dpi() # 动态渲染 DPI
         self.root = tk.Tk()
         self._name_index = {}
@@ -2569,7 +2566,6 @@ class App:
         if not self.current_path or self.file_type != 'pdf' or not HAS_FITZ:
             return
         self._close_fitz_doc()
-        self._close_acmecad()
         self.status_var.set("正在打开 PDF...")
         try:
             self._fitz_doc = fitz.open(self.current_path)
@@ -2589,73 +2585,25 @@ class App:
             self.status_var.set("PDF 加载失败")
 
     def _load_docx_file(self):
-        """加载 Word 文档：优先用 Word COM 转为临时 PDF 再按需渲染（保留排版/表格/图片），
-        无法转换时回退到文本提取（含表格内容）。"""
+        """加载 Word 文档：用 python-docx 提取文本直接渲染"""
         if not self.current_path or self.file_type != 'docx':
             return
         self._close_fitz_doc()
-        self._close_acmecad()
         self.status_var.set("正在加载 Word 文档...")
         self._rotation_angle = 0
         self._zoom_level = 1.0
         self._pan_image_x = 0
         self._pan_image_y = 0
-
-        # 策略1：Word COM 转 PDF 再 fitz 按需渲染
-        pdf_path = self._docx_to_pdf_via_com()
-        if pdf_path and HAS_FITZ:
-            try:
-                self._fitz_doc = fitz.open(pdf_path)
-                self._total_pages = len(self._fitz_doc)
-                if self._total_pages == 0:
-                    self.status_var.set("Word 文档为空")
-                    return
-                img_path = self._render_page_to_image(0)
-                if img_path:
-                    self.pdf_images = [None] * self._total_pages
-                    self.pdf_images[0] = img_path
-                    self.status_var.set(f"Word 文档已打开: {self._total_pages} 页")
-                    self.page_var.set(f"第 1 / {self._total_pages} 页")
-                    self.show_page(0)
-                self._extract_text_from_docx()
-                return
-            except Exception as e:
-                print(f"[WARN] Word-PDF 渲染失败: {e}")
-            finally:
-                try:
-                    if pdf_path and Path(pdf_path).exists():
-                        Path(pdf_path).unlink()
-                except Exception:
-                    pass
-        elif pdf_path:
-            try:
-                if Path(pdf_path).exists():
-                    Path(pdf_path).unlink()
-            except Exception:
-                pass
-
-        # 策略2：纯文本提取回退（含表格内容）
-        self.status_var.set("Word COM 不可用，使用文本提取模式...")
-        self.extract_text_file()
-
-    def _docx_to_pdf_via_com(self):
-        """通过 Word COM 自动化将 docx 转为临时 PDF 文件。成功返回路径，失败返回 None。"""
+        if not HAS_DOCX:
+            messagebox.showwarning("Word 加载失败", "需要安装 python-docx 库")
+            self.status_var.set("Word 加载失败")
+            return
         try:
-            import win32com.client
-            word = win32com.client.Dispatch("Word.Application")
-            word.Visible = False
-            word.DisplayAlerts = False
-            doc = word.Documents.Open(str(Path(self.current_path).resolve()))
-            fd, pdf_path = tempfile.mkstemp(suffix='.pdf')
-            os.close(fd)
-            # 17 = wdFormatPDF
-            doc.SaveAs(pdf_path, FileFormat=17)
-            doc.Close(False)
-            word.Quit()
-            return pdf_path
+            # 直接提取文本并渲染
+            self.extract_text_file()
         except Exception as e:
-            print(f"[WARN] Word COM 转换失败: {e}")
-            return None
+            messagebox.showerror("Word 错误", f"无法加载 Word 文档:\n{self.current_path}\n\n错误: {e}")
+            self.status_var.set("Word 加载失败")
 
     def _extract_text_from_docx(self):
         """从 docx 提取纯文本（含表格内容）用于规范编号识别"""
@@ -2685,7 +2633,6 @@ class App:
         if not self.current_path:
             return
         self._close_fitz_doc()
-        self._close_acmecad()
         self.status_var.set("正在加载 OFD 文档...")
         self._rotation_angle = 0
         self._zoom_level = 1.0
@@ -2720,7 +2667,6 @@ class App:
         if not self.current_path or self.file_type != 'image':
             return
         self._close_fitz_doc()
-        self._close_acmecad()
         self.status_var.set("正在加载图片...")
         self.pdf_images = []
         try:
@@ -2735,23 +2681,13 @@ class App:
 
         # 加载 CAD 图纸（DWG → AcmeCAD 嵌入; DXF → ezdxf 渲染）
     def _load_cad_file(self):
+        """加载 CAD 文件（DWG/DXF），用 ezdxf 直接渲染为图片"""
         if not self.current_path or self.file_type != 'cad':
             return
-        ext = Path(self.current_path).suffix.lower()
-
+        self._close_fitz_doc()
+        self.status_var.set("正在渲染 CAD 图纸...")
+        self.pdf_images = []
         try:
-            # DWG → 启动 AcmeCAD 嵌入到预览区
-            if ext == '.dwg':
-                self._close_fitz_doc()
-                self._close_acmecad()
-                self._load_cad_with_acmecad()
-                return
-
-            # DXF → ezdxf 渲染
-            self._close_fitz_doc()
-            self._close_acmecad()
-            self.status_var.set("正在渲染 CAD 图纸 (DXF)...")
-            self.pdf_images = []
             if not HAS_CAD:
                 self.status_var.set("CAD 渲染不可用")
                 messagebox.showwarning("CAD 不可用", "需要安装 ezdxf 和 matplotlib")
@@ -2769,279 +2705,6 @@ class App:
         except Exception as e:
             messagebox.showerror("CAD 错误", f"加载 CAD 文件出错:\n{self.current_path}\n\n错误: {e}")
             self.status_var.set("CAD 加载失败")
-
-    def _find_acmecad_path(self):
-        """查找 AcmeCAD 可执行文件路径：
-        1. 注册表 App Paths / Uninstall 键
-        2. 常见安装目录扫描
-        3. 硬编码默认路径（兼容旧版）
-        """
-        import os, glob
-
-        # (1) 注册表搜索
-        try:
-            import winreg
-            for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
-                for subkey in (
-                    r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\AcmeCAD.exe",
-                    r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\AcmeCAD2023-v8.10.6.1560-Chs.exe",
-                ):
-                    try:
-                        with winreg.OpenKey(root, subkey) as k:
-                            p, _ = winreg.QueryValueEx(k, "")
-                            if p and Path(p).exists():
-                                return p
-                    except OSError:
-                        pass
-                # Uninstall 键搜索 InstallLocation
-                try:
-                    with winreg.OpenKey(root,
-                        r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
-                        0, winreg.KEY_READ) as base:
-                        i = 0
-                        while True:
-                            try:
-                                sub = winreg.EnumKey(base, i)
-                                i += 1
-                            except OSError:
-                                break
-                            try:
-                                with winreg.OpenKey(base, sub) as k:
-                                    name, _ = winreg.QueryValueEx(k, "DisplayName")
-                                    val, _ = winreg.QueryValueEx(k, "InstallLocation")
-                                    if "acme" in name.lower() and val:
-                                        candidate = Path(val)
-                                        for exe in candidate.glob("*.exe"):
-                                            if "acme" in exe.name.lower():
-                                                return str(exe)
-                            except OSError:
-                                pass
-                except OSError:
-                    pass
-        except Exception:
-            pass
-
-        # (2) 常见安装目录扫描
-        candidates = []
-        for drive in ("D:", "C:", "E:", "F:"):
-            candidates.extend([
-                fr"{drive}\Program Files",
-                fr"{drive}\Program Files (x86)",
-                fr"{drive}",
-                fr"{drive}\Apps",
-            ])
-        for base_dir in candidates:
-            if not Path(base_dir).exists():
-                continue
-            for pattern in ("AcmeCAD*.exe", "acme*.exe"):
-                for hit in glob.glob(str(Path(base_dir) / "**" / pattern),
-                                     recursive=True):
-                    return hit
-            for d in Path(base_dir).iterdir():
-                if d.is_dir() and "acme" in d.name.lower():
-                    for exe in d.glob("*.exe"):
-                        if "acme" in exe.name.lower():
-                            return str(exe)
-
-        # (3) 硬编码默认路径（兼容旧版安装）
-        return r"D:/Program Files/AcmeCAD2023-v8.10.6.1560-Chs.exe"
-
-    def _load_cad_with_acmecad(self):
-        """用 AcmeCAD 打开 DWG 并嵌入到预览区。只保留中间黑色绘图区，
-        菜单栏、工具栏、状态栏全部隐藏，窗口充满整个预览画布。"""
-        acme_path = self._find_acmecad_path()
-        if not Path(acme_path).exists():
-            messagebox.showwarning("CAD 错误",
-                f"找不到 AcmeCAD:\n{acme_path}\n\n"
-                "请先安装 AcmeCAD，再打开 DWG 文件。")
-            return
-
-        self.status_var.set("正在启动 AcmeCAD 打开 DWG...")
-        try:
-            import win32gui
-            import win32con
-        except Exception as e:
-            messagebox.showerror("错误", f"缺少 pywin32:\n{e}")
-            return
-
-        # 清理旧的 AcmeCAD 残留
-        self._close_acmecad()
-        try:
-            # 清除画布上旧的图片，避免与嵌入窗口重叠
-            self.pdf_canvas.delete('all')
-            self.current_img = None
-            self.pdf_images = []
-
-            # 启动 AcmeCAD 打开目标 DWG（CREATE_NO_WINDOW 只针对控制台窗口）
-            proc = subprocess.Popen([acme_path, str(self.current_path)])
-            self._acme_proc = proc
-
-            def _hide_acme_ui(acme_main, try_count=0):
-                """把 AcmeCAD 的菜单栏、工具栏、状态栏、文件标签栏全部隐藏"""
-                try:
-                    # 去掉菜单栏
-                    menu = win32gui.GetMenu(acme_main)
-                    if menu:
-                        win32gui.SetMenu(acme_main, 0)
-                        win32gui.DestroyMenu(menu)
-                    # 隐藏所有子窗口中的 UI 元素（工具栏、状态栏、底部面板、左侧树形面板）
-                    ui_keywords = [
-                        'toolbar', 'status', 'msctls_statusbar',
-                        'tree', 'listview', 'explorer', 'panel',
-                        'ribbon', 'quicklaunch', 'tabcontrol'
-                    ]
-                    def _hide_cb(hwnd):
-                        cls = win32gui.GetClassName(hwnd)
-                        title = win32gui.GetWindowText(hwnd)
-                        low = (cls + title).lower()
-                        # 状态栏
-                        if cls == 'msctls_statusbar32' or 'status' in cls.lower():
-                            win32gui.ShowWindow(hwnd, 0)
-                            return
-                        # 工具栏
-                        if 'toolbar' in low or 'tool' in cls.lower():
-                            win32gui.ShowWindow(hwnd, 0)
-                            return
-                        # 左侧文件树/属性面板
-                        if 'tree' in cls.lower() or 'explorer' in cls.lower():
-                            win32gui.ShowWindow(hwnd, 0)
-                            return
-                        # 有标题的工具/文件标签栏（文件列表 tab）
-                        title_u = title.upper()
-                        if ('文件' in title_u or 'FILE' in title_u or '打开' in title_u
-                                or 'OPEN' in title_u):
-                            win32gui.ShowWindow(hwnd, 0)
-                            return
-                        # 底部命令栏/图层栏
-                        if any(k in low for k in ui_keywords):
-                            r = win32gui.GetWindowRect(hwnd)
-                            area = (r[2] - r[0]) * (r[3] - r[1])
-                            if area > 0 and area < 3000000:  # 过滤大绘图区
-                                win32gui.ShowWindow(hwnd, 0)
-                    win32gui.EnumChildWindows(acme_main, _hide_cb, [])
-                    # 最大化 AcmeCAD 窗口（让绘图区占满）
-                    win32gui.SendMessage(acme_main, win32con.WM_SYSCOMMAND,
-                                        win32con.SC_MAXIMIZE, 0)
-                    # 去掉窗口样式：边框、标题栏、最大最小化按钮
-                    style = win32gui.GetWindowLong(acme_main, win32con.GWL_STYLE)
-                    style &= ~win32con.WS_CAPTION
-                    style &= ~win32con.WS_THICKFRAME
-                    style &= ~win32con.WS_MINIMIZEBOX
-                    style &= ~win32con.WS_MAXIMIZEBOX
-                    style &= ~win32con.WS_SYSMENU
-                    style &= ~win32con.WS_BORDER
-                    win32gui.SetWindowLong(acme_main, win32con.GWL_STYLE, style)
-                    # 让窗口重新计算布局
-                    win32gui.SetWindowPos(acme_main, 0, 0, 0, 0, 0,
-                        win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
-                        win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED)
-                    # 让 AcmeCAD 重绘内部布局
-                    win32gui.InvalidateRect(acme_main, None, True)
-                    win32gui.RedrawWindow(acme_main, None, None,
-                        win32con.RDW_INVALIDATE | win32con.RDW_UPDATENOW)
-                    # 重新枚举，把还没隐藏的小 UI 也藏掉（二次清理）
-                    win32gui.EnumChildWindows(acme_main, _hide_cb, [])
-                    if try_count < 15:
-                        self.root.after(500, lambda: _hide_acme_ui(acme_main, try_count + 1))
-                except Exception as e:
-                    print(f"_hide_acme_ui error: {e}")
-            if try_count < 15:
-                self.root.after(500, lambda: _hide_acme_ui(acme_main, try_count + 1))
-
-            def _embed_acme(acme_main, try_count=0):
-                """把 AcmeCAD 嵌入到我们预览区，定位到画布尺寸"""
-                try:
-                    # 取当前画布尺寸
-                    ww = self.pdf_canvas.winfo_width()
-                    hh = self.pdf_canvas.winfo_height()
-                    if ww <= 10 or hh <= 10:
-                        ww, hh = 900, 500
-                    # 获取我们的容器窗口
-                    parent_hwnd = int(str(self.pdf_canvas.master.winfo_id()))
-                    # 设为子窗口（嵌入）
-                    win32gui.SetParent(acme_main, parent_hwnd)
-                    # 去 WS_CHILD 后再设 WS_CHILD，避免 WS_POPUP 残留
-                    style = win32gui.GetWindowLong(acme_main, win32con.GWL_STYLE)
-                    style &= ~win32con.WS_POPUP
-                    style |= win32con.WS_CHILD
-                    win32gui.SetWindowLong(acme_main, win32con.GWL_STYLE, style)
-                    # 移进画布区域（坐标相对于 parent）
-                    win32gui.MoveWindow(acme_main, 0, 0, ww, hh, 1)
-                    # 显示并置顶
-                    win32gui.SetWindowPos(acme_main, win32con.HWND_TOP, 0, 0,
-                        ww, hh,
-                        win32con.SWP_NOZORDER)
-                    win32gui.ShowWindow(acme_main, 1)
-                    win32gui.SetForegroundWindow(acme_main)
-                    self._acme_main_hwnd = acme_main
-                    self.status_var.set(f"已用 AcmeCAD 打开 DWG: {Path(self.current_path).name}")
-                    self.page_var.set("CAD 预览")
-                except Exception as e:
-                    print(f"_embed_acme error (try {try_count}): {e}")
-                    if try_count < 10:
-                        self.root.after(300, lambda: _embed_acme(acme_main, try_count + 1))
-
-            def _find_and_init():
-                """搜索 AcmeCAD 主窗口，找到后隐藏 UI 并嵌入"""
-                found = []
-                def _search(hwnd, lst):
-                    title = win32gui.GetWindowText(hwnd)
-                    title_l = title.lower()
-                    if 'acmecad' in title_l or 'ACME' in title.upper():
-                        lst.append(hwnd)
-                win32gui.EnumWindows(_search, found)
-                if found:
-                    acme_main = found[-1]
-                    self._acme_find_count = 0
-                    self.root.after(1000, lambda: _hide_acme_ui(acme_main))
-                    self.root.after(2500, lambda: _embed_acme(acme_main))
-                else:
-                    if self._acme_find_count < 60:
-                        self._acme_find_count += 1
-                        self.root.after(250, _find_and_init)
-                    else:
-                        messagebox.showerror("CAD 错误",
-                        "无法获取 AcmeCAD 窗口，请确认 AcmeCAD 已正确安装。\n\n"
-                        "提示：请关闭任何正在运行的 AcmeCAD 后再试。")
-                        self._acme_proc.terminate()
-                        try:
-                            self._acme_proc.wait(timeout=3)
-                        except Exception:
-                            pass
-
-            # ★ 关键修复：启动窗口搜索流程（原代码遗漏了这一行，导致
-            # AcmeCAD 进程启动后嵌入逻辑从未运行，DWG 无法显示）
-            self._acme_find_count = 0
-            self.root.after(500, _find_and_init)
-        except Exception as e:
-            messagebox.showerror("CAD 错误", f"打开 DWG 失败:\n{e}")
-            self.status_var.set("打开 DWG 失败")
-
-    def _close_acmecad(self):
-        """关闭嵌入的 AcmeCAD 实例"""
-        try:
-            import win32gui
-        except Exception:
-            pass
-        if self._acme_main_hwnd:
-            try:
-                win32gui.SetParent(self._acme_main_hwnd, 0)
-            except Exception:
-                pass
-            self._acme_main_hwnd = None
-        if self._acme_proc:
-            try:
-                self._acme_proc.terminate()
-                self._acme_proc.wait(timeout=3)
-            except Exception:
-                pass
-            self._acme_proc = None
-        try:
-            self.pdf_canvas.delete('all')
-        except Exception:
-            pass
-        self.current_img = None
-        self.pdf_images = []
 
     def open_file(self):
         paths = filedialog.askopenfilenames(
@@ -4620,7 +4283,6 @@ class App:
         if not self.current_path:
             return
         self._close_fitz_doc()
-        self._close_acmecad()
         self.status_var.set("正在提取文本...")
         self.progress_var.set(0)
         self.ocr_results = []
@@ -4664,13 +4326,7 @@ class App:
         self._start_periodic_redraw()
         self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
         self.root.mainloop()
-    def _on_exit(self):
-        # 关闭 AcmeCAD 进程，防止孤儿进程
-        if hasattr(self, '_close_acmecad'):
-            try:
-                self._close_acmecad()
-            except Exception:
-                pass
+def _on_exit(self):
         # 取消所有 pending after 回调
         if hasattr(self, '_redraw_after_id'):
             try:
