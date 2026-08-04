@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using DocumentFormat.OpenXml.Wordprocessing;
 using LDAssistant.Services;
 
 namespace LDAssistant.Views
@@ -50,8 +51,17 @@ namespace LDAssistant.Views
                 var doc = new FlowDocument { PagePadding = new Thickness(4), TextAlignment = TextAlignment.Left };
                 doc.Blocks.Add(para);
                 var rtb = CreateRichText(doc, Brushes.Transparent, Brushes.White);
-                bubble.Child = rtb;
-                MsgPanel.Children.Add(bubble);
+
+                // 用户消息也有操作按钮
+                var userContainer = new StackPanel();
+                userContainer.Children.Add(bubble);
+
+                var userBtnBar = CreateButtonBar(text, role);
+                userBtnBar.HorizontalAlignment = HorizontalAlignment.Right;
+                userBtnBar.Margin = new Thickness(40, 2, 4, 0);
+                userContainer.Children.Add(userBtnBar);
+
+                MsgPanel.Children.Add(userContainer);
             }
             else
             {
@@ -90,44 +100,7 @@ namespace LDAssistant.Views
                 container.Children.Add(rtb);
 
                 // 操作按钮栏
-                var btnBar = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Margin = new Thickness(4, 2, 0, 0),
-                };
-
-                var btnCopy = new Button
-                {
-                    Content = "📋 复制",
-                    FontSize = 11,
-                    Padding = new Thickness(6, 1, 6, 1),
-                    Background = new SolidColorBrush(Color.FromRgb(0xF0, 0xF0, 0xF0)),
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(0xDD, 0xDD, 0xDD)),
-                    BorderThickness = new Thickness(1),
-                    Cursor = Cursors.Hand,
-                };
-                btnCopy.Click += (s, e) =>
-                {
-                    try { Clipboard.SetText(text); }
-                    catch { }
-                };
-
-                var btnExport = new Button
-                {
-                    Content = "📄 导出Word",
-                    FontSize = 11,
-                    Padding = new Thickness(6, 1, 6, 1),
-                    Margin = new Thickness(4, 0, 0, 0),
-                    Background = new SolidColorBrush(Color.FromRgb(0xF0, 0xF0, 0xF0)),
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(0xDD, 0xDD, 0xDD)),
-                    BorderThickness = new Thickness(1),
-                    Cursor = Cursors.Hand,
-                };
-                btnExport.Click += (s, e) => ExportMessageToWord(text);
-
-                btnBar.Children.Add(btnCopy);
-                btnBar.Children.Add(btnExport);
+                var btnBar = CreateButtonBar(text, role);
                 container.Children.Add(btnBar);
 
                 MsgPanel.Children.Add(container);
@@ -135,6 +108,71 @@ namespace LDAssistant.Views
 
             MsgPanel.UpdateLayout();
             MsgScroll.ScrollToBottom();
+        }
+
+        /// <summary>创建复制/导出按钮栏</summary>
+        private StackPanel CreateButtonBar(string rawText, string role)
+        {
+            var btnBar = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(4, 2, 0, 0),
+            };
+
+            var btnCopy = new Button
+            {
+                Content = "📋 复制",
+                FontSize = 11,
+                Padding = new Thickness(6, 1, 6, 1),
+                Background = new SolidColorBrush(Color.FromRgb(0xF0, 0xF0, 0xF0)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(0xDD, 0xDD, 0xDD)),
+                BorderThickness = new Thickness(1),
+                Cursor = Cursors.Hand,
+            };
+            btnCopy.Click += (s, e) =>
+            {
+                try
+                {
+                    // 去掉 Markdown 标记，复制纯文本
+                    var plain = StripMarkdown(rawText);
+                    Clipboard.SetText(plain);
+                }
+                catch { }
+            };
+
+            var btnExport = new Button
+            {
+                Content = "📄 导出Word",
+                FontSize = 11,
+                Padding = new Thickness(6, 1, 6, 1),
+                Margin = new Thickness(4, 0, 0, 0),
+                Background = new SolidColorBrush(Color.FromRgb(0xF0, 0xF0, 0xF0)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(0xDD, 0xDD, 0xDD)),
+                BorderThickness = new Thickness(1),
+                Cursor = Cursors.Hand,
+            };
+            btnExport.Click += (s, e) => ExportMessageToWord(rawText, role);
+
+            btnBar.Children.Add(btnCopy);
+            btnBar.Children.Add(btnExport);
+            return btnBar;
+        }
+
+        /// <summary>去掉 Markdown 标记，返回纯文本</summary>
+        private string StripMarkdown(string md)
+        {
+            if (string.IsNullOrEmpty(md)) return "";
+            var text = md;
+            text = Regex.Replace(text, @"\*\*(.+?)\*\*", "$1");
+            text = Regex.Replace(text, @"\*(.+?)\*", "$1");
+            text = Regex.Replace(text, @"`(.+?)`", "$1");
+            text = Regex.Replace(text, @"\[([^\]]+)\]\(([^)]+)\)", "$1");
+            text = Regex.Replace(text, @"^#{1,4}\s+", "", RegexOptions.Multiline);
+            text = Regex.Replace(text, @"^[\s]*[-*+]\s+", "• ", RegexOptions.Multiline);
+            text = Regex.Replace(text, @"^>\s*", "", RegexOptions.Multiline);
+            text = text.Replace("```", "");
+            return text;
         }
 
         private RichTextBox CreateRichText(FlowDocument doc, Brush bg, Brush fg)
@@ -153,21 +191,85 @@ namespace LDAssistant.Views
             };
         }
 
-        private void ExportMessageToWord(string text)
+        private void ExportMessageToWord(string text, string role)
         {
             var dlg = new Microsoft.Win32.SaveFileDialog
             {
                 Filter = "Word 文档|*.docx",
-                FileName = "AI对话记录",
+                FileName = $"AI对话_{role}_{DateTime.Now:HHmmss}",
             };
             if (dlg.ShowDialog() == true)
             {
                 try
                 {
-                    ExportService.ExportWord(dlg.FileName, "AI对话", new List<Models.CheckResult>
+                    using var doc = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Create(dlg.FileName, DocumentFormat.OpenXml.WordprocessingDocumentType.Document);
+                    var mainPart = doc.AddMainDocumentPart();
+                    mainPart.Document = new DocumentFormat.OpenXml.Wordprocessing.Document();
+                    var body = new DocumentFormat.OpenXml.Wordprocessing.Body();
+                    mainPart.Document.Append(body);
+
+                    // 标题
+                    var titlePara = new DocumentFormat.OpenXml.Wordprocessing.Paragraph();
+                    var titleRun = new DocumentFormat.OpenXml.Wordprocessing.Run(new DocumentFormat.OpenXml.Wordprocessing.Text($"{role} 消息"))
                     {
-                        new() { Code = "AI对话", Name = text, Status = "对话", No = 1 }
-                    });
+                        RunProperties = new DocumentFormat.OpenXml.Wordprocessing.RunProperties { Bold = new DocumentFormat.OpenXml.Wordprocessing.Bold(), FontSize = new DocumentFormat.OpenXml.Wordprocessing.FontSize { Val = "32" } }
+                    };
+                    titlePara.Append(titleRun);
+                    body.Append(titlePara);
+
+                    // 时间
+                    var timePara = new DocumentFormat.OpenXml.Wordprocessing.Paragraph();
+                    var timeRun = new DocumentFormat.OpenXml.Wordprocessing.Run(new DocumentFormat.OpenXml.Wordprocessing.Text($"导出时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}"));
+                    timePara.Append(timeRun);
+                    body.Append(timePara);
+
+                    // 分隔线
+                    body.Append(new DocumentFormat.OpenXml.Wordprocessing.Paragraph());
+
+                    // 内容（按行写入，保留表格）
+                    var plain = StripMarkdown(text);
+                    var lines = plain.Split('\n');
+                    bool inTable = false;
+                    var tableRows = new List<string[]>();
+
+                    foreach (var line in lines)
+                    {
+                        var trimmed = line.TrimEnd();
+                        // 表格行
+                        if (trimmed.StartsWith("|") && trimmed.EndsWith("|"))
+                        {
+                            // 跳过分隔行
+                            if (Regex.IsMatch(trimmed, @"^\|[\s\-:|]+\|$"))
+                                continue;
+                            var cells = trimmed.Trim('|').Split('|');
+                            for (int i = 0; i < cells.Length; i++)
+                                cells[i] = cells[i].Trim();
+                            tableRows.Add(cells);
+                            inTable = true;
+                            continue;
+                        }
+                        else if (inTable)
+                        {
+                            // 表格结束，写入
+                            if (tableRows.Count > 0)
+                            {
+                                WriteTableToBody(body, tableRows);
+                                tableRows.Clear();
+                            }
+                            inTable = false;
+                        }
+
+                        var p = new DocumentFormat.OpenXml.Wordprocessing.Paragraph();
+                        p.Append(new DocumentFormat.OpenXml.Wordprocessing.Run(new DocumentFormat.OpenXml.Wordprocessing.Text(trimmed)));
+                        body.Append(p);
+                    }
+
+                    if (tableRows.Count > 0)
+                        WriteTableToBody(body, tableRows);
+
+                    body.Append(new DocumentFormat.OpenXml.Wordprocessing.Paragraph(new DocumentFormat.OpenXml.Wordprocessing.Run(new DocumentFormat.OpenXml.Wordprocessing.Text("— end —"))));
+
+                    mainPart.Document.Save();
                     MessageBox.Show($"已导出到:\n{dlg.FileName}", "导出成功",
                         MessageBoxButton.OK, MessageBoxImage.Information);
                 }
@@ -177,6 +279,42 @@ namespace LDAssistant.Views
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
+        }
+
+        /// <summary>写入表格到 Word body</summary>
+        private void WriteTableToBody(DocumentFormat.OpenXml.Wordprocessing.Body body, List<string[]> rows)
+        {
+            var tbl = new DocumentFormat.OpenXml.Wordprocessing.Table();
+            var tblPr = new DocumentFormat.OpenXml.Wordprocessing.TableProperties(
+                new DocumentFormat.OpenXml.Wordprocessing.TableBorders(
+                    new DocumentFormat.OpenXml.Wordprocessing.TopBorder { Val = DocumentFormat.OpenXml.Wordprocessing.BorderValues.Single, Size = 1 },
+                    new DocumentFormat.OpenXml.Wordprocessing.BottomBorder { Val = DocumentFormat.OpenXml.Wordprocessing.BorderValues.Single, Size = 1 },
+                    new DocumentFormat.OpenXml.Wordprocessing.LeftBorder { Val = DocumentFormat.OpenXml.Wordprocessing.BorderValues.Single, Size = 1 },
+                    new DocumentFormat.OpenXml.Wordprocessing.RightBorder { Val = DocumentFormat.OpenXml.Wordprocessing.BorderValues.Single, Size = 1 },
+                    new DocumentFormat.OpenXml.Wordprocessing.InsideHorizontalBorder { Val = DocumentFormat.OpenXml.Wordprocessing.BorderValues.Single, Size = 1 },
+                    new DocumentFormat.OpenXml.Wordprocessing.InsideVerticalBorder { Val = DocumentFormat.OpenXml.Wordprocessing.BorderValues.Single, Size = 1 }
+                )
+            );
+            tbl.Append(tblPr);
+
+            for (int r = 0; r < rows.Count; r++)
+            {
+                var tr = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
+                foreach (var cell in rows[r])
+                {
+                    var tc = new DocumentFormat.OpenXml.Wordprocessing.TableCell();
+                    var p = new DocumentFormat.OpenXml.Wordprocessing.Paragraph();
+                    var run = new DocumentFormat.OpenXml.Wordprocessing.Run(new DocumentFormat.OpenXml.Wordprocessing.Text(cell));
+                    if (r == 0)
+                        run.RunProperties = new DocumentFormat.OpenXml.Wordprocessing.RunProperties { Bold = new DocumentFormat.OpenXml.Wordprocessing.Bold() };
+                    p.Append(run);
+                    tc.Append(p);
+                    tr.Append(tc);
+                }
+                tbl.Append(tr);
+            }
+            body.Append(tbl);
+            body.Append(new DocumentFormat.OpenXml.Wordprocessing.Paragraph());
         }
 
         // ═══════════════ 按钮事件 ═══════════════

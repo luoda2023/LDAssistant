@@ -159,24 +159,28 @@
                 </DockPanel>
             </Border>
 
-            <!-- ═══ 右栏：预览区（全宽） ═══ -->
-            <Border Grid.Column="1" Background="#FAFAFA">
-                <ScrollViewer x:Name="PreviewScroll"
-                              HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Auto">
-                    <Canvas x:Name="PreviewCanvas" Background="White">
-                        <Image x:Name="PreviewImage" Stretch="None"
-                               RenderTransformOrigin="0.5,0.5">
-                            <Image.RenderTransform>
-                                <TransformGroup>
-                                    <ScaleTransform x:Name="ScaleTransform" ScaleX="1" ScaleY="1"/>
-                                    <RotateTransform x:Name="RotateTransform" Angle="0"/>
-                                </TransformGroup>
-                            </Image.RenderTransform>
-                        </Image>
-                    </Canvas>
-                </ScrollViewer>
-            </Border>
+        <!-- ═══ 右栏：预览区（全宽） ═══ -->
+        <Border Grid.Column="1" Background="#FAFAFA">
+            <ScrollViewer x:Name="PreviewScroll"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          MouseLeftButtonDown="PreviewScroll_MouseLeftButtonDown"
+                          MouseLeftButtonUp="PreviewScroll_MouseLeftButtonUp"
+                          MouseMove="PreviewScroll_MouseMove"
+                          Cursor="SizeAll">
+                <Canvas x:Name="PreviewCanvas" Background="White">
+                    <Image x:Name="PreviewImage" Stretch="None"
+                           RenderTransformOrigin="0.5,0.5">
+                        <Image.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform x:Name="ScaleTransform" ScaleX="1" ScaleY="1"/>
+                                <RotateTransform x:Name="RotateTransform" Angle="0"/>
+                            </TransformGroup>
+                        </Image.RenderTransform>
+                    </Image>
+                </Canvas>
+            </ScrollViewer>
+        </Border>
         </Grid>
     </DockPanel>
 </Window>

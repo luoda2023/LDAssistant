@@ -99,13 +99,10 @@ namespace LDAssistant.Views
                 _aiWindow = new AiChatWindow(_ai);
                 _aiWindow.Show();
             }
-            else
-            {
-                _aiWindow.Activate();
-            }
+            _aiWindow.Activate();
         }
 
-        /// <summary>推送系统消息到 AI 窗口</summary>
+        /// <summary>推送到 AI 窗口</summary>
         private void PushToAi(string title, string content)
         {
             ShowAiWindow();
@@ -240,11 +237,12 @@ namespace LDAssistant.Views
         {
             if (_currentFilePath == null) return;
 
-            try
+        try
+        {
+            // 300 DPI 高清晰度渲染
+            var img = _preview.RenderPage(_currentPage, 0, 300);
+            if (img != null)
             {
-                var img = _preview.RenderPage(_currentPage, 1200);
-                if (img != null)
-                {
                     PreviewImage.Source = img;
                     ScaleTransform.ScaleX = _zoom;
                     ScaleTransform.ScaleY = _zoom;
@@ -302,6 +300,37 @@ namespace LDAssistant.Views
             foreach (var p in PageThumbs) p.IsActive = false;
             if (_currentPage < PageThumbs.Count)
                 PageThumbs[_currentPage].IsActive = true;
+        }
+
+        // ═══════════════ 鼠标拖拽预览区 ═══════════════
+        private bool _isDragging = false;
+        private Point _dragStartPoint;
+        private double _dragStartHOffset;
+        private double _dragStartVOffset;
+
+        private void PreviewScroll_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _isDragging = true;
+            _dragStartPoint = e.GetPosition(PreviewScroll);
+            _dragStartHOffset = PreviewScroll.HorizontalOffset;
+            _dragStartVOffset = PreviewScroll.VerticalOffset;
+            PreviewScroll.CaptureMouse();
+        }
+
+        private void PreviewScroll_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            _isDragging = false;
+            PreviewScroll.ReleaseMouseCapture();
+        }
+
+        private void PreviewScroll_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_isDragging) return;
+            var pos = e.GetPosition(PreviewScroll);
+            double dx = pos.X - _dragStartPoint.X;
+            double dy = pos.Y - _dragStartPoint.Y;
+            PreviewScroll.ScrollToHorizontalOffset(_dragStartHOffset - dx);
+            PreviewScroll.ScrollToVerticalOffset(_dragStartVOffset - dy);
         }
 
         // ═════════════ 缩放/旋转 ═════════════

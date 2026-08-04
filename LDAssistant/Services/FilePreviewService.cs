@@ -66,13 +66,15 @@ public int TotalPages { get; private set; }
                         _pdfDoc = PdfiumViewer.PdfDocument.Load(path);
                         TotalPages = _pdfDoc.PageCount;
                         return true;
-                    case "image":
-                        TotalPages = 1;
-                        return true;
-                    case "docx":
-                    case "txt":
-                        TotalPages = 1;
-                        return true;
+case "image":
+TotalPages = 1;
+return true;
+case "docx":
+TotalPages = CountDocxPages(path);
+return true;
+case "txt":
+TotalPages = 1;
+return true;
                     case "cad":
                         TotalPages = 1;
                         return true;
@@ -188,21 +190,21 @@ text += $"\n读取失败: {ex.Message}";
 return RenderTextToImage(text, Path.GetFileName(_currentPath));
 }
 
-    private BitmapSource RenderTextFile(int pageIndex)
-    {
-        if (FileType == "txt")
-        {
-            var text = File.ReadAllText(_currentPath, System.Text.Encoding.UTF8);
-            if (string.IsNullOrWhiteSpace(text))
-                text = "（文件内容为空）";
-            return RenderTextToImage(text, Path.GetFileName(_currentPath));
-        }
-        else if (FileType == "docx")
-        {
-            return RenderDocxFormatted(_currentPath);
-        }
-        return null;
-    }
+private BitmapSource RenderTextFile(int pageIndex)
+{
+if (FileType == "txt")
+{
+var text = File.ReadAllText(_currentPath, System.Text.Encoding.UTF8);
+if (string.IsNullOrWhiteSpace(text))
+text = "（文件内容为空）";
+return RenderTextToImage(text, Path.GetFileName(_currentPath));
+}
+else if (FileType == "docx")
+{
+return RenderDocxPage(_currentPath, pageIndex);
+}
+return null;
+}
 
     /// <summary>提取 docx 纯文本（用于 OCR 替代）</summary>
     public static string ExtractDocxText(string path)
@@ -348,7 +350,28 @@ return RenderTextToImage(text, Path.GetFileName(_currentPath));
     }
 
     /// <summary>渲染 Word 文档，保留格式</summary>
-    private BitmapSource RenderDocxFormatted(string path)
+private int CountDocxPages(string path)
+    {
+        try
+        {
+            var (blocks, _) = ParseDocxBlocks(path);
+            if (blocks.Count == 0) return 1;
+
+            const float pageH = 1400;
+            using var measureBmp = new SD.Bitmap(1, 1);
+            using var measureG = SD.Graphics.FromImage(measureBmp);
+            float y = 60;
+            float maxH = 60;
+            foreach (var b in blocks)
+                b.Draw(measureG, ref y, 1000, ref maxH);
+
+            int pages = (int)Math.Ceiling(maxH / pageH);
+            return Math.Max(1, pages);
+        }
+        catch { return 1; }
+    }
+
+    private (List<DocBlock> blocks, Dictionary<string, SD.Bitmap> images) ParseDocxBlocks(string path)
     {
         var blocks = new List<DocBlock>();
         var imageParts = new Dictionary<string, SD.Bitmap>();
@@ -357,15 +380,11 @@ return RenderTextToImage(text, Path.GetFileName(_currentPath));
         {
             using var doc = WordprocessingDocument.Open(path, false);
             var mainPart = doc.MainDocumentPart;
-            if (mainPart == null) return RenderTextToImage("（无法读取 Word 文档）", Path.GetFileName(path));
+            if (mainPart == null) return (blocks, imageParts);
 
             var body = mainPart.Document.Body;
-            if (body == null) return RenderTextToImage("（Word 文档为空）", Path.GetFileName(path));
-            foreach (var rel in mainPart.HyperlinkRelationships)
-            {
-                // skip hyperlinks
-            }
-            // 遍历 ImageParts
+            if (body == null) return (blocks, imageParts);
+
             foreach (var ipart in mainPart.ImageParts)
             {
                 try
@@ -378,7 +397,6 @@ return RenderTextToImage(text, Path.GetFileName(_currentPath));
                 catch { }
             }
 
-            // 遍历 body 子元素
             foreach (var child in body.ChildElements)
             {
                 if (child is ParagraphW para)
@@ -396,16 +414,23 @@ return RenderTextToImage(text, Path.GetFileName(_currentPath));
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Word 渲染失败: {ex.Message}");
-            return RenderTextToImage($"（Word 读取失败: {ex.Message}）", Path.GetFileName(path));
+            System.Diagnostics.Debug.WriteLine($"Word 解析失败: {ex.Message}");
         }
 
+        return (blocks, imageParts);
+    }
+
+    private BitmapSource RenderDocxPage(string path, int pageIndex)
+    {
+        var (blocks, imageParts) = ParseDocxBlocks(path);
         if (blocks.Count == 0)
             return RenderTextToImage("（文档内容为空）", Path.GetFileName(path));
 
-        // 先测量高度
-        float canvasW = 1000;
-        float canvasH = 200;
+        const float pageH = 1400;
+        const float canvasW = 1000;
+
+        // 测量每个块高度
+        var blockHeights = new List<float>();
         using (var measureBmp = new SD.Bitmap(1, 1))
         using (var measureG = SD.Graphics.FromImage(measureBmp))
         {
@@ -413,37 +438,74 @@ return RenderTextToImage(text, Path.GetFileName(_currentPath));
             float maxH = 60;
             foreach (var b in blocks)
             {
+                float beforeY = y;
                 b.Draw(measureG, ref y, canvasW, ref maxH);
+                blockHeights.Add(y - beforeY);
             }
-            canvasH = Math.Min(maxH + 40, 8000);
         }
 
-        // 正式绘制
+        // 按页分割
+        var pageBlocks = new List<List<DocBlock>>();
+        var currentPageBlocks = new List<DocBlock>();
+        float pageY = 60;
+        int currentBlocks = 0;
+
+        for (int i = 0; i < blocks.Count; i++)
+        {
+            float blockH = blockHeights[i];
+            if (pageY + blockH > pageH && currentBlocks > 0)
+            {
+                pageBlocks.Add(currentPageBlocks);
+                currentPageBlocks = new List<DocBlock>();
+                pageY = 20;
+                currentBlocks = 0;
+            }
+            currentPageBlocks.Add(blocks[i]);
+            pageY += blockH;
+            currentBlocks++;
+        }
+        if (currentPageBlocks.Count > 0)
+            pageBlocks.Add(currentPageBlocks);
+
+        if (pageBlocks.Count == 0)
+            return RenderTextToImage("（文档内容为空）", Path.GetFileName(path));
+
+        if (pageIndex < 0 || pageIndex >= pageBlocks.Count)
+            pageIndex = 0;
+
+        var pageBlockList = pageBlocks[pageIndex];
+        float canvasH = pageH;
+
         var bmp = new SD.Bitmap((int)canvasW, (int)canvasH, SDI.PixelFormat.Format24bppRgb);
         using var g = SD.Graphics.FromImage(bmp);
         g.SmoothingMode = SD.Drawing2D.SmoothingMode.AntiAlias;
         g.TextRenderingHint = SD.Text.TextRenderingHint.AntiAliasGridFit;
         g.Clear(SD.Color.White);
 
-        // 标题
-        using (var titleFont = new SD.Font("微软雅黑", 14, SD.FontStyle.Bold))
-        using (var titleBrush = new SD.SolidBrush(SD.Color.FromArgb(0x1A, 0x23, 0x7A)))
-        using (var titlePen = new SD.Pen(SD.Color.FromArgb(0x21, 0x96, 0xF3), 2))
+        float drawY = 20;
+        if (pageIndex == 0)
         {
+            using var titleFont = new SD.Font("微软雅黑", 14, SD.FontStyle.Bold);
+            using var titleBrush = new SD.SolidBrush(SD.Color.FromArgb(0x1A, 0x23, 0x7A));
+            using var titlePen = new SD.Pen(SD.Color.FromArgb(0x21, 0x96, 0xF3), 2);
             g.DrawString(Path.GetFileName(path), titleFont, titleBrush, 40, 16);
             g.DrawLine(titlePen, 40, 44, canvasW - 40, 44);
+            drawY = 60;
         }
 
-        float drawY = 60;
-        float drawMaxH = 60;
-        foreach (var b in blocks)
+        if (pageBlocks.Count > 1)
         {
-            b.Draw(g, ref drawY, canvasW, ref drawMaxH);
+            using var pageFont = new SD.Font("微软雅黑", 9);
+            using var pageBrush = new SD.SolidBrush(SD.Color.FromArgb(0x99, 0x99, 0x99));
+            g.DrawString($"第 {pageIndex + 1} / {pageBlocks.Count} 页", pageFont, pageBrush, canvasW - 120, 16);
         }
+
+        float drawMaxH = drawY;
+        foreach (var b in pageBlockList)
+            b.Draw(g, ref drawY, canvasW, ref drawMaxH);
 
         var result = ConvertBitmap(bmp);
         bmp.Dispose();
-        // 释放 Word 图片资源
         foreach (var kv in imageParts)
             try { kv.Value?.Dispose(); } catch { }
         return result;
