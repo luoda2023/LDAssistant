@@ -8,6 +8,17 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using LDAssistant.Services;
+using Key = System.Windows.Input.Key;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using Keyboard = System.Windows.Input.Keyboard;
+using ModifierKeys = System.Windows.Input.ModifierKeys;
+using Brush = System.Windows.Media.Brush;
+using Brushes = System.Windows.Media.Brushes;
+using Color = System.Windows.Media.Color;
+using FontFamily = System.Windows.Media.FontFamily;
+using FontStyles = System.Windows.FontStyles;
+using FontWeights = System.Windows.FontWeights;
+using Hyperlink = System.Windows.Documents.Hyperlink;
 
 namespace LDAssistant.Views
 {
