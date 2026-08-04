@@ -37,11 +37,11 @@ namespace LDAssistant.Views
             var isUser = role == "我";
             var bubble = new Border
             {
-                Padding = new Thickness(12, 8),
-                Margin = new Thickness(4, 4, 4, 4),
-                CornerRadius = new CornerRadius(12),
-                MaxWidth = 380,
-                HorizontalAlignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+            Padding = new Thickness(12, 8, 12, 8),
+            Margin = new Thickness(4, 4, 4, 4),
+            CornerRadius = new CornerRadius(12),
+            MaxWidth = 380,
+            HorizontalAlignment = isUser ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Left,
                 Background = isUser
                     ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x21, 0x96, 0xF3))
                     : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF5, 0xF5, 0xF5)),

@@ -55,29 +55,24 @@ namespace LDAssistant.Services
             table.Append(tblPr);
 
             // 表头
-            table.Append(CreateRow("序号", "规范编号", "名称", "状态", "替代信息", "发布单位", true));
+            table.Append(CreateRow(new[] { "序号", "规范编号", "名称", "状态", "替代信息", "发布单位" }, true));
 
             foreach (var r in results)
             {
-                table.Append(CreateRow(
-                    r.No.ToString(),
-                    r.Code,
-                    r.Name,
-                    r.Status,
-                    r.Replacement,
-                    r.Publisher));
+            table.Append(CreateRow(new[] {
+                r.No.ToString(),
+                r.Code,
+                r.Name,
+                r.Status,
+                r.Replacement,
+                r.Publisher }));
             }
 
             body.Append(table);
             mainPart.Document.Append(body);
         }
 
-        private static TableRow CreateRow(params string[] cells)
-        {
-            return CreateRow(cells, false);
-        }
-
-        private static TableRow CreateRow(string[] cells, bool isHeader)
+        private static TableRow CreateRow(string[] cells, bool isHeader = false)
         {
             var row = new TableRow();
             foreach (var text in cells)

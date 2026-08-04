@@ -122,7 +122,7 @@ namespace LDAssistant.Services
                 result.Status = string.IsNullOrEmpty(record.Status) ? "现行" : record.Status;
                 result.Replacement = record.ReplacementRaw ?? "";
                 result.Publisher = record.Publisher ?? "";
-                result.DetailUrl = record.DetailUrl ?? "";
+                result.Source = record.SourceType ?? "";
             }
 
             return result;
