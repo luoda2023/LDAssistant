@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -61,7 +62,7 @@ namespace LDAssistant.Views
                 BorderThickness = new Thickness(1),
             };
 
-            var rtb = new Controls.RichTextBox
+            var rtb = new RichTextBox
             {
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
