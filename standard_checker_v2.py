@@ -2196,13 +2196,12 @@ class App:
         style.configure("Status.TLabel", background=BG_DARK, foreground=TEXT_MUTED, anchor="w", padding=6)
 
     def setup_ui(self):
-        """紧凑专业三栏布局"""
+        """紧凑工具栏 + 全屏预览 + 底部状态栏"""
         C = {
             'bg': "#1E293B", 'bg_dark': "#0F172A", 'card': "#334155",
             'text': "#E2E8F0", 'text_muted': "#94A3B8",
             'primary': "#3B82F6", 'primary_hover': "#2563EB",
             'select': "#1E40AF", 'success': "#22C55E", 'danger': "#EF4444",
-            'border': "#2D3A4A",
         }
 
         # ── 顶部工具栏 ──
@@ -2267,44 +2266,9 @@ class App:
             lbl.bind('<Enter>', lambda e, lb=lbl: lb.config(bg=C['primary_hover']))
             lbl.bind('<Leave>', lambda e, lb=lbl, v=val: lb.config(bg=C['primary'] if self._fit_mode.get() == v else C['card']))
 
-        # ── 三栏主体 ──
-        main = tk.Frame(self.root, bg=C['bg'])
-        main.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-
-        # 左侧栏：文件列表+缩略图
-        left = tk.Frame(main, bg=C['bg_dark'], width=160)
-        left.pack(side=tk.LEFT, fill=tk.Y)
-        left.pack_propagate(False)
-        tk.Label(left, text="📄 文件列表", font=("Microsoft YaHei UI", 9, "bold"),
-                 bg=C['bg_dark'], fg=C['text']).pack(fill=tk.X, padx=6, pady=(4, 2))
-        self.queue_listbox = tk.Listbox(left, height=6,
-                                         font=("Microsoft YaHei UI", 8), exportselection=False,
-                                         bg=C['card'], fg=C['text'],
-                                         selectbackground=C['select'], selectforeground="#FFFFFF",
-                                         borderwidth=0, highlightthickness=0)
-        self.queue_listbox.pack(fill=tk.X, padx=4, pady=2)
-        self.queue_listbox.bind('<<ListboxSelect>>', self._on_queue_select)
-        self.queue_count_label = tk.Label(left, text="0 个文件", font=("Microsoft YaHei UI", 8),
-                                          bg=C['bg_dark'], fg=C['text_muted'])
-        self.queue_count_label.pack(anchor=tk.W, padx=6)
-
-        # 缩略图
-        self.thumb_canvas = tk.Canvas(left, bg=C['bg_dark'], highlightthickness=0, width=150, height=200)
-        self.thumb_canvas.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
-        thumb_scroll = ttk.Scrollbar(left, orient=tk.VERTICAL, command=self.thumb_canvas.yview)
-        thumb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.thumb_canvas.configure(yscrollcommand=thumb_scroll.set)
-        self.thumb_frame = tk.Frame(self.thumb_canvas, bg=C['bg_dark'])
-        self.thumb_scroll_window = self.thumb_canvas.create_window(
-            (0, 0), window=self.thumb_frame, anchor='nw', width=150)
-        self.thumb_frame.bind('<Configure>', lambda e: self.thumb_canvas.configure(
-            scrollregion=self.thumb_canvas.bbox('all')))
-
-        # 中间：预览区
-        center = tk.Frame(main, bg=C['bg'])
-        center.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.pdf_canvas = tk.Canvas(center, bg=C['bg'], highlightthickness=0)
-        self.pdf_canvas.pack(fill=tk.BOTH, expand=True)
+        # ── 全屏预览区 ──
+        self.pdf_canvas = tk.Canvas(self.root, bg=C['bg'], highlightthickness=0)
+        self.pdf_canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.pdf_canvas.bind('<Configure>', self._on_canvas_resize)
         self.pdf_canvas.bind('<MouseWheel>', self._on_mouse_wheel)
         self.pdf_canvas.bind('<ButtonPress-2>', self._on_pan_start)
@@ -2313,75 +2277,22 @@ class App:
         self._resize_after_id = None
         self.selector = RegionSelector(self.pdf_canvas, None, self._on_region_selected)
 
-        # 右侧：结果面板
-        right = tk.Frame(main, bg=C['bg_dark'], width=320)
-        right.pack(side=tk.RIGHT, fill=tk.Y)
-        right.pack_propagate(False)
-        nb = ttk.Notebook(right)
-        nb.pack(fill=tk.BOTH, expand=True)
-        self.notebook = nb
-
-        # OCR 文本标签页
-        ocr_frame = tk.Frame(nb, bg=C['bg'])
-        nb.add(ocr_frame, text="OCR 文本")
-        self.ocr_text = tk.Text(ocr_frame, wrap=tk.WORD,
-                                font=("Microsoft YaHei UI", 10),
-                                bg=C['card'], fg=C['text'],
-                                insertbackground=C['text'],
-                                borderwidth=0, highlightthickness=0, padx=6, pady=4)
-        ocr_scroll = ttk.Scrollbar(ocr_frame, orient=tk.VERTICAL, command=self.ocr_text.yview)
-        self.ocr_text.configure(yscrollcommand=ocr_scroll.set)
-        ocr_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.ocr_text.pack(fill=tk.BOTH, expand=True)
-
-        # 规范列表标签页
-        list_frame = tk.Frame(nb, bg=C['bg'])
-        nb.add(list_frame, text="规范列表")
-        list_columns = ('no', 'code', 'name', 'source')
-        self.list_tree = ttk.Treeview(list_frame, columns=list_columns, show='headings', selectmode='extended')
-        self.list_tree.heading('no', text='#')
-        self.list_tree.heading('code', text='规范编号')
-        self.list_tree.heading('name', text='名称')
-        self.list_tree.heading('source', text='来源')
-        self.list_tree.column('no', width=30, anchor=tk.CENTER)
-        self.list_tree.column('code', width=100, anchor=tk.W)
-        self.list_tree.column('name', width=160, anchor=tk.W)
-        self.list_tree.column('source', width=60, anchor=tk.W)
-        list_scroll = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.list_tree.yview)
-        self.list_tree.configure(yscrollcommand=list_scroll.set)
-        list_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.list_tree.pack(fill=tk.BOTH, expand=True)
-        self.list_tree.bind('<Double-Button-1>', self.remove_selected_code)
-        self.list_tree.bind('<<TreeviewSelect>>', self.on_code_selected)
-
-        # 检查结果标签页
-        check_frame = tk.Frame(nb, bg=C['bg'])
-        nb.add(check_frame, text="检查结果")
-        columns = ('code', 'name', 'status', 'replacement', 'action')
-        self.check_tree = ttk.Treeview(check_frame, columns=columns, show='tree headings', selectmode='extended')
-        self.check_tree.heading('#0', text='#')
-        self.check_tree.heading('code', text='规范编号')
-        self.check_tree.heading('name', text='名称')
-        self.check_tree.heading('status', text='状态')
-        self.check_tree.heading('replacement', text='替代')
-        self.check_tree.heading('action', text='建议')
-        self.check_tree.column('#0', width=30, anchor=tk.CENTER)
-        self.check_tree.column('code', width=100)
-        self.check_tree.column('name', width=160)
-        self.check_tree.column('status', width=60)
-        self.check_tree.column('replacement', width=120)
-        self.check_tree.column('action', width=60)
-        check_scroll = ttk.Scrollbar(check_frame, orient=tk.VERTICAL, command=self.check_tree.yview)
-        self.check_tree.configure(yscrollcommand=check_scroll.set)
-        check_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.check_tree.pack(fill=tk.BOTH, expand=True)
-        self.check_tree.bind('<Double-Button-1>', self.on_check_item_double_click)
-        self.check_tree.bind('<<TreeviewSelect>>', self.on_check_item_selected)
-
         # ── 底部状态栏 ──
-        bottombar = tk.Frame(self.root, bg=C['bg_dark'], height=26)
+        bottombar = tk.Frame(self.root, bg=C['bg_dark'], height=28)
         bottombar.pack(side=tk.BOTTOM, fill=tk.X)
         bottombar.pack_propagate(False)
+
+        # 文件队列（底部左侧）
+        self.queue_listbox = tk.Listbox(bottombar, height=1,
+                                         font=("Microsoft YaHei UI", 8), exportselection=False,
+                                         bg=C['card'], fg=C['text'],
+                                         selectbackground=C['select'], selectforeground="#FFFFFF",
+                                         borderwidth=0, highlightthickness=0)
+        self.queue_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4, pady=2)
+        self.queue_listbox.bind('<<ListboxSelect>>', self._on_queue_select)
+        self.queue_count_label = tk.Label(bottombar, text="0 个文件",
+                                          font=("Microsoft YaHei UI", 8), bg=C['bg_dark'], fg=C['text_muted'])
+        self.queue_count_label.pack(side=tk.LEFT, padx=2)
 
         self.status_var = tk.StringVar(value="就绪")
         tk.Label(bottombar, textvariable=self.status_var, font=("Microsoft YaHei UI", 8),
@@ -2394,6 +2305,17 @@ class App:
         self.region_var = tk.StringVar(value="区域：未设置")
         tk.Label(bottombar, textvariable=self.region_var, font=("Microsoft YaHei UI", 8),
                  bg=C['bg_dark'], fg=C['text_muted']).pack(side=tk.LEFT, padx=8)
+
+# ── 隐藏控件（用于代码兼容，所有数据展示移到AI悬浮窗口） ──
+        self.notebook = None
+        self._hidden_frame = tk.Frame(self.root)
+        self.ocr_text = tk.Text(self._hidden_frame)  # 隐藏，代码兼容
+        self.list_tree = ttk.Treeview(self._hidden_frame)  # 隐藏，用于数据索引
+        self.check_tree = ttk.Treeview(self._hidden_frame)
+        self.list_tree.bind('<Double-Button-1>', self.remove_selected_code)
+        self.list_tree.bind('<<TreeviewSelect>>', self.on_code_selected)
+        self.check_tree.bind('<Double-Button-1>', self.on_check_item_double_click)
+        self.check_tree.bind('<<TreeviewSelect>>', self.on_check_item_selected)
 
     def _get_render_dpi(self):
         """根据显示器 DPI 缩放比例动态计算渲染 DPI，消除高 DPI 屏幕上的文字虚边"""
@@ -2610,7 +2532,7 @@ class App:
             messagebox.showerror("图片错误", f"无法加载图片:\n{self.current_path}\n\n错误: {e}")
             self.status_var.set("图片加载失败")
 
-        # 加载 CAD 图纸（DWG → AcmeCAD 嵌入; DXF → ezdxf 渲染）
+        # 加载 CAD 图纸（DWG/DXF，用 ezdxf 直接渲染）
     def _load_cad_file(self):
         """加载 CAD 文件（DWG/DXF），用 ezdxf 直接渲染为图片"""
         if not self.current_path or self.file_type != 'cad':
@@ -2730,42 +2652,15 @@ class App:
         self.status_var.set("队列已清空")
 
     def _update_thumbnails(self):
-        self._clear_thumbnails()
-        if not self.pdf_paths:
-            return
-        if not hasattr(self, 'thumb_frame'):
-            return
-        for widget in self.thumb_frame.winfo_children():
-            widget.destroy()
-        for i, path in enumerate(self.pdf_paths[:50]):
-            name = Path(path).name
-            try:
-                if HAS_PIL:
-                    img = Image.open(path)
-                    img.thumbnail((90, 120), Image.Resampling.LANCZOS)
-                    photo = ImageTk.PhotoImage(img)
-                    self._thumbnail_images.append(photo)
-                    frame = ttk.Frame(self.thumb_frame)
-                    frame.pack(fill=tk.X, pady=2)
-                    label = ttk.Label(frame, image=photo)
-                    label.pack()
-                    ttk.Label(frame, text=name[:12], font=("SimSun", 7), anchor=tk.CENTER).pack(fill=tk.X)
-                    label.bind('<Button-1>', lambda e, idx=i: self._on_thumb_click_internal(idx))
-            except Exception:
-                pass
+        """缩略图已移除，保留空方法避免调用错误"""
+        pass
 
     def _clear_thumbnails(self):
         self._thumbnail_images = []
-        if hasattr(self, 'thumb_frame'):
-            for widget in self.thumb_frame.winfo_children():
-                widget.destroy()
 
     def _on_thumb_click_internal(self, idx):
-        if 0 <= idx < len(self.pdf_paths):
-            path = self.pdf_paths[idx]
-            if path != self.current_path:
-                self._load_file(path)
-                self._highlight_queue_item(idx)
+        """缩略图已移除，保留空方法"""
+        pass
 
         # 旋转
     def _rotate_cw(self):
@@ -2897,7 +2792,7 @@ class App:
         self.status_var.set(
             f"批量处理完成! 共处理 {len(self.pdf_paths)} 个文件，识别到 {len(self.extracted_codes)} 个规范编号")
         self.progress_var.set(100)
-        self.notebook.select(self.list_tree.master)
+        # 已移除notebook，结果推送到AI窗口
         messagebox.showinfo("批量处理完成",
                            f"处理文件: {len(self.pdf_paths)} 个\n识别规范: {len(self.extracted_codes)} 个")
 
@@ -3474,7 +3369,7 @@ class App:
                         info = self.extracted_code_info.get(normalize_for_matching(code), {})
                         name = info.get('name', '')
                         self.list_tree.insert('', tk.END, values=(i, code, name, ''))
-                    self.notebook.select(self.list_tree.master)
+                    # 已移除notebook，结果推送到AI窗口
                     self.status_var.set(f"OCR 完成: 识别到 {len(codes)} 个规范编号")
                     self._push_ocr_to_ai()
                 else:
@@ -3483,7 +3378,7 @@ class App:
                     self.list_tree.insert('', tk.END, values=(2, '请查看 OCR 识别文本 确认内容'))
                     if sample.strip():
                         self.list_tree.insert('', tk.END, values=(3, sample[:120].replace('\n', ' ')))
-                    self.notebook.select(self.list_tree.master)
+                    # 已移除notebook，结果推送到AI窗口
                     self.status_var.set("OCR 完成，但未识别到规范编号")
                 self.progress_var.set(100)
                 if self.pdf_images:
@@ -3561,7 +3456,7 @@ class App:
             name = info.get('name', '')
             self.list_tree.insert('', tk.END, values=(i, code, name, ''))
         if self.extracted_codes:
-            self.notebook.select(self.list_tree.master)
+            # 已移除notebook，结果推送到AI窗口
             self.status_var.set(f"提取完成: 识别到 {len(self.extracted_codes)} 个规范编号")
 
         # 检查规范
@@ -3610,7 +3505,7 @@ class App:
             self.root.update_idletasks()
         self.progress_var.set(100)
         self.status_var.set(f"检查完成: {len(unique_codes)} 个规范")
-        self.notebook.select(self.check_tree.master)
+        # 已移除notebook，结果推送到AI窗口
         # 推送结果到 AI 聊天窗口
         if self.ai_chat is not None:
             self.ai_chat.send_standard_check(self.check_results)
