@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>..\app_icon.ico</ApplicationIcon>
+    <AssemblyName>LDAssistant</AssemblyName>
+    <RootNamespace>LDAssistant</RootNamespace>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseWindowsForms>true</UseWindowsForms>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishTrimmed>false</PublishTrimmed>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.*" />
+    <PackageReference Include="PdfiumViewer" Version="2.13.0.0" />
+    <PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.1.9" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.0.*" />
+    <PackageReference Include="ClosedXML" Version="0.102.*" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.*" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="..\standards.db" Condition="Exists('..\standards.db')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>standards.db</Link>
+    </None>
+    <None Update="..\app_icon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>app_icon.ico</Link>
+    </None>
+  </ItemGroup>
+
+</Project>

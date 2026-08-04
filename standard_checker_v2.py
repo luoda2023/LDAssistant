@@ -591,11 +591,11 @@ def mask_seals_pil(image_path, out_path=None):
 
 
 def render_cad_to_image(dxf_path, dpi=300):
-    """将 CAD 文件（DWG/DXF）渲染为 PNG 图片"""
+    """将 CAD 文件（DXF/DWG）渲染为 PNG 图片"""
     if not HAS_CAD:
         return None
     try:
-        # 设置 matplotlib 中文字体，避免 DXF 中文文字显示为方框
+        # 设置 matplotlib 中文字体
         import matplotlib
         matplotlib.rcParams['font.family'] = 'sans-serif'
         matplotlib.rcParams['font.sans-serif'] = [
@@ -604,17 +604,32 @@ def render_cad_to_image(dxf_path, dpi=300):
         ]
         matplotlib.rcParams['axes.unicode_minus'] = False
 
-        doc = ezdxf.readfile(dxf_path)
+        # DWG 文件需要先转成 DXF
+        actual_path = dxf_path
+        if dxf_path.lower().endswith('.dwg'):
+            try:
+                from ezdxf.addons import odafc
+                if not odafc.is_installed():
+                    print("DWG 支持需要 ODA File Converter，请从 https://www.opendesign.com/guestfiles/oda_file_converter 下载安装")
+                    return None
+                # 用 odafc.readfile 直接读 DWG
+                doc = odafc.readfile(dxf_path)
+            except Exception as e:
+                print(f"DWG 读取失败: {e}")
+                return None
+        else:
+            doc = ezdxf.readfile(actual_path)
+        msp = doc.modelspace()
         fig = plt.figure(figsize=(12, 9), dpi=dpi)
         ax = fig.add_axes([0, 0, 1, 1])
         ax.set_aspect('equal')
         ax.axis('off')
         backend = MatplotlibBackend(ax)
-        Frontend(RenderContext(doc), backend).draw_layout(doc.modelspace())
+        Frontend(RenderContext(doc), backend).draw_layout(msp)
         fd, tmp = tempfile.mkstemp(suffix=".png"); os.close(fd)
         try:
             fig.savefig(tmp, dpi=dpi, bbox_inches="tight", pad_inches=0.1,
-                         facecolor="white", edgecolor="none")
+                        facecolor="white", edgecolor="none")
             plt.close(fig)
             return tmp
         except Exception:
@@ -804,9 +819,9 @@ _USAGE_FILE = Path.home() / ".ldassistant_usage.json"
 
 # 免费模型配置（无需用户设置即可使用，100次免费额度）
 _FREE_MODEL_CONFIG = {
-    "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-    "api_key": "1d0f8e5f7c3a4b5e9d8f2a1c6b7e3d5f",
-    "model": "glm-4-flash",
+    "api_url": "http://47.114.75.115:40000/v1/chat/completions",
+    "api_key": "sk-proxy-local-51f5bd4b9797f2620bc55460946802711cf7312b38c24794",
+    "model": "hermesAPI",
 }
 _FREE_QUOTA = 100  # 免费额度100次
 
@@ -893,7 +908,7 @@ class AIChatFloatingWindow:
         self.add_message("ai",
             f"你好！我是标准查询 AI 助手。\n"
             f"发送标准号或关键词，我可以帮你查询国家标准。\n\n"
-            f"🎁 当前使用免费模型（glm-4-flash），剩余 {remaining}/{_FREE_QUOTA} 次。\n"
+            f"🎁 当前使用免费模型（hermesAPI），剩余 {remaining}/{_FREE_QUOTA} 次。\n"
             f"用完后可在「⚙️ 配置」中设置自己的 API Key。\n\n"
             f"OCR 识别的结果会自动显示在这里。")
 
@@ -1254,7 +1269,7 @@ class AIChatFloatingWindow:
                              bg=C['card'], fg=C['text_muted'], cursor="hand2", padx=8)
         model_btn.pack(side=tk.LEFT, padx=(0, 0))
         model_btn.bind('<Button-1>', lambda e: _show_model_menu())
-        model_values = ('glm-4-flash', 'glm-4', 'glm-4-air', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
+        model_values = ('hermesAPI', 'glm-4-flash', 'glm-4', 'glm-4-air', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
 
         def _show_model_menu():
             menu = tk.Menu(model_row, tearoff=0,
@@ -2196,19 +2211,18 @@ class App:
         style.configure("Status.TLabel", background=BG_DARK, foreground=TEXT_MUTED, anchor="w", padding=6)
 
     def setup_ui(self):
-        """紧凑工具栏 + 全屏预览 + 底部状态栏"""
+        """双栏布局：左侧缩略图栏 + 右侧大图预览"""
         C = {
             'bg': "#1E293B", 'bg_dark': "#0F172A", 'card': "#334155",
             'text': "#E2E8F0", 'text_muted': "#94A3B8",
             'primary': "#3B82F6", 'primary_hover': "#2563EB",
             'select': "#1E40AF", 'success': "#22C55E", 'danger': "#EF4444",
+            'border': "#2D3A4A",
         }
-
-        # ── 顶部工具栏 ──
+        # -- 顶部工具栏 --
         topbar = tk.Frame(self.root, bg=C['bg_dark'], height=36)
         topbar.pack(side=tk.TOP, fill=tk.X)
         topbar.pack_propagate(False)
-
         def _tb(text, cmd, bold=False, color=None):
             bg = color or C['bg_dark']
             fg = "#FFFFFF" if color else C['text']
@@ -2220,32 +2234,29 @@ class App:
                 lbl.bind('<Enter>', lambda e: lbl.config(bg=C['card']))
                 lbl.bind('<Leave>', lambda e: lbl.config(bg=C['bg_dark']))
             return lbl
-
         def _sep():
-            tk.Label(topbar, text="│", bg=C['bg_dark'], fg=C['text_muted'], padx=2).pack(side=tk.LEFT)
-
-        _tb("📂 打开", self.open_file)
-        _tb("📁 文件夹", self.open_folder)
+            tk.Label(topbar, text="|", bg=C['bg_dark'], fg=C['text_muted'], padx=2).pack(side=tk.LEFT)
+        _tb("打开", self.open_file)
+        _tb("文件夹", self.open_folder)
         _sep()
-        _tb("◀", self._prev_page)
-        _tb("▶", self._next_page)
-        _tb("🔍+", self._zoom_in)
-        _tb("🔍-", self._zoom_out)
-        _tb("↻", self._rotate_cw)
-        _tb("↺", self._rotate_ccw)
+        _tb("<", self._prev_page)
+        _tb(">", self._next_page)
+        _tb("缩放+", self._zoom_in)
+        _tb("缩放-", self._zoom_out)
+        _tb("顺时针", self._rotate_cw)
+        _tb("逆时针", self._rotate_ccw)
         _sep()
-        _tb("⬜ 选择", self.start_selection)
-        _tb("❌ 清除", self.clear_region)
+        _tb("选择", self.start_selection)
+        _tb("清除", self.clear_region)
         _sep()
-        _tb("🔍 OCR", self.start_ocr, bold=True, color=C['primary'])
-        _tb("✅ 检查", self.check_standards, bold=True, color=C['success'])
-        _tb("📋 批量", self.batch_process_all)
+        _tb("OCR", self.start_ocr, bold=True, color=C['primary'])
+        _tb("检查", self.check_standards, bold=True, color=C['success'])
+        _tb("批量", self.batch_process_all)
         _sep()
-        _tb("📄 导出", self.export_doc)
-        _tb("📊 Excel", self.export_excel)
+        _tb("导出", self.export_doc)
+        _tb("Excel", self.export_excel)
         _sep()
-        _tb("🤖 AI", self._toggle_ai_chat, bold=True, color=C['primary'])
-
+        _tb("AI", self._toggle_ai_chat, bold=True, color=C['primary'])
         # 右侧信息
         self.page_var = tk.StringVar(value="第 0 / 0 页")
         tk.Label(topbar, textvariable=self.page_var, font=("Microsoft YaHei UI", 9),
@@ -2253,7 +2264,6 @@ class App:
         self._preview_name_var = tk.StringVar(value="")
         tk.Label(topbar, textvariable=self._preview_name_var, font=("Microsoft YaHei UI", 9, "bold"),
                  bg=C['bg_dark'], fg=C['danger']).pack(side=tk.RIGHT, padx=8)
-
         # 适应模式
         frm = tk.Frame(topbar, bg=C['bg_dark'])
         frm.pack(side=tk.RIGHT, padx=2)
@@ -2265,10 +2275,36 @@ class App:
             lbl.bind('<Button-1>', lambda e, v=val: (self._fit_mode.set(v), self._redraw_current_page()))
             lbl.bind('<Enter>', lambda e, lb=lbl: lb.config(bg=C['primary_hover']))
             lbl.bind('<Leave>', lambda e, lb=lbl, v=val: lb.config(bg=C['primary'] if self._fit_mode.get() == v else C['card']))
-
-        # ── 全屏预览区 ──
-        self.pdf_canvas = tk.Canvas(self.root, bg=C['bg'], highlightthickness=0)
-        self.pdf_canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        # -- 双栏主体：左缩略图 + 右大图 --
+        main = tk.Frame(self.root, bg=C['bg'])
+        main.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        # 左侧：缩略图栏
+        left = tk.Frame(main, bg=C['bg_dark'], width=180)
+        left.pack(side=tk.LEFT, fill=tk.Y)
+        left.pack_propagate(False)
+        tk.Label(left, text="文件缩略图", font=("Microsoft YaHei UI", 9, "bold"),
+                 bg=C['bg_dark'], fg=C['text']).pack(fill=tk.X, padx=6, pady=(4, 2))
+        # 缩略图画布（垂直滚动）
+        self.thumb_canvas = tk.Canvas(left, bg=C['bg_dark'], highlightthickness=0, width=170)
+        self.thumb_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=2, pady=2)
+        thumb_scroll = ttk.Scrollbar(left, orient=tk.VERTICAL, command=self.thumb_canvas.yview)
+        thumb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.thumb_canvas.configure(yscrollcommand=thumb_scroll.set)
+        self.thumb_frame = tk.Frame(self.thumb_canvas, bg=C['bg_dark'])
+        self.thumb_scroll_window = self.thumb_canvas.create_window(
+            (0, 0), window=self.thumb_frame, anchor='nw', width=170)
+        self.thumb_frame.bind('<Configure>', lambda e: self.thumb_canvas.configure(
+            scrollregion=self.thumb_canvas.bbox('all')))
+        self.thumb_canvas.bind('<MouseWheel>', lambda e: self.thumb_canvas.yview_scroll(
+            int(-1 * (e.delta / 120)), "units"))
+        self.queue_count_label = tk.Label(left, text="0 个文件", font=("Microsoft YaHei UI", 8),
+                                          bg=C['bg_dark'], fg=C['text_muted'])
+        self.queue_count_label.pack(anchor=tk.W, padx=6, pady=(0, 4))
+        # 右侧：大图预览区
+        right = tk.Frame(main, bg=C['bg'])
+        right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.pdf_canvas = tk.Canvas(right, bg=C['bg'], highlightthickness=0)
+        self.pdf_canvas.pack(fill=tk.BOTH, expand=True)
         self.pdf_canvas.bind('<Configure>', self._on_canvas_resize)
         self.pdf_canvas.bind('<MouseWheel>', self._on_mouse_wheel)
         self.pdf_canvas.bind('<ButtonPress-2>', self._on_pan_start)
@@ -2276,46 +2312,55 @@ class App:
         self.pdf_canvas.bind('<ButtonRelease-2>', self._on_pan_end)
         self._resize_after_id = None
         self.selector = RegionSelector(self.pdf_canvas, None, self._on_region_selected)
-
-        # ── 底部状态栏 ──
-        bottombar = tk.Frame(self.root, bg=C['bg_dark'], height=28)
+        # 隐藏的文件队列 listbox（代码兼容）
+        self.queue_listbox = tk.Listbox(self.root)
+        self.queue_listbox.bind('<<ListboxSelect>>', self._on_queue_select)
+        # -- 底部状态栏 --
+        bottombar = tk.Frame(self.root, bg=C['bg_dark'], height=26)
         bottombar.pack(side=tk.BOTTOM, fill=tk.X)
         bottombar.pack_propagate(False)
-
-        # 文件队列（底部左侧）
-        self.queue_listbox = tk.Listbox(bottombar, height=1,
-                                         font=("Microsoft YaHei UI", 8), exportselection=False,
-                                         bg=C['card'], fg=C['text'],
-                                         selectbackground=C['select'], selectforeground="#FFFFFF",
-                                         borderwidth=0, highlightthickness=0)
-        self.queue_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4, pady=2)
-        self.queue_listbox.bind('<<ListboxSelect>>', self._on_queue_select)
-        self.queue_count_label = tk.Label(bottombar, text="0 个文件",
-                                          font=("Microsoft YaHei UI", 8), bg=C['bg_dark'], fg=C['text_muted'])
-        self.queue_count_label.pack(side=tk.LEFT, padx=2)
-
         self.status_var = tk.StringVar(value="就绪")
         tk.Label(bottombar, textvariable=self.status_var, font=("Microsoft YaHei UI", 8),
                  bg=C['bg_dark'], fg=C['text_muted']).pack(side=tk.LEFT, padx=8)
-
         self.progress_var = tk.DoubleVar(value=0.0)
         self.progress_bar = ttk.Progressbar(bottombar, variable=self.progress_var, maximum=100, length=100)
         self.progress_bar.pack(side=tk.LEFT, padx=4, pady=2)
-
         self.region_var = tk.StringVar(value="区域：未设置")
         tk.Label(bottombar, textvariable=self.region_var, font=("Microsoft YaHei UI", 8),
                  bg=C['bg_dark'], fg=C['text_muted']).pack(side=tk.LEFT, padx=8)
-
-# ── 隐藏控件（用于代码兼容，所有数据展示移到AI悬浮窗口） ──
+        # -- 隐藏控件（OCR/规范列表/检查结果推送到AI窗口） --
         self.notebook = None
         self._hidden_frame = tk.Frame(self.root)
-        self.ocr_text = tk.Text(self._hidden_frame)  # 隐藏，代码兼容
-        self.list_tree = ttk.Treeview(self._hidden_frame)  # 隐藏，用于数据索引
-        self.check_tree = ttk.Treeview(self._hidden_frame)
+        self.ocr_text = tk.Text(self._hidden_frame)
+        list_columns = ('no', 'code', 'name', 'source')
+        self.list_tree = ttk.Treeview(self._hidden_frame, columns=list_columns, show='headings')
+        self.list_tree.heading('no', text='#')
+        self.list_tree.heading('code', text='规范编号')
+        self.list_tree.heading('name', text='名称')
+        self.list_tree.heading('source', text='来源')
+        check_columns = ('code', 'name', 'status', 'replacement', 'action')
+        self.check_tree = ttk.Treeview(self._hidden_frame, columns=check_columns, show='tree headings')
+        self.check_tree.heading('#0', text='#')
+        self.check_tree.heading('code', text='规范编号')
+        self.check_tree.heading('name', text='名称')
+        self.check_tree.heading('status', text='状态')
+        self.check_tree.heading('replacement', text='替代')
+        self.check_tree.heading('action', text='建议')
         self.list_tree.bind('<Double-Button-1>', self.remove_selected_code)
         self.list_tree.bind('<<TreeviewSelect>>', self.on_code_selected)
         self.check_tree.bind('<Double-Button-1>', self.on_check_item_double_click)
         self.check_tree.bind('<<TreeviewSelect>>', self.on_check_item_selected)
+        # 缩略图右键菜单
+        self._thumb_menu = tk.Menu(self.root, tearoff=0,
+                                   bg=C['card'], fg=C['text'],
+                                   activebackground=C['primary'], activeforeground="#FFFFFF",
+                                   borderwidth=0, relief=tk.FLAT)
+        self._thumb_menu.add_command(label="切换为当前文件", command=self._thumb_switch_current)
+        self._thumb_menu.add_command(label="顺时针旋转 90", command=lambda: self._thumb_rotate(90))
+        self._thumb_menu.add_command(label="逆时针旋转 90", command=lambda: self._thumb_rotate(-90))
+        self._thumb_menu.add_separator()
+        self._thumb_menu.add_command(label="从列表移除", command=self._thumb_remove)
+        self._thumb_selected_idx = None
 
     def _get_render_dpi(self):
         """根据显示器 DPI 缩放比例动态计算渲染 DPI，消除高 DPI 屏幕上的文字虚边"""
@@ -2532,7 +2577,7 @@ class App:
             messagebox.showerror("图片错误", f"无法加载图片:\n{self.current_path}\n\n错误: {e}")
             self.status_var.set("图片加载失败")
 
-        # 加载 CAD 图纸（DWG/DXF，用 ezdxf 直接渲染）
+        # 加载 CAD 图纸（DWG → AcmeCAD 嵌入; DXF → ezdxf 渲染）
     def _load_cad_file(self):
         """加载 CAD 文件（DWG/DXF），用 ezdxf 直接渲染为图片"""
         if not self.current_path or self.file_type != 'cad':
@@ -2554,7 +2599,16 @@ class App:
                     self.show_page(0)
             else:
                 self.status_var.set("CAD 渲染失败")
-                messagebox.showerror("CAD 错误", f"无法渲染 CAD 文件:\n{self.current_path}")
+                ext = Path(self.current_path).suffix.lower()
+                if ext == '.dwg':
+                    messagebox.showerror("CAD 错误",
+                        f"无法渲染 DWG 文件:\n{Path(self.current_path).name}\n\n"
+                        "DWG 支持需要安装 ODA File Converter。\n"
+                        "请从以下地址下载安装：\n"
+                        "https://www.opendesign.com/guestfiles/oda_file_converter\n\n"
+                        "或者将 DWG 另存为 DXF 格式后再打开。")
+                else:
+                    messagebox.showerror("CAD 错误", f"无法渲染 CAD 文件:\n{self.current_path}")
         except Exception as e:
             messagebox.showerror("CAD 错误", f"加载 CAD 文件出错:\n{self.current_path}\n\n错误: {e}")
             self.status_var.set("CAD 加载失败")
@@ -2652,15 +2706,132 @@ class App:
         self.status_var.set("队列已清空")
 
     def _update_thumbnails(self):
-        """缩略图已移除，保留空方法避免调用错误"""
-        pass
+        self._clear_thumbnails()
+        if not self.pdf_paths:
+            return
+        if not hasattr(self, 'thumb_frame'):
+            return
+        for widget in self.thumb_frame.winfo_children():
+            widget.destroy()
+        for i, path in enumerate(self.pdf_paths[:50]):
+            name = Path(path).name
+            try:
+                thumb_img = None
+                # 尝试从已加载的 pdf_images 获取缩略图
+                if path == self.current_path and self.pdf_images and self.pdf_images[0]:
+                    if HAS_PIL:
+                        thumb_img = Image.open(self.pdf_images[0])
+                # 直接打开图片文件
+                if thumb_img is None and HAS_PIL:
+                    ext = Path(path).suffix.lower()
+                    if ext in IMAGE_EXTENSIONS:
+                        thumb_img = Image.open(path)
+                # PDF/CAD/OFD：尝试用 fitz 渲染第一页
+                if thumb_img is None and HAS_FITZ and ext in ('.pdf', '.ofd'):
+                    try:
+                        doc = fitz.open(path)
+                        if len(doc) > 0:
+                            pix = doc.load_page(0).get_pixmap(dpi=50)
+                            fd, tmp = tempfile.mkstemp(suffix='.png'); os.close(fd)
+                            pix.save(tmp)
+                            thumb_img = Image.open(tmp)
+                            doc.close()
+                    except Exception:
+                        pass
+                if thumb_img is not None:
+                    thumb_img.thumbnail((140, 180), Image.Resampling.LANCZOS)
+                    photo = ImageTk.PhotoImage(thumb_img)
+                    self._thumbnail_images.append(photo)
+                    # 缩略图容器
+                    is_current = (path == self.current_path)
+                    bg_color = "#1E40AF" if is_current else "#334155"
+                    frame = tk.Frame(self.thumb_frame, bg=bg_color, relief=tk.FLAT, bd=2)
+                    frame.pack(fill=tk.X, padx=4, pady=3)
+                    label = tk.Label(frame, image=photo, bg=bg_color)
+                    label.pack(padx=2, pady=2)
+                    name_label = tk.Label(frame, text=name[:14], font=("Microsoft YaHei UI", 7),
+                                          bg=bg_color, fg="#E2E8F0", anchor=tk.CENTER, wraplength=150)
+                    name_label.pack(fill=tk.X, padx=2, pady=(0, 2))
+                    # 左键点击切换
+                    for w in [frame, label, name_label]:
+                        w.bind('<Button-1>', lambda e, idx=i: self._on_thumb_click_internal(idx))
+                        w.bind('<Button-3>', lambda e, idx=i: self._on_thumb_right_click(idx, e))
+                else:
+                    # 无法生成缩略图，显示文件名
+                    frame = tk.Frame(self.thumb_frame, bg="#334155", relief=tk.FLAT, bd=2)
+                    frame.pack(fill=tk.X, padx=4, pady=3)
+                    ext = Path(path).suffix.lower().lstrip('.')
+                    label = tk.Label(frame, text=f"[{ext}]", font=("Microsoft YaHei UI", 10, "bold"),
+                                     bg="#334155", fg="#94A3B8", height=5, width=18)
+                    label.pack(padx=2, pady=2)
+                    name_label = tk.Label(frame, text=name[:14], font=("Microsoft YaHei UI", 7),
+                                          bg="#334155", fg="#E2E8F0", anchor=tk.CENTER, wraplength=150)
+                    name_label.pack(fill=tk.X, padx=2, pady=(0, 2))
+                    for w in [frame, label, name_label]:
+                        w.bind('<Button-1>', lambda e, idx=i: self._on_thumb_click_internal(idx))
+                        w.bind('<Button-3>', lambda e, idx=i: self._on_thumb_right_click(idx, e))
+            except Exception:
+                pass
 
     def _clear_thumbnails(self):
         self._thumbnail_images = []
+        if hasattr(self, 'thumb_frame'):
+            for widget in self.thumb_frame.winfo_children():
+                widget.destroy()
 
     def _on_thumb_click_internal(self, idx):
-        """缩略图已移除，保留空方法"""
-        pass
+        if 0 <= idx < len(self.pdf_paths):
+            path = self.pdf_paths[idx]
+            if path != self.current_path:
+                self._load_file(path)
+            self._highlight_queue_item(idx)
+
+    def _on_thumb_right_click(self, idx, event):
+        """缩略图右键菜单"""
+        if 0 <= idx < len(self.pdf_paths):
+            self._thumb_selected_idx = idx
+            try:
+                self._thumb_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                self._thumb_menu.grab_release()
+
+    def _thumb_switch_current(self):
+        """右键菜单：切换为当前文件"""
+        idx = self._thumb_selected_idx
+        if idx is not None and 0 <= idx < len(self.pdf_paths):
+            self._on_thumb_click_internal(idx)
+
+    def _thumb_rotate(self, angle):
+        """右键菜单：旋转缩略图对应的文件"""
+        idx = self._thumb_selected_idx
+        if idx is None or not (0 <= idx < len(self.pdf_paths)):
+            return
+        # 先切换到该文件
+        if self.pdf_paths[idx] != self.current_path:
+            self._on_thumb_click_internal(idx)
+        # 应用旋转
+        self._rotation_angle = (self._rotation_angle + angle) % 360
+        self._redraw_current_page()
+        # 更新缩略图
+        self._update_thumbnails()
+
+    def _thumb_remove(self):
+        """右键菜单：从列表移除文件"""
+        idx = self._thumb_selected_idx
+        if idx is None or not (0 <= idx < len(self.pdf_paths)):
+            return
+        removed = self.pdf_paths.pop(idx)
+        self._thumb_selected_idx = None
+        self._update_file_queue()
+        # 如果移除的是当前文件，切换到第一个
+        if removed == self.current_path:
+            if self.pdf_paths:
+                self._load_file(self.pdf_paths[0])
+                self._highlight_queue_item(0)
+            else:
+                self.pdf_canvas.delete('all')
+                self.current_path = None
+                self.status_var.set("已移除所有文件")
 
         # 旋转
     def _rotate_cw(self):
@@ -2792,7 +2963,7 @@ class App:
         self.status_var.set(
             f"批量处理完成! 共处理 {len(self.pdf_paths)} 个文件，识别到 {len(self.extracted_codes)} 个规范编号")
         self.progress_var.set(100)
-        # 已移除notebook，结果推送到AI窗口
+        self.notebook.select(self.list_tree.master)
         messagebox.showinfo("批量处理完成",
                            f"处理文件: {len(self.pdf_paths)} 个\n识别规范: {len(self.extracted_codes)} 个")
 
@@ -2800,60 +2971,80 @@ class App:
     def show_page(self, idx):
         if idx < 0 or idx >= len(self.pdf_images):
             return
-        self.pdf_canvas.delete('all')
-        # 按需渲染：如果该页尚未渲染，先渲染
-        if self.pdf_images[idx] is None and self._fitz_doc:
+        # 取消 pending resize 回调，避免竞争
+        if hasattr(self, '_resize_after_id') and self._resize_after_id:
+            try:
+                self.root.after_cancel(self._resize_after_id)
+            except Exception:
+                pass
+            self._resize_after_id = None
+        # 按需渲染
+        if self.pdf_images[idx] is None and getattr(self, '_fitz_doc', None):
             self.status_var.set(f"正在渲染第 {idx+1} 页...")
             self.root.update_idletasks()
             img_path = self._render_page_to_image(idx)
             if img_path:
                 self.pdf_images[idx] = img_path
-                # 清理其它已渲染的临时页（只保留当前页，节省内存）
-                for i in range(len(self.pdf_images)):
-                    if i != idx and self.pdf_images[i] and self.pdf_images[i] != self.current_path:
-                        try:
-                            os.remove(self.pdf_images[i])
-                        except Exception:
-                            pass
-                        self.pdf_images[i] = None
-                self.status_var.set(f"第 {idx+1} / {len(self.pdf_images)} 页")
+        # 清理其它已渲染的临时页
+        for i in range(len(self.pdf_images)):
+            if i != idx and self.pdf_images[i] and self.pdf_images[i] != self.current_path:
+                try:
+                    os.remove(self.pdf_images[i])
+                except Exception:
+                    pass
+                self.pdf_images[i] = None
+        self.status_var.set(f"第 {idx+1} / {len(self.pdf_images)} 页")
         img_path = self.pdf_images[idx]
         if img_path is None:
             return
+        self.current_display_index = idx
+        self._display_image(img_path)
+
+    def _display_image(self, img_path):
+        """统一的图片显示入口，管理 PhotoImage 生命周期"""
         try:
-            with Image.open(img_path) as img:
-                if self._rotation_angle != 0:
-                    img = img.rotate(self._rotation_angle, expand=True, resample=Image.Resampling.BICUBIC)
-                self._current_base_image = img.copy()
-                canvas_w = self.pdf_canvas.winfo_width() or 400
-                canvas_h = self.pdf_canvas.winfo_height() or 600
-                img_w, img_h = img.size
-                if self._fit_mode.get() == 'fit_width':
-                    scale = canvas_w / img_w
-                    # fit_width 模式下，若缩放后高度超出画布则改用适应模式避免内容溢出
-                    if img_h * scale > canvas_h:
-                        scale = min(canvas_w / img_w, canvas_h / img_h)
-                else:
-                    scale = min(canvas_w / img_w, canvas_h / img_h)
-                new_w, new_h = int(img_w * scale), int(img_h * scale)
-                img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                self.current_img = ImageTk.PhotoImage(img_resized)
-                center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
-                center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
-                self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
-                self.page_var.set(f"第 {idx + 1} / {len(self.pdf_images)} 页")
-                self.current_display_index = idx
-                if self.selector:
-                    self.selector.image_item_id = self.current_image_item
-                if self.ocr_region:
-                    self._draw_region_overlay(self.ocr_region, scale)
-                self._draw_code_markers_for_page(idx, scale)
+            from PIL import Image, ImageTk
+            img = Image.open(img_path)
+            if self._rotation_angle != 0:
+                img = img.rotate(self._rotation_angle, expand=True, resample=Image.Resampling.BILINEAR)
+            self._current_base_image = img.copy()
+            canvas_w = self.pdf_canvas.winfo_width() or 400
+            canvas_h = self.pdf_canvas.winfo_height() or 600
+            img_w, img_h = img.size
+            if self._fit_mode.get() == 'fit_width':
+                fit_scale = canvas_w / img_w
+                if img_h * fit_scale > canvas_h:
+                    fit_scale = min(canvas_w / img_w, canvas_h / img_h)
+            else:
+                fit_scale = min(canvas_w / img_w, canvas_h / img_h)
+            zoom = getattr(self, '_zoom_level', 1.0)
+            scale = fit_scale * zoom
+            new_w, new_h = max(1, int(img_w * scale)), max(1, int(img_h * scale))
+            img_resized = img.resize((new_w, new_h), Image.Resampling.BILINEAR)
+            # 先删 canvas 内容，再创建新 PhotoImage
+            self.pdf_canvas.delete('all')
+            photo = ImageTk.PhotoImage(img_resized)
+            # 必须保持引用，否则 Tkinter 会回收
+            self._tk_photo = photo
+            self._tk_photo_image = img_resized
+            center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
+            center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
+            self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=photo)
+            if hasattr(self, 'current_display_index'):
+                self.page_var.set(f"第 {self.current_display_index + 1} / {len(self.pdf_images)} 页")
+            if self.selector:
+                self.selector.image_item_id = self.current_image_item
+            if getattr(self, 'ocr_region', None):
+                self._draw_region_overlay(self.ocr_region, scale)
+            if hasattr(self, 'current_display_index'):
+                self._draw_code_markers_for_page(self.current_display_index, scale)
         except Exception as e:
-            messagebox.showerror("图片错误", f"无法显示图片:\n{img_path}\n\n错误: {e}")
+            import traceback
+            traceback.print_exc()
             self.status_var.set("图片显示失败")
 
     def _prev_page(self):
-        if self.file_type not in ('pdf', 'image', 'cad') or not self.pdf_images:
+        if not self.pdf_images:
             return
         idx = getattr(self, 'current_display_index', 0) - 1
         if idx < 0:
@@ -2861,7 +3052,7 @@ class App:
         self.show_page(idx)
 
     def _next_page(self):
-        if self.file_type not in ('pdf', 'image', 'cad') or not self.pdf_images:
+        if not self.pdf_images:
             return
         idx = getattr(self, 'current_display_index', 0) + 1
         if idx >= len(self.pdf_images):
@@ -2922,32 +3113,123 @@ class App:
             return
         if not self.pdf_images:
             return
-        from PIL import Image, ImageTk
         img = self._current_base_image
         img_w, img_h = img.size
         canvas_w = canvas_w or self.pdf_canvas.winfo_width() or 400
         canvas_h = canvas_h or self.pdf_canvas.winfo_height() or 600
         if self._fit_mode.get() == 'fit_width':
             base_scale = canvas_w / img_w
-            # fit_width 模式下，若缩放后高度超出画布则改用适应模式
             if img_h * base_scale > canvas_h:
                 base_scale = min(canvas_w / img_w, canvas_h / img_h)
         else:
             base_scale = min(canvas_w / img_w, canvas_h / img_h)
         scale = base_scale * getattr(self, '_zoom_level', 1.0)
-        new_w, new_h = int(img_w * scale), int(img_h * scale)
-        img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        new_w, new_h = max(1, int(img_w * scale)), max(1, int(img_h * scale))
+        img_resized = img.resize((new_w, new_h), Image.Resampling.BILINEAR)
         self.pdf_canvas.delete('all')
-        self.current_img = ImageTk.PhotoImage(img_resized)
+        from PIL import ImageTk
+        photo = ImageTk.PhotoImage(img_resized)
+        self._tk_photo = photo
+        self._tk_photo_image = img_resized
         center_x = canvas_w // 2 + getattr(self, '_pan_image_x', 0)
         center_y = canvas_h // 2 + getattr(self, '_pan_image_y', 0)
-        self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=self.current_img)
-        if self.ocr_region:
+        self.current_image_item = self.pdf_canvas.create_image(center_x, center_y, image=photo)
+        if getattr(self, 'ocr_region', None):
             self._draw_region_overlay(self.ocr_region, scale)
         if hasattr(self, 'current_display_index'):
             self._draw_code_markers_for_page(self.current_display_index, scale)
         self._highlight_rect_id = None
+
     def _on_canvas_resize(self, event):
+        # 防抖
+        if hasattr(self, '_resize_after_id') and self._resize_after_id:
+            try:
+                self.root.after_cancel(self._resize_after_id)
+            except Exception:
+                pass
+        self._resize_after_id = self.root.after(200, self._do_resize_redraw)
+
+    def _do_resize_redraw(self):
+        self._resize_after_id = None
+        if hasattr(self, '_current_base_image') and self._current_base_image and self.pdf_images:
+            self._redraw_current_page()
+
+    def _prev_page(self):
+        if not self.pdf_images:
+            return
+        idx = getattr(self, 'current_display_index', 0) - 1
+        if idx < 0:
+            idx = len(self.pdf_images) - 1
+        self.show_page(idx)
+
+    def _next_page(self):
+        if not self.pdf_images:
+            return
+        idx = getattr(self, 'current_display_index', 0) + 1
+        if idx >= len(self.pdf_images):
+            idx = 0
+        self.show_page(idx)
+
+    def _zoom_in(self):
+        if not hasattr(self, '_zoom_level'):
+            self._zoom_level = 1.0
+        self._zoom_level = min(self._zoom_level * 1.2, 5.0)
+        self._redraw_current_page()
+
+    def _zoom_out(self):
+        if not hasattr(self, '_zoom_level'):
+            self._zoom_level = 1.0
+        self._zoom_level = max(self._zoom_level / 1.2, 0.2)
+        self._redraw_current_page()
+
+    def _on_mouse_wheel(self, event):
+        if not hasattr(self, '_zoom_level'):
+            self._zoom_level = 1.0
+        if event.delta > 0:
+            self._zoom_level = min(self._zoom_level * 1.1, 5.0)
+        else:
+            self._zoom_level = max(self._zoom_level / 1.1, 0.2)
+        self._redraw_current_page()
+
+    def _reset_zoom(self):
+        self._zoom_level = 1.0
+        self._pan_image_x = 0
+        self._pan_image_y = 0
+        self._rotation_angle = 0
+        self._redraw_current_page()
+
+    def _on_pan_start(self, event):
+        self._panning = True
+        self._pan_start_x = event.x
+        self._pan_start_y = event.y
+        self.pdf_canvas.config(cursor="fleur")
+
+    def _on_pan_drag(self, event):
+        if not self._panning:
+            return
+        dx = event.x - self._pan_start_x
+        dy = event.y - self._pan_start_y
+        self._pan_image_x += dx
+        self._pan_image_y += dy
+        self._pan_start_x = event.x
+        self._pan_start_y = event.y
+        self._redraw_current_page()
+
+    def _on_pan_end(self, event):
+        self._panning = False
+        self.pdf_canvas.config(cursor="")
+
+    def _on_canvas_resize(self, event):
+        # 防抖：resize 时延迟重绘，避免拖拽窗口时频繁重绘卡顿
+        if hasattr(self, '_resize_after_id') and self._resize_after_id:
+            try:
+                self.root.after_cancel(self._resize_after_id)
+            except Exception:
+                pass
+        self._resize_after_id = self.root.after(200, self._do_resize_redraw)
+
+    def _do_resize_redraw(self):
+        self._resize_after_id = None
         if hasattr(self, '_current_base_image') and self._current_base_image and self.pdf_images:
             self._redraw_current_page()
 
@@ -3369,7 +3651,7 @@ class App:
                         info = self.extracted_code_info.get(normalize_for_matching(code), {})
                         name = info.get('name', '')
                         self.list_tree.insert('', tk.END, values=(i, code, name, ''))
-                    # 已移除notebook，结果推送到AI窗口
+                    self.notebook.select(self.list_tree.master)
                     self.status_var.set(f"OCR 完成: 识别到 {len(codes)} 个规范编号")
                     self._push_ocr_to_ai()
                 else:
@@ -3378,7 +3660,7 @@ class App:
                     self.list_tree.insert('', tk.END, values=(2, '请查看 OCR 识别文本 确认内容'))
                     if sample.strip():
                         self.list_tree.insert('', tk.END, values=(3, sample[:120].replace('\n', ' ')))
-                    # 已移除notebook，结果推送到AI窗口
+                    self.notebook.select(self.list_tree.master)
                     self.status_var.set("OCR 完成，但未识别到规范编号")
                 self.progress_var.set(100)
                 if self.pdf_images:
@@ -3456,7 +3738,7 @@ class App:
             name = info.get('name', '')
             self.list_tree.insert('', tk.END, values=(i, code, name, ''))
         if self.extracted_codes:
-            # 已移除notebook，结果推送到AI窗口
+            self.notebook.select(self.list_tree.master)
             self.status_var.set(f"提取完成: 识别到 {len(self.extracted_codes)} 个规范编号")
 
         # 检查规范
@@ -3505,7 +3787,7 @@ class App:
             self.root.update_idletasks()
         self.progress_var.set(100)
         self.status_var.set(f"检查完成: {len(unique_codes)} 个规范")
-        # 已移除notebook，结果推送到AI窗口
+        self.notebook.select(self.check_tree.master)
         # 推送结果到 AI 聊天窗口
         if self.ai_chat is not None:
             self.ai_chat.send_standard_check(self.check_results)
@@ -3867,7 +4149,7 @@ class App:
         model_btn = tk.Label(model_row, text="▼", font=("Microsoft YaHei UI", 9),
                              bg=C['card'], fg=C['text_muted'], cursor="hand2", padx=8)
         model_btn.pack(side=tk.LEFT, padx=(0, 0))
-        model_values = ('glm-4-flash', 'glm-4', 'glm-4-air', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
+        model_values = ('hermesAPI', 'glm-4-flash', 'glm-4', 'glm-4-air', 'gpt-4o-mini', 'gpt-4o', 'deepseek-chat', 'qwen-plus')
 
         def _show_model_menu():
             menu = tk.Menu(model_row, tearoff=0,
@@ -4039,10 +4321,13 @@ class App:
     def _render_text_to_canvas(self, text, title):
         """将文本内容渲染为图片并显示在预览画布上"""
         if not HAS_PIL:
+            self.status_var.set("文本渲染需要 PIL 库")
             return
         self.status_var.set(f"正在渲染文本内容: {title}...")
         try:
-            lines = text.split('\n')
+            from PIL import Image, ImageDraw, ImageFont
+            import tempfile, os
+            lines = text.split('\n') if text else []
             if not lines or all(not l.strip() for l in lines):
                 lines = ["（文件内容为空）"]
             # 自动换行（按 50 个中文字符宽度）
@@ -4059,7 +4344,6 @@ class App:
             margin = 40
             w = max(600, margin * 2 + max_chars * 22)
             h = margin * 2 + len(lines) * line_h
-            # 限制最大高度，避免过大
             if h > 1600:
                 h = 1600
                 line_h = max(16, (h - margin * 2) // len(lines))
@@ -4067,11 +4351,7 @@ class App:
             draw = ImageDraw.Draw(img)
             # 尝试用系统字体，回退用位图
             font_path = None
-            for fp in [
-                "C:/Windows/Fonts/simsun.ttc",
-                "C:/Windows/Fonts/simhei.ttf",
-                "C:/Windows/Fonts/msyh.ttc",
-            ]:
+            for fp in ["C:/Windows/Fonts/simsun.ttc", "C:/Windows/Fonts/simhei.ttf", "C:/Windows/Fonts/msyh.ttc"]:
                 if Path(fp).exists():
                     font_path = fp
                     break
@@ -4085,24 +4365,28 @@ class App:
             else:
                 text_font = ImageFont.load_default()
                 title_font = ImageFont.load_default()
-                draw.text((margin, 12), title, fill=(0, 51, 102), font=title_font)
-                draw.line([(margin, 40), (w - margin, 40)], fill=(0, 120, 200), width=2)
-                cy = 56
-                for ln in lines:
-                    if cy + line_h > h - margin:
-                        draw.text((margin, cy), "...（内容截断，超出预览区域）", fill=(128, 128, 128), font=text_font)
-                        break
-                    draw.text((margin, cy), ln, fill=(0, 0, 0), font=text_font)
-                    cy += line_h
-                fd, tmp = tempfile.mkstemp(suffix='.png'); os.close(fd)
-                img.save(tmp)
-                self.pdf_images = [tmp]
-                if self.pdf_images:
-                    self.show_page(0)
-                self.status_var.set(f"已加载文本内容: {title}")
-                self.page_var.set("文本预览")
+            draw.text((margin, 12), title, fill=(0, 51, 102), font=title_font)
+            draw.line([(margin, 40), (w - margin, 40)], fill=(0, 120, 200), width=2)
+            cy = 56
+            for ln in lines:
+                if cy + line_h > h - margin:
+                    draw.text((margin, cy), "...（内容截断，超出预览区域）", fill=(128, 128, 128), font=text_font)
+                    break
+                draw.text((margin, cy), ln, fill=(0, 0, 0), font=text_font)
+                cy += line_h
+            fd, tmp = tempfile.mkstemp(suffix='.png'); os.close(fd)
+            img.save(tmp)
+            self.pdf_images = [tmp]
+            self.show_page(0)
+            self.status_var.set(f"已加载文本内容: {title}")
+            self.page_var.set("文本预览")
         except Exception as e:
-            print(f"text render error: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                messagebox.showerror("渲染错误", f"文本渲染失败:\n{e}")
+            except Exception:
+                pass
             self.status_var.set("文本渲染失败")
 
     def extract_text_file(self):
@@ -4123,7 +4407,16 @@ class App:
         try:
             if self.file_type == 'docx' and HAS_DOCX:
                 doc = Document(self.current_path)
-                full_text = '\n'.join([p.text for p in doc.paragraphs])
+                parts = []
+                for p in doc.paragraphs:
+                    if p.text.strip():
+                        parts.append(p.text)
+                for table in doc.tables:
+                    for row in table.rows:
+                        for cell in row.cells:
+                            if cell.text.strip():
+                                parts.append(cell.text)
+                full_text = '\n'.join(parts) if parts else "（文档内容为空或无文本）"
                 self.ocr_results = [full_text]
                 title_text = f"Word 文档: {Path(self.current_path).name}"
                 self._render_text_to_canvas(full_text, title_text)
