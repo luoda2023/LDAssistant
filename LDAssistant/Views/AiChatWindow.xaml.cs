@@ -47,7 +47,9 @@ namespace LDAssistant.Views
                 };
                 var para = new Paragraph { Margin = new Thickness(0) };
                 para.Inlines.Add(new Run(text) { Foreground = Brushes.White, FontSize = 13, FontFamily = new FontFamily("微软雅黑") });
-                var rtb = CreateRichText(para, Brushes.Transparent, Brushes.White);
+                var doc = new FlowDocument { PagePadding = new Thickness(4), TextAlignment = TextAlignment.Left };
+                doc.Blocks.Add(para);
+                var rtb = CreateRichText(doc, Brushes.Transparent, Brushes.White);
                 bubble.Child = rtb;
                 MsgPanel.Children.Add(bubble);
             }
