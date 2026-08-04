@@ -48,14 +48,25 @@ namespace LDAssistant.Services
 
             string result = sb.ToString();
 
-            // CJK标点替换
-            result = result.Replace('。', '.').Replace('、', ',')
-                          .Replace('～', '~').Replace('—', '-').Replace('–', '-')
-                          .Replace('…', '.').Replace('×', 'x').Replace('÷', '/')
-                          .Replace('·', '-').Replace('【', '[').Replace('】', ']')
-                          .Replace('（', '(').Replace('）', ')')
-                          .Replace('"', '"').Replace('"', '"')
-                          .Replace(''', '\'').Replace(''', '\'');
+            // CJK标点替换（用字符串避免 char 字面量问题）
+            result = result
+                .Replace("\u3002", ".")   // 。
+                .Replace("\u3001", ",")   // 、
+                .Replace("\uFF5E", "~")   // ～
+                .Replace("\u2014", "-")   // —
+                .Replace("\u2013", "-")   // –
+                .Replace("\u2026", "...") // …
+                .Replace("\u00D7", "x")   // ×
+                .Replace("\u00F7", "/")   // ÷
+                .Replace("\u00B7", "-")   // ·
+                .Replace("\u3010", "[")   // 【
+                .Replace("\u3011", "]")   // 】
+                .Replace("\uFF08", "(")   // （
+                .Replace("\uFF09", ")")   // ）
+                .Replace("\u201C", "\"")  // "
+                .Replace("\u201D", "\"")  // "
+                .Replace("\u2018", "'")   // '
+                .Replace("\u2019", "'");  // '
 
             // 去所有空格
             result = Regex.Replace(result, @"\s+", "");
