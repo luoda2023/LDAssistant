@@ -119,11 +119,11 @@ namespace LDAssistant.Views
 
         private void BtnFolder_Click(object sender, RoutedEventArgs e)
         {
-            var dlg = new System.Windows.Forms.FolderBrowserDialog
+            var dlg = new FolderPicker
             {
                 Description = "选择文件夹（递归扫描所有支持的文件）"
             };
-            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            if (dlg.ShowDialog())
             {
                 var exts = new HashSet<string> { ".pdf", ".docx", ".txt", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp", ".dxf" };
                 string[] files;
