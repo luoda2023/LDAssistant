@@ -13,7 +13,6 @@ using SDI = System.Drawing.Imaging;
 // 别名消除歧义
 using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
 using Text = DocumentFormat.OpenXml.Wordprocessing.Text;
-using Tab = DocumentFormat.OpenXml.Wordprocessing.Tab;
 using Break = DocumentFormat.OpenXml.Wordprocessing.Break;
 using Table = DocumentFormat.OpenXml.Wordprocessing.Table;
 using TableRowW = DocumentFormat.OpenXml.Wordprocessing.TableRow;
@@ -474,7 +473,7 @@ namespace LDAssistant.Services
                 foreach (var br in run.Elements<Break>())
                     sb.Append("\n");
 
-                foreach (var tab in run.Elements<Tab>())
+                foreach (var tab in run.Elements<DocumentFormat.OpenXml.Wordprocessing.TabChar>())
                     sb.Append("\t");
             }
         }
