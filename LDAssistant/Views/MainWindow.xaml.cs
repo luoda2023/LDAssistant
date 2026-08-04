@@ -192,41 +192,47 @@ namespace LDAssistant.Views
             int pages = _preview.TotalPages;
             ThumbTitle.Text = pages > 1 ? $"页面缩略图 ({pages} 页)" : "页面缩略图";
 
-            ThreadPool.QueueUserWorkItem(_ =>
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            for (int i = 0; i < pages; i++)
             {
-                for (int i = 0; i < pages; i++)
+                try
                 {
-                    try
-                    {
-                        var thumb = new FilePreviewService();
-                        thumb.Open(path);
-                        var img = thumb.RenderPage(i, 150);
-                        thumb.Close();
+                    // 复用同一个 _preview 实例（内部已加锁）
+                    var img = _preview.RenderPage(i, 150);
 
-                        if (img != null)
+                    if (img != null)
+                    {
+                        img.Freeze();
+                        var item = new PageThumbItem
                         {
-                            img.Freeze();
-                            var item = new PageThumbItem
-                            {
-                                PageIndex = i,
-                                Label = pages > 1 ? $"第 {i + 1} 页" : Path.GetFileName(path),
-                                Thumbnail = img,
-                            };
-                            Dispatcher.Invoke(() => PageThumbs.Add(item));
-                        }
+                            PageIndex = i,
+                            Label = pages > 1 ? $"第 {i + 1} 页" : Path.GetFileName(path),
+                            Thumbnail = img,
+                        };
+                        Dispatcher.Invoke(() => PageThumbs.Add(item));
                     }
-                    catch { }
                 }
-
-                Dispatcher.Invoke(() =>
+                catch (Exception ex)
                 {
-                    if (PageThumbs.Count > 0)
-                    {
-                        PageThumbs[0].IsActive = true;
-                        DisplayCurrentPage();
-                    }
-                });
+                    System.Diagnostics.Debug.WriteLine($"缩略图渲染失败 page {i}: {ex.Message}");
+                }
+            }
+
+            Dispatcher.Invoke(() =>
+            {
+                if (PageThumbs.Count > 0)
+                {
+                    PageThumbs[0].IsActive = true;
+                    DisplayCurrentPage();
+                }
+                else
+                {
+                    // 缩略图全部失败，仍然尝试显示当前页
+                    DisplayCurrentPage();
+                }
             });
+        });
         }
 
         // ═════════════ 显示当前页 ═════════════

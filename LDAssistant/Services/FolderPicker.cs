@@ -4,70 +4,82 @@ using System.Runtime.InteropServices;
 namespace LDAssistant.Services
 {
     /// <summary>
-    /// Windows Vista+ 文件夹选择对话框（无需 WinForms 依赖）
+    /// 文件夹选择对话框 — 用 SHBrowseForFolder（传统 Win32 API，稳定不崩溃）
     /// </summary>
     public class FolderPicker
     {
         public string Description { get; set; } = "";
         public string SelectedPath { get; private set; } = "";
 
+        // 最大路径长度
+        private const int MAX_PATH = 260;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct BROWSEINFO
+        {
+            public IntPtr hwndOwner;
+            public IntPtr pidlRoot;
+            public IntPtr pszDisplayName;
+            public string lpszTitle;
+            public uint ulFlags;
+            public IntPtr lpfn;
+            public int lParam;
+            public int iImage;
+        }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr SHBrowseForFolder(ref BROWSEINFO lpbi);
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool SHGetPathFromIDList(IntPtr pidl, [MarshalAs(UnmanagedType.LPWStr)] out string pszPath);
+
+        [DllImport("shell32.dll")]
+        private static extern void CoTaskMemFree(IntPtr ptr);
+
+        // BROWSEINFO flags
+        private const uint BIF_RETURNONLYFSDIRS = 0x0001;
+        private const uint BIF_USENEWUI = 0x0050;
+        private const uint BIF_NONEWFOLDERBUTTON = 0x0200;
+
         public bool ShowDialog()
         {
-            var dialog = (IFileOpenDialog)new FileOpenDialog();
+            var bi = new BROWSEINFO
+            {
+                hwndOwner = IntPtr.Zero,
+                pidlRoot = IntPtr.Zero,
+                pszDisplayName = Marshal.AllocCoTaskMem(MAX_PATH * 2),
+                lpszTitle = Description,
+                ulFlags = BIF_RETURNONLYFSDIRS | BIF_USENEWUI,
+            };
+
             try
             {
-                if (!string.IsNullOrEmpty(Description))
+                IntPtr pidl = SHBrowseForFolder(ref bi);
+
+                if (pidl != IntPtr.Zero)
                 {
-                    dialog.SetTitle(Description);
+                    try
+                    {
+                        bool ok = SHGetPathFromIDList(pidl, out string path);
+                        if (ok && !string.IsNullOrEmpty(path))
+                        {
+                            SelectedPath = path;
+                            return true;
+                        }
+                        return false;
+                    }
+                    finally
+                    {
+                        CoTaskMemFree(pidl);
+                    }
                 }
-
-                // 设置选项：只选文件夹
-                dialog.GetOptions(out uint opts);
-                dialog.SetOptions(opts | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
-
-                var hr = dialog.Show(IntPtr.Zero);
-                if (hr != 0) return false; // 用户取消
-
-                dialog.GetResult(out var item);
-                item.GetDisplayName(SIGDN.SIGDN_FILESYSPATH, out var path);
-                SelectedPath = path;
-                return true;
+                return false;
             }
             finally
             {
-                Marshal.ReleaseComObject(dialog);
+                if (bi.pszDisplayName != IntPtr.Zero)
+                    CoTaskMemFree(bi.pszDisplayName);
             }
-        }
-
-        // COM 接口定义
-        [ComImport, Guid("d57c7288-d4ad-4768-be02-9d969532d960"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        private interface IFileOpenDialog
-        {
-            [PreserveSig] uint Show(IntPtr parent);
-            void SetTitle([MarshalAs(UnmanagedType.LPWStr)] string title);
-            void GetOptions(out uint pfos);
-            void SetOptions(uint fos);
-            void GetResult(out IShellItem ppsi);
-        }
-
-        [ComImport, Guid("d57c7288-d4ad-4768-be02-9d969532d960"), CoClass(typeof(FileOpenDialogRCW))]
-        private interface FileOpenDialog : IFileOpenDialog { }
-
-        [ComImport, Guid("DC1C5A9C-E88A-4DDE-A5A1-60F82A20AEF7")]
-        private class FileOpenDialogRCW { }
-
-        [ComImport, Guid("43826d1e-e718-42ee-bc55-a1e261c37bfe"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        private interface IShellItem
-        {
-            void GetDisplayName([In] SIGDN sigdnName, [MarshalAs(UnmanagedType.LPWStr)] out string ppszName);
-        }
-
-        private const uint FOS_PICKFOLDERS = 0x20;
-        private const uint FOS_FORCEFILESYSTEM = 0x40;
-
-        private enum SIGDN : uint
-        {
-            SIGDN_FILESYSPATH = 0x80058000,
         }
     }
 }

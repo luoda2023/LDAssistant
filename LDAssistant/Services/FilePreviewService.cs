@@ -25,8 +25,9 @@ namespace LDAssistant.Services
     /// <summary>文件预览服务 - 渲染 PDF/图片/Word 为可显示的图片</summary>
     public class FilePreviewService
     {
-        private PdfiumViewer.PdfDocument _pdfDoc;
-        public int TotalPages { get; private set; }
+private PdfiumViewer.PdfDocument _pdfDoc;
+private readonly object _pdfLock = new();
+public int TotalPages { get; private set; }
         public string FileType { get; private set; } = "";
         private string _currentPath;
 
@@ -95,13 +96,15 @@ namespace LDAssistant.Services
                 {
                     case "pdf":
                         return RenderPdfPage(pageIndex, width, dpi);
-                    case "image":
-                        return LoadImageFile(_currentPath);
-                    case "docx":
-                    case "txt":
-                        return RenderTextFile(pageIndex);
-                    default:
-                        return null;
+case "image":
+return LoadImageFile(_currentPath);
+case "docx":
+case "txt":
+return RenderTextFile(pageIndex);
+case "cad":
+return RenderCadFile(pageIndex);
+default:
+return null;
                 }
             }
             catch (Exception ex)
@@ -111,28 +114,79 @@ namespace LDAssistant.Services
             }
         }
 
-        private BitmapSource RenderPdfPage(int pageIndex, int width, int dpi)
-        {
-            if (_pdfDoc == null || pageIndex < 0 || pageIndex >= _pdfDoc.PageCount)
-                return null;
+private BitmapSource RenderPdfPage(int pageIndex, int width, int dpi)
+{
+lock (_pdfLock)
+{
+if (_pdfDoc == null || pageIndex < 0 || pageIndex >= _pdfDoc.PageCount)
+return null;
 
-            var size = _pdfDoc.PageSizes[pageIndex];
-            double scale = dpi / 72.0;
-            if (width > 0)
-                scale = width / size.Width;
+var size = _pdfDoc.PageSizes[pageIndex];
+double scale = dpi / 72.0;
+if (width > 0)
+scale = width / size.Width;
 
-            int w = (int)(size.Width * scale);
-            int h = (int)(size.Height * scale);
+int w = (int)(size.Width * scale);
+int h = (int)(size.Height * scale);
 
-            var img = _pdfDoc.Render(pageIndex, w, h, dpi, dpi, true);
-            return ConvertBitmap(img);
-        }
+var img = _pdfDoc.Render(pageIndex, w, h, dpi, dpi, true);
+return ConvertBitmap(img);
+}
+}
 
-        private BitmapSource LoadImageFile(string path)
-        {
-            var bmp = new SD.Bitmap(path);
-            return ConvertBitmap(bmp);
-        }
+private BitmapSource LoadImageFile(string path)
+{
+var bmp = new SD.Bitmap(path);
+return ConvertBitmap(bmp);
+}
+
+/// <summary>DWG/DXF CAD 文件 — 提取文本信息显示</summary>
+private BitmapSource RenderCadFile(int pageIndex)
+{
+var text = $"📄 CAD 文件: {Path.GetFileName(_currentPath)}\n\n";
+
+try
+{
+if (Path.GetExtension(_currentPath).ToLower() == ".dxf")
+{
+// DXF 是文本格式，可以提取基本信息
+var lines = File.ReadAllLines(_currentPath, System.Text.Encoding.Default);
+text += $"文件大小: {new FileInfo(_currentPath).Length / 1024} KB\n";
+text += $"行数: {lines.Length}\n\n";
+
+// 提取图层信息
+var layers = new HashSet<string>();
+var entities = 0;
+for (int i = 0; i < lines.Length - 1; i++)
+{
+if (lines[i] == "LAYER" && i + 1 < lines.Length)
+{
+if (lines[i + 1] == "  2" && i + 2 < lines.Length)
+layers.Add(lines[i + 2].Trim());
+}
+if (lines[i] == "ENTITIES")
+entities++;
+}
+if (layers.Count > 0)
+{
+text += $"图层 ({layers.Count}):\n";
+foreach (var l in layers.Take(20))
+text += $"  • {l}\n";
+}
+}
+else
+{
+text += "DWG 是二进制格式，无法直接提取内容。\n";
+text += $"文件大小: {new FileInfo(_currentPath).Length / 1024} KB\n";
+}
+}
+catch (Exception ex)
+{
+text += $"\n读取失败: {ex.Message}";
+}
+
+return RenderTextToImage(text, Path.GetFileName(_currentPath));
+}
 
     private BitmapSource RenderTextFile(int pageIndex)
     {
