@@ -12,99 +12,123 @@ jobs:
       contents: write
     timeout-minutes: 30
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+    - name: 检出代码
+      uses: actions/checkout@v4
 
-      - name: 安装 .NET 8 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
+    - name: 安装 .NET 8 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: "8.0.x"
 
-      - name: 还原 NuGet 依赖
-        shell: pwsh
-        run: |
-          dotnet restore LDAssistant/LDAssistant.csproj
+    - name: 还原 NuGet 依赖
+      shell: pwsh
+      run: |
+        dotnet restore LDAssistant/LDAssistant.csproj
 
-      - name: 发布构建
-        shell: pwsh
-        run: |
-          dotnet publish LDAssistant/LDAssistant.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -o publish
+    - name: 发布构建
+      shell: pwsh
+      run: |
+        dotnet publish LDAssistant/LDAssistant.csproj `
+        -c Release `
+        -r win-x64 `
+        --self-contained true `
+        -p:PublishSingleFile=true `
+        -p:IncludeNativeLibrariesForSelfExtract=true `
+        -o publish
 
-      - name: 复制数据库
-        shell: pwsh
-        run: |
-          if (Test-Path standards.db) {
-            Copy-Item standards.db publish/standards.db
-            Write-Host "standards.db copied"
+    - name: 检查并复制 pdfium.dll
+      shell: pwsh
+      run: |
+        Write-Host "=== publish 目录内容 ==="
+        Get-ChildItem publish -Recurse | Format-Table Name, Length, Directory
+
+        $pdfium = Get-ChildItem publish -Filter "pdfium.dll" -Recurse | Select-Object -First 1
+        if ($pdfium) {
+          Write-Host "找到 pdfium.dll: $($pdfium.FullName)"
+          if ($pdfium.DirectoryName -ne (Resolve-Path publish).Path) {
+            Copy-Item $pdfium.FullName publish/pdfium.dll -Force
+            Write-Host "已复制 pdfium.dll 到 publish 根目录"
+          }
+        } else {
+          Write-Host "WARNING: pdfium.dll 未找到，正在从 NuGet 缓存复制..."
+          $nugetPdfium = Get-ChildItem "$env:USERPROFILE\.nuget\packages\pdfiumviewer.native.x86_64.v8-xfa" -Filter "pdfium.dll" -Recurse | Select-Object -First 1
+          if ($nugetPdfium) {
+            Copy-Item $nugetPdfium.FullName publish/pdfium.dll -Force
+            Write-Host "已从 NuGet 缓存复制 pdfium.dll"
           } else {
-            Write-Host "WARNING: standards.db not found"
+            Write-Host "ERROR: 无法找到 pdfium.dll"
           }
+        }
 
-      - name: 打包 zip
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Compress-Archive -Path "publish/*" -DestinationPath "dist/LDAssistant-v3.0.zip" -Force
-          Write-Host "=== dist 内容 ==="
-          Get-ChildItem dist | Format-Table Name, Length
+    - name: 复制数据库
+      shell: pwsh
+      run: |
+        if (Test-Path standards.db) {
+          Copy-Item standards.db publish/standards.db
+          Write-Host "standards.db copied"
+        } else {
+          Write-Host "WARNING: standards.db not found"
+        }
 
-      - name: 上传构建产物 Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: LDAssistant-build
-          path: dist/LDAssistant-*.zip
-          if-no-files-found: error
-          retention-days: 7
+    - name: 打包 zip
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path dist | Out-Null
+        Compress-Archive -Path "publish/*" -DestinationPath "dist/LDAssistant-v3.0.zip" -Force
+        Write-Host "=== dist 内容 ==="
+        Get-ChildItem dist | Format-Table Name, Length
 
-      - name: 发布到 Release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $repo = $env:GITHUB_REPOSITORY
-          $tagName = "latest-build"
-          $releaseBody = "LDAssistant v3.0 (C# WPF) 最新构建`ncommit: $($env:GITHUB_SHA.Substring(0,7))"
+    - name: 上传构建产物 Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: LDAssistant-build
+        path: dist/LDAssistant-*.zip
+        if-no-files-found: error
+        retention-days: 7
 
-          $apiUrl = "https://api.github.com/repos/$repo/releases"
-          $headers = @{
-            Authorization = "Bearer $env:GH_TOKEN"
-            Accept = "application/vnd.github+json"
-            "X-GitHub-Api-Version" = "2022-11-28"
+    - name: 发布到 Release
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        $ErrorActionPreference = "Stop"
+        $repo = $env:GITHUB_REPOSITORY
+        $tagName = "latest-build"
+        $releaseBody = "LDAssistant v3.0 (C# WPF) 最新构建`ncommit: $($env:GITHUB_SHA.Substring(0,7))"
+
+        $apiUrl = "https://api.github.com/repos/$repo/releases"
+        $headers = @{
+          Authorization = "Bearer $env:GH_TOKEN"
+          Accept = "application/vnd.github+json"
+          "X-GitHub-Api-Version" = "2022-11-28"
+        }
+
+        # 删除旧 Release
+        try {
+          $existing = Invoke-RestMethod -Uri "$apiUrl/tags/$tagName" -Headers $headers
+          if ($existing) {
+            Write-Host "删除旧 Release (id=$($existing.id))..."
+            Invoke-RestMethod -Uri "$apiUrl/$($existing.id)" -Method DELETE -Headers $headers | Out-Null
           }
+        } catch { Write-Host "无旧 Release" }
 
-          # 删除旧 Release
-          try {
-            $existing = Invoke-RestMethod -Uri "$apiUrl/tags/$tagName" -Headers $headers
-            if ($existing) {
-              Write-Host "删除旧 Release (id=$($existing.id))..."
-              Invoke-RestMethod -Uri "$apiUrl/$($existing.id)" -Method DELETE -Headers $headers | Out-Null
-            }
-          } catch { Write-Host "无旧 Release" }
+        # 创建新 Release
+        $body = @{
+          tag_name = $tagName
+          name = "LDAssistant v3.0 最新构建"
+          body = $releaseBody
+          draft = $false
+          prerelease = $false
+          target_commitish = $env:GITHUB_SHA
+        } | ConvertTo-Json -Depth 5
 
-          # 创建新 Release
-          $body = @{
-            tag_name = $tagName
-            name = "LDAssistant v3.0 最新构建"
-            body = $releaseBody
-            draft = $false
-            prerelease = $false
-            target_commitish = $env:GITHUB_SHA
-          } | ConvertTo-Json -Depth 5
+        $release = Invoke-RestMethod -Uri $apiUrl -Method POST -Headers $headers -Body $body -ContentType "application/json; charset=utf-8"
+        Write-Host "Release 创建成功: id=$($release.id)"
 
-          $release = Invoke-RestMethod -Uri $apiUrl -Method POST -Headers $headers -Body $body -ContentType "application/json; charset=utf-8"
-          Write-Host "Release 创建成功: id=$($release.id)"
-
-          # 上传 zip
-          $zipFile = Get-ChildItem dist -Filter "LDAssistant-*.zip" | Select-Object -First 1
-          $uploadUrl = $release.upload_url -replace '\{\?name,label\}', "?name=$($zipFile.Name)"
-          $bytes = [System.IO.File]::ReadAllBytes($zipFile.FullName)
-          Invoke-RestMethod -Uri $uploadUrl -Method POST -Headers $headers -Body $bytes -ContentType "application/octet-stream" | Out-Null
-          Write-Host "上传完成: $($zipFile.Name)"
-          Write-Host "下载地址: https://github.com/$repo/releases/tag/$tagName"
+        # 上传 zip
+        $zipFile = Get-ChildItem dist -Filter "LDAssistant-*.zip" | Select-Object -First 1
+        $uploadUrl = $release.upload_url -replace '\{\?name,label\}', "?name=$($zipFile.Name)"
+        $bytes = [System.IO.File]::ReadAllBytes($zipFile.FullName)
+        Invoke-RestMethod -Uri $uploadUrl -Method POST -Headers $headers -Body $bytes -ContentType "application/octet-stream" | Out-Null
+        Write-Host "上传完成: $($zipFile.Name)"
+        Write-Host "下载地址: https://github.com/$repo/releases/tag/$tagName"

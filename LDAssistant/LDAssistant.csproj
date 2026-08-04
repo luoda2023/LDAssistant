@@ -14,7 +14,7 @@
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishTrimmed>false</PublishTrimmed>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,6 +26,17 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.*" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.*" />
   </ItemGroup>
+
+  <!-- 确保原生 pdfium.dll 被打包进单文件 exe -->
+  <Target Name="IncludePdfiumNative" AfterTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <Content Include="$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll"
+               Condition="Exists('$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll')"
+               CopyToOutputDirectory="PreserveNewest"
+               Pack="true"
+               PackagePath="runtimes/win-x64/native/" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <None Update="..\standards.db" Condition="Exists('..\standards.db')">
