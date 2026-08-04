@@ -91,6 +91,12 @@
                             <TextBlock Text="AI" Margin="4,0,0,0"/>
                         </StackPanel>
                     </Button>
+                    <Button x:Name="BtnQuery" Style="{StaticResource ToolBarButton}" Click="BtnQuery_Click" ToolTip="规范查询">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔍" FontSize="14"/>
+                            <TextBlock Text="查询" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </DockPanel>
         </Border>

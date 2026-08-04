@@ -1,31 +1,41 @@
 <Window x:Class="LDAssistant.Views.AiChatWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="AI 助手" Width="520" Height="640"
-        Background="White" WindowStartupLocation="CenterScreen">
+        Title="AI 助手" Width="560" Height="680"
+        Background="#F5F5F5" WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        MinWidth="400" MinHeight="500"
+        WindowStyle="SingleBorderWindow">
     <DockPanel>
-        <!-- 顶部标题 -->
+        <!-- 顶部标题栏 -->
         <Border DockPanel.Dock="Top" Background="#2196F3" Padding="12,8">
-            <StackPanel>
-                <TextBlock Text="🤖 AI 助手" Foreground="White" FontSize="16" FontWeight="Bold"/>
-                <TextBlock x:Name="ModelLabel" Text="模型: hermesAPI" Foreground="#BBDEFB" FontSize="11"/>
-            </StackPanel>
+            <DockPanel>
+                <StackPanel>
+                    <TextBlock Text="🤖 AI 助手" Foreground="White" FontSize="15" FontWeight="Bold"/>
+                    <TextBlock x:Name="ModelLabel" Text="模型: hermesAPI" Foreground="#BBDEFB" FontSize="11"/>
+                </StackPanel>
+                <Button x:Name="BtnClear" DockPanel.Dock="Right" Content="清空" Width="50" Height="28"
+                        Background="#1565C0" Foreground="White" BorderThickness="0"
+                        Click="BtnClear_Click" ToolTip="清空对话" Margin="0,0,0,0"
+                        HorizontalAlignment="Right"/>
+            </DockPanel>
         </Border>
 
         <!-- 底部输入区 -->
-        <Border DockPanel.Dock="Bottom" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="8">
+        <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="8">
             <DockPanel>
                 <Button x:Name="BtnSend" DockPanel.Dock="Right" Content="发送" Width="60" Margin="8,0,0,0"
-                        Click="BtnSend_Click" Background="#2196F3" Foreground="White" FontWeight="Bold"/>
+                        Click="BtnSend_Click" Background="#2196F3" Foreground="White" FontWeight="Bold"
+                        BorderThickness="0" Padding="0,4"/>
                 <TextBox x:Name="InputBox" FontSize="13" Padding="6,4"
                          KeyDown="InputBox_KeyDown" AcceptsReturn="True" MaxHeight="80" TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Auto"/>
+                         VerticalScrollBarVisibility="Auto" BorderBrush="#E0E0E0"/>
             </DockPanel>
         </Border>
 
         <!-- 消息列表 -->
-        <ScrollViewer x:Name="MsgScroll" VerticalScrollBarVisibility="Auto" Background="#FAFAFA">
-            <StackPanel x:Name="MsgPanel" Margin="8"/>
+        <ScrollViewer x:Name="MsgScroll" VerticalScrollBarVisibility="Auto" Background="#FAFAFA" Padding="4">
+            <StackPanel x:Name="MsgPanel" Margin="4,4,4,4"/>
         </ScrollViewer>
     </DockPanel>
 </Window>

@@ -297,6 +297,7 @@ namespace LDAssistant.Services
     private BitmapSource RenderDocxFormatted(string path)
     {
         var blocks = new List<DocBlock>();
+        var imageParts = new Dictionary<string, SD.Bitmap>();
 
         try
         {
@@ -306,9 +307,6 @@ namespace LDAssistant.Services
 
             var body = mainPart.Document.Body;
             if (body == null) return RenderTextToImage("（Word 文档为空）", Path.GetFileName(path));
-
-            // 获取图片关系
-            var imageParts = new Dictionary<string, SD.Bitmap>();
             foreach (var rel in mainPart.HyperlinkRelationships)
             {
                 // skip hyperlinks

@@ -687,6 +687,29 @@ namespace LDAssistant.Views
             }
         }
 
+        // ═════════════ 规范查询窗口 ═════════════
+        private StandardQueryWindow _queryWindow;
+
+        private void BtnQuery_Click(object sender, RoutedEventArgs e)
+        {
+            if (_checker == null)
+            {
+                MessageBox.Show("标准数据库未加载。请确保 standards.db 在程序目录中。",
+                    "数据库不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (_queryWindow == null || !_queryWindow.IsVisible)
+            {
+                _queryWindow = new StandardQueryWindow(_checker);
+                _queryWindow.Show();
+            }
+            else
+            {
+                _queryWindow.Activate();
+            }
+        }
+
         protected override void OnClosed(EventArgs e)
         {
             _preview?.Close();

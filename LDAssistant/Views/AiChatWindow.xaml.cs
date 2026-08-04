@@ -22,76 +22,162 @@ namespace LDAssistant.Views
             InitializeComponent();
             _ai = ai;
             ModelLabel.Text = $"模型: {ai.Model ?? "hermesAPI"}";
-            AddMessage("AI", "你好！我是 AI 助手。\n\n点击工具栏的 **OCR** 识别文字，**检查** 规范编号，结果都会显示在这里。");
+            AddMessage("AI", "你好！我是 AI 助手。\n\n点击工具栏的 **OCR** 识别文字，**检查** 规范编号，结果都会显示在这里。你可以在消息上右键复制。");
         }
 
         public void SetContext(string context) => _context = context;
 
-        // ═════════════ 添加消息气泡 ═════════════
+        // ═══════════════ 添加消息 ═══════════════
 
+        /// <summary>添加消息：用户用气泡，AI/系统用无气泡富文本</summary>
         public void AddMessage(string role, string text)
         {
             var isUser = role == "我";
-            var isSystem = role == "系统";
 
-            // 颜色方案
-            var textColor = isUser ? Brushes.White : Brushes.Black;
-            var codeBg = isUser
-                ? new SolidColorBrush(Color.FromRgb(0x15, 0x65, 0xC0))
-                : isSystem
-                    ? new SolidColorBrush(Color.FromRgb(0xC8, 0xE6, 0xC9))
+            if (isUser)
+            {
+                // 用户消息 — 蓝色气泡，右对齐
+                var bubble = new Border
+                {
+                    Padding = new Thickness(12, 8, 12, 8),
+                    Margin = new Thickness(40, 4, 4, 4),
+                    CornerRadius = new CornerRadius(12),
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    Background = new SolidColorBrush(Color.FromRgb(0x21, 0x96, 0xF3)),
+                };
+                var para = new Paragraph { Margin = new Thickness(0) };
+                para.Inlines.Add(new Run(text) { Foreground = Brushes.White, FontSize = 13, FontFamily = new FontFamily("微软雅黑") });
+                var rtb = CreateRichText(para, Brushes.Transparent, Brushes.White);
+                bubble.Child = rtb;
+                MsgPanel.Children.Add(bubble);
+            }
+            else
+            {
+                // AI / 系统消息 — 无气泡，左对齐，带角色标签
+                var container = new StackPanel { Margin = new Thickness(4, 8, 4, 4) };
+
+                // 角色标签
+                var label = new TextBlock
+                {
+                    Text = role == "系统" ? "📋 系统" : "🤖 AI",
+                    FontSize = 11,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66)),
+                    Margin = new Thickness(4, 0, 0, 2),
+                };
+                container.Children.Add(label);
+
+                // 富文本内容
+                var codeBg = role == "系统"
+                    ? new SolidColorBrush(Color.FromRgb(0xE8, 0xF5, 0xE9))
                     : new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF5));
-            var codeColor = isUser ? Brushes.White : new SolidColorBrush(Color.FromRgb(0xC7, 0x25, 0x4E));
-            var linkColor = isUser ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x21, 0x96, 0xF3));
+                var codeColor = new SolidColorBrush(Color.FromRgb(0xC7, 0x25, 0x4E));
+                var linkColor = new SolidColorBrush(Color.FromRgb(0x21, 0x96, 0xF3));
+                var textColor = Brushes.Black;
 
-            var bubble = new Border
-            {
-                Padding = new Thickness(12, 8, 12, 8),
-                Margin = new Thickness(4, 4, 4, 4),
-                CornerRadius = new CornerRadius(12),
-                MaxWidth = 460,
-                HorizontalAlignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                Background = isUser
-                    ? new SolidColorBrush(Color.FromRgb(0x21, 0x96, 0xF3))
-                    : isSystem
-                        ? new SolidColorBrush(Color.FromRgb(0xE8, 0xF5, 0xE9))
-                        : new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF)),
-                BorderBrush = isSystem
-                    ? new SolidColorBrush(Color.FromRgb(0x4C, 0xAF, 0x50))
-                    : new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0)),
-                BorderThickness = new Thickness(1),
-            };
+                var doc = new FlowDocument
+                {
+                    PagePadding = new Thickness(4, 0, 4, 0),
+                    TextAlignment = TextAlignment.Left,
+                    LineHeight = 22,
+                };
+                RenderMarkdown(doc, text, textColor, codeBg, codeColor, linkColor);
 
-            var rtb = new RichTextBox
-            {
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                IsReadOnly = true,
-                FontSize = 13,
-                FontFamily = new FontFamily("微软雅黑"),
-                Foreground = textColor,
-                Padding = new Thickness(0),
-                Margin = new Thickness(0),
-            };
+                var rtb = CreateRichText(doc, Brushes.White, textColor);
+                rtb.Margin = new Thickness(0);
+                container.Children.Add(rtb);
 
-            var doc = new FlowDocument
-            {
-                PagePadding = new Thickness(0),
-                TextAlignment = TextAlignment.Left,
-                LineHeight = 22,
-            };
+                // 操作按钮栏
+                var btnBar = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Margin = new Thickness(4, 2, 0, 0),
+                };
 
-            RenderMarkdown(doc, text, textColor, codeBg, codeColor, linkColor);
-            rtb.Document = doc;
+                var btnCopy = new Button
+                {
+                    Content = "📋 复制",
+                    FontSize = 11,
+                    Padding = new Thickness(6, 1, 6, 1),
+                    Background = new SolidColorBrush(Color.FromRgb(0xF0, 0xF0, 0xF0)),
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(0xDD, 0xDD, 0xDD)),
+                    BorderThickness = new Thickness(1),
+                    Cursor = Cursors.Hand,
+                };
+                btnCopy.Click += (s, e) =>
+                {
+                    try { Clipboard.SetText(text); }
+                    catch { }
+                };
 
-            bubble.Child = rtb;
-            MsgPanel.Children.Add(bubble);
+                var btnExport = new Button
+                {
+                    Content = "📄 导出Word",
+                    FontSize = 11,
+                    Padding = new Thickness(6, 1, 6, 1),
+                    Margin = new Thickness(4, 0, 0, 0),
+                    Background = new SolidColorBrush(Color.FromRgb(0xF0, 0xF0, 0xF0)),
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(0xDD, 0xDD, 0xDD)),
+                    BorderThickness = new Thickness(1),
+                    Cursor = Cursors.Hand,
+                };
+                btnExport.Click += (s, e) => ExportMessageToWord(text);
+
+                btnBar.Children.Add(btnCopy);
+                btnBar.Children.Add(btnExport);
+                container.Children.Add(btnBar);
+
+                MsgPanel.Children.Add(container);
+            }
 
             MsgPanel.UpdateLayout();
             MsgScroll.ScrollToBottom();
         }
 
-        // ═════════════ 发送消息 ═════════════
+        private RichTextBox CreateRichText(FlowDocument doc, Brush bg, Brush fg)
+        {
+            return new RichTextBox
+            {
+                Background = bg,
+                BorderThickness = new Thickness(0),
+                IsReadOnly = true,
+                FontSize = 13,
+                FontFamily = new FontFamily("微软雅黑"),
+                Foreground = fg,
+                Padding = new Thickness(2),
+                Margin = new Thickness(0),
+                Document = doc,
+            };
+        }
+
+        private void ExportMessageToWord(string text)
+        {
+            var dlg = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "Word 文档|*.docx",
+                FileName = "AI对话记录",
+            };
+            if (dlg.ShowDialog() == true)
+            {
+                try
+                {
+                    ExportService.ExportWord(dlg.FileName, "AI对话", new List<Models.CheckResult>
+                    {
+                        new() { Code = "AI对话", Name = text, Status = "对话", No = 1 }
+                    });
+                    MessageBox.Show($"已导出到:\n{dlg.FileName}", "导出成功",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"导出失败: {ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        // ═══════════════ 按钮事件 ═══════════════
 
         private async void BtnSend_Click(object sender, RoutedEventArgs e) => await SendMessage();
 
@@ -135,6 +221,13 @@ namespace LDAssistant.Views
             }
         }
 
+        private void BtnClear_Click(object sender, RoutedEventArgs e)
+        {
+            MsgPanel.Children.Clear();
+            _history.Clear();
+            AddMessage("AI", "对话已清空。");
+        }
+
         // ═══════════════════════════════════════════════════════════
         //  Markdown → FlowDocument 渲染器
         // ═══════════════════════════════════════════════════════════
@@ -155,7 +248,6 @@ namespace LDAssistant.Views
                 // 代码块 ``` 开始/结束
                 if (line.TrimStart().StartsWith("```"))
                 {
-                    // 先刷新表格
                     if (inTable) { FlushTable(doc, tableLines, textColor, codeBg, linkColor); tableLines.Clear(); inTable = false; }
 
                     if (inCodeBlock)
@@ -189,20 +281,17 @@ namespace LDAssistant.Views
                     continue;
                 }
 
-                // Markdown 表格行 | ... | ... |
+                // 表格行
                 if (line.TrimStart().StartsWith("|") && line.TrimEnd().EndsWith("|"))
                 {
-                    // 跳过分隔行 |---|---|
                     if (Regex.IsMatch(line, @"^\|[\s\-:|]+\|$"))
                     { inTable = true; continue; }
-
                     inTable = true;
                     tableLines.Add(line);
                     continue;
                 }
                 else if (inTable)
                 {
-                    // 表格结束，渲染
                     FlushTable(doc, tableLines, textColor, codeBg, linkColor);
                     tableLines.Clear();
                     inTable = false;
@@ -214,7 +303,7 @@ namespace LDAssistant.Views
                     continue;
                 }
 
-                // 标题 # ## ### ####
+                // 标题
                 var titleMatch = Regex.Match(line, @"^(#{1,4})\s+(.+)$");
                 if (titleMatch.Success)
                 {
@@ -231,7 +320,7 @@ namespace LDAssistant.Views
                     continue;
                 }
 
-                // 无序列表 - * +
+                // 无序列表
                 var listMatch = Regex.Match(line, @"^[\s]*[-*+]\s+(.+)$");
                 if (listMatch.Success)
                 {
@@ -242,7 +331,7 @@ namespace LDAssistant.Views
                     continue;
                 }
 
-                // 有序列表 1. 2.
+                // 有序列表
                 var orderedMatch = Regex.Match(line, @"^[\s]*(\d+)\.\s+(.+)$");
                 if (orderedMatch.Success)
                 {
@@ -253,7 +342,7 @@ namespace LDAssistant.Views
                     continue;
                 }
 
-                // 引用 >
+                // 引用
                 var quoteMatch = Regex.Match(line, @"^>\s*(.*)$");
                 if (quoteMatch.Success)
                 {
@@ -288,31 +377,12 @@ namespace LDAssistant.Views
                 doc.Blocks.Add(textPara);
             }
 
-            // 结束时刷新表格
             if (inTable && tableLines.Count > 0)
                 FlushTable(doc, tableLines, textColor, codeBg, linkColor);
-
-            // 未闭合代码块
-            if (inCodeBlock && codeBlockLines.Count > 0)
-            {
-                var p = new Paragraph
-                {
-                    Background = codeBg,
-                    Margin = new Thickness(0, 4, 0, 4),
-                    Padding = new Thickness(8, 6, 8, 6),
-                };
-                p.Inlines.Add(new Run(string.Join("\n", codeBlockLines))
-                {
-                    FontFamily = new FontFamily("Consolas"),
-                    FontSize = 12,
-                    Foreground = codeColor,
-                });
-                doc.Blocks.Add(p);
-            }
         }
 
         // ═══════════════════════════════════════════════════════════
-        //  Markdown 表格 → WPF Table 渲染
+        //  Markdown 表格 → WPF Table
         // ═══════════════════════════════════════════════════════════
 
         private void FlushTable(FlowDocument doc, List<string> tableLines,
@@ -320,7 +390,6 @@ namespace LDAssistant.Views
         {
             if (tableLines.Count == 0) return;
 
-            // 解析单元格
             var rows = new List<List<string>>();
             foreach (var line in tableLines)
             {
@@ -341,11 +410,9 @@ namespace LDAssistant.Views
                 CellSpacing = 0,
             };
 
-            // 列
             for (int i = 0; i < colCount; i++)
                 table.Columns.Add(new TableColumn());
 
-            // 表格边框
             var borderBrush = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC));
             var headerBg = new SolidColorBrush(Color.FromRgb(0x42, 0xA5, 0xF5));
             var altBg = new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF5));
@@ -357,7 +424,6 @@ namespace LDAssistant.Views
             {
                 var tr = new TableRow();
 
-                // 行背景
                 if (r == 0)
                     tr.Background = headerBg;
                 else if (r % 2 == 0)
@@ -368,14 +434,10 @@ namespace LDAssistant.Views
                     var cellText = c < rows[r].Count ? rows[r][c] : "";
                     var para = new Paragraph { Margin = new Thickness(2, 1, 2, 1) };
 
-                    // 表头加粗白色，普通行黑色
                     var cellTextColor = r == 0 ? Brushes.White : textColor;
-                    var cellFontWeight = r == 0 ? FontWeights.Bold : FontWeights.Normal;
 
-                    // 支持行内 markdown
                     AddInlineSpans(para, cellText, cellTextColor, codeBg, new SolidColorBrush(Color.FromRgb(0xC7, 0x25, 0x4E)), linkColor);
 
-                    // 给每个 inline 加粗（表头）
                     if (r == 0)
                     {
                         foreach (var inline in para.Inlines)
@@ -413,11 +475,11 @@ namespace LDAssistant.Views
                 if (m.Index > lastEnd)
                     para.Inlines.Add(new Run(text.Substring(lastEnd, m.Index - lastEnd)) { Foreground = textColor });
 
-                if (m.Groups[2].Success) // **bold**
+                if (m.Groups[2].Success)
                     para.Inlines.Add(new Run(m.Groups[2].Value) { FontWeight = FontWeights.Bold, Foreground = textColor });
-                else if (m.Groups[3].Success) // *italic*
+                else if (m.Groups[3].Success)
                     para.Inlines.Add(new Run(m.Groups[3].Value) { FontStyle = FontStyles.Italic, Foreground = textColor });
-                else if (m.Groups[4].Success) // `code`
+                else if (m.Groups[4].Success)
                     para.Inlines.Add(new Run(m.Groups[4].Value)
                     {
                         FontFamily = new FontFamily("Consolas"),
@@ -425,7 +487,7 @@ namespace LDAssistant.Views
                         Foreground = codeColor,
                         Background = codeBg,
                     });
-                else if (m.Groups[5].Success) // [text](url)
+                else if (m.Groups[5].Success)
                 {
                     var link = new Hyperlink(new Run(m.Groups[5].Value) { Foreground = linkColor })
                     {

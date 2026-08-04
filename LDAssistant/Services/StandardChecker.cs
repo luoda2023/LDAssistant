@@ -195,9 +195,125 @@ namespace LDAssistant.Services
             };
         }
 
-        public void Dispose()
-        {
-            try { _conn?.Close(); _conn?.Dispose(); } catch { }
-        }
+    public void Dispose()
+    {
+        try { _conn?.Close(); _conn?.Dispose(); } catch { }
     }
+
+    // ═══════════════════════════════════════════════════════════
+    //  手动查询功能
+    // ═══════════════════════════════════════════════════════════
+
+    /// <summary>获取所有分类（source_type）</summary>
+    public List<(string type, int count)> GetCategories()
+    {
+        var list = new List<(string, int)>();
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT source_type, COUNT(*) FROM standards GROUP BY source_type ORDER BY COUNT(*) DESC";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            var t = reader.IsDBNull(0) ? "未知" : reader.GetString(0);
+            var c = reader.GetInt32(1);
+            list.Add((t, c));
+        }
+        return list;
+    }
+
+    /// <summary>获取总记录数</summary>
+    public long GetTotalCount()
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM standards";
+        return (long)cmd.ExecuteScalar();
+    }
+
+    /// <summary>按状态统计</summary>
+    public List<(string status, int count)> GetStatusStats()
+    {
+        var list = new List<(string, int)>();
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT status, COUNT(*) FROM standards GROUP BY status ORDER BY COUNT(*) DESC";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            var s = reader.IsDBNull(0) ? "未知" : reader.GetString(0);
+            var c = reader.GetInt32(1);
+            list.Add((s, c));
+        }
+        return list;
+    }
+
+    /// <summary>搜索规范：可在全库或指定分类内查询</summary>
+    public List<StandardRecord> Search(string keyword, string category = "", int limit = 200)
+    {
+        var results = new List<StandardRecord>();
+        if (string.IsNullOrWhiteSpace(keyword)) return results;
+
+        // 先用 FTS5
+        try
+        {
+            using var cmd = _conn.CreateCommand();
+            var sql = "SELECT * FROM standards WHERE standards_fts MATCH @q";
+            if (!string.IsNullOrEmpty(category))
+                sql += " AND source_type = @cat";
+            sql += " ORDER BY rank LIMIT @limit";
+            cmd.CommandText = sql;
+            cmd.Parameters.AddWithValue("@q", keyword.Trim());
+            if (!string.IsNullOrEmpty(category))
+                cmd.Parameters.AddWithValue("@cat", category);
+            cmd.Parameters.AddWithValue("@limit", limit);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                results.Add(MapRecord(reader));
+        }
+        catch { }
+
+        // 补充 LIKE 搜索
+        if (results.Count < limit)
+        {
+            using var cmd = _conn.CreateCommand();
+            var sql = "SELECT * FROM standards WHERE code LIKE @q OR name LIKE @q2";
+            if (!string.IsNullOrEmpty(category))
+                sql += " AND source_type = @cat";
+            sql += " LIMIT @limit";
+            cmd.CommandText = sql;
+            cmd.Parameters.AddWithValue("@q", $"%{keyword}%");
+            cmd.Parameters.AddWithValue("@q2", $"%{keyword}%");
+            if (!string.IsNullOrEmpty(category))
+                cmd.Parameters.AddWithValue("@cat", category);
+            cmd.Parameters.AddWithValue("@limit", limit - results.Count);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                results.Add(MapRecord(reader));
+        }
+
+        return results;
+    }
+
+    /// <summary>按状态过滤搜索</summary>
+    public List<StandardRecord> SearchByStatus(string keyword, string status, string category = "", int limit = 200)
+    {
+        var results = new List<StandardRecord>();
+        if (string.IsNullOrWhiteSpace(keyword)) return results;
+
+        using var cmd = _conn.CreateCommand();
+        var sql = "SELECT * FROM standards WHERE (code LIKE @q OR name LIKE @q2) AND status = @status";
+        if (!string.IsNullOrEmpty(category))
+            sql += " AND source_type = @cat";
+        sql += " LIMIT @limit";
+        cmd.CommandText = sql;
+        cmd.Parameters.AddWithValue("@q", $"%{keyword}%");
+        cmd.Parameters.AddWithValue("@q2", $"%{keyword}%");
+        cmd.Parameters.AddWithValue("@status", status);
+        if (!string.IsNullOrEmpty(category))
+            cmd.Parameters.AddWithValue("@cat", category);
+        cmd.Parameters.AddWithValue("@limit", limit);
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            results.Add(MapRecord(reader));
+
+        return results;
+    }
+}
 }
