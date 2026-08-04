@@ -133,8 +133,7 @@
                         <ItemsControl x:Name="ThumbList" ItemsSource="{Binding}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Style="{StaticResource ThumbCard}" 
-                                            MouseLeftButtonDown="ThumbItem_Click"
+                                    <Border MouseLeftButtonDown="ThumbItem_Click"
                                             x:Name="ThumbBorder">
                                         <Border.Style>
                                             <Style TargetType="Border">

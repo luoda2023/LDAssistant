@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -14,6 +12,11 @@ using System.Windows.Media;
 using Microsoft.Win32;
 using LDAssistant.Models;
 using LDAssistant.Services;
+
+// 消除 WPF 和 WinForms 类型歧义
+using MessageBox = System.Windows.MessageBox;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 
 namespace LDAssistant.Views
 {
