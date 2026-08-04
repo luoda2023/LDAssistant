@@ -145,6 +145,8 @@ namespace LDAssistant.Views
             var lines = text.Replace("\r\n", "\n").Split('\n');
             bool inCodeBlock = false;
             var codeBlockLines = new List<string>();
+            var tableLines = new List<string>();
+            bool inTable = false;
 
             foreach (var rawLine in lines)
             {
@@ -153,6 +155,9 @@ namespace LDAssistant.Views
                 // 代码块 ``` 开始/结束
                 if (line.TrimStart().StartsWith("```"))
                 {
+                    // 先刷新表格
+                    if (inTable) { FlushTable(doc, tableLines, textColor, codeBg, linkColor); tableLines.Clear(); inTable = false; }
+
                     if (inCodeBlock)
                     {
                         var p = new Paragraph
@@ -184,6 +189,25 @@ namespace LDAssistant.Views
                     continue;
                 }
 
+                // Markdown 表格行 | ... | ... |
+                if (line.TrimStart().StartsWith("|") && line.TrimEnd().EndsWith("|"))
+                {
+                    // 跳过分隔行 |---|---|
+                    if (Regex.IsMatch(line, @"^\|[\s\-:|]+\|$"))
+                    { inTable = true; continue; }
+
+                    inTable = true;
+                    tableLines.Add(line);
+                    continue;
+                }
+                else if (inTable)
+                {
+                    // 表格结束，渲染
+                    FlushTable(doc, tableLines, textColor, codeBg, linkColor);
+                    tableLines.Clear();
+                    inTable = false;
+                }
+
                 if (string.IsNullOrWhiteSpace(line))
                 {
                     doc.Blocks.Add(new Paragraph { Margin = new Thickness(0, 2, 0, 2) });
@@ -203,26 +227,6 @@ namespace LDAssistant.Views
                         FontWeight = FontWeights.Bold,
                         Foreground = textColor,
                     });
-                    doc.Blocks.Add(para);
-                    continue;
-                }
-
-                // Markdown 表格行 | ... | ... |
-                if (line.TrimStart().StartsWith("|") && line.TrimEnd().EndsWith("|"))
-                {
-                    // 跳过分隔行 |---|---|
-                    if (Regex.IsMatch(line, @"^\|[\s\-:|]+\|$"))
-                        continue;
-
-                    var cells = line.Trim('|').Split('|');
-                    var para = new Paragraph { Margin = new Thickness(0, 1, 0, 1) };
-                    para.Inlines.Add(new Run("│ ") { Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)), FontSize = 11 });
-                    for (int ci = 0; ci < cells.Length; ci++)
-                    {
-                        AddInlineSpans(para, cells[ci].Trim(), textColor, codeBg, codeColor, linkColor);
-                        if (ci < cells.Length - 1)
-                            para.Inlines.Add(new Run("  │  ") { Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)), FontSize = 11 });
-                    }
                     doc.Blocks.Add(para);
                     continue;
                 }
@@ -284,6 +288,10 @@ namespace LDAssistant.Views
                 doc.Blocks.Add(textPara);
             }
 
+            // 结束时刷新表格
+            if (inTable && tableLines.Count > 0)
+                FlushTable(doc, tableLines, textColor, codeBg, linkColor);
+
             // 未闭合代码块
             if (inCodeBlock && codeBlockLines.Count > 0)
             {
@@ -301,6 +309,95 @@ namespace LDAssistant.Views
                 });
                 doc.Blocks.Add(p);
             }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  Markdown 表格 → WPF Table 渲染
+        // ═══════════════════════════════════════════════════════════
+
+        private void FlushTable(FlowDocument doc, List<string> tableLines,
+            Brush textColor, Brush codeBg, Brush linkColor)
+        {
+            if (tableLines.Count == 0) return;
+
+            // 解析单元格
+            var rows = new List<List<string>>();
+            foreach (var line in tableLines)
+            {
+                var trimmed = line.Trim().Trim('|');
+                var cells = trimmed.Split('|');
+                var row = new List<string>();
+                foreach (var c in cells)
+                    row.Add(c.Trim());
+                rows.Add(row);
+            }
+
+            if (rows.Count == 0) return;
+            int colCount = rows[0].Count;
+
+            var table = new System.Windows.Documents.Table
+            {
+                Margin = new Thickness(0, 4, 0, 4),
+                CellSpacing = 0,
+            };
+
+            // 列
+            for (int i = 0; i < colCount; i++)
+                table.Columns.Add(new TableColumn());
+
+            // 表格边框
+            var borderBrush = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC));
+            var headerBg = new SolidColorBrush(Color.FromRgb(0x42, 0xA5, 0xF5));
+            var altBg = new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF5));
+
+            var rowGroup = new TableRowGroup();
+            table.RowGroups.Add(rowGroup);
+
+            for (int r = 0; r < rows.Count; r++)
+            {
+                var tr = new TableRow();
+
+                // 行背景
+                if (r == 0)
+                    tr.Background = headerBg;
+                else if (r % 2 == 0)
+                    tr.Background = altBg;
+
+                for (int c = 0; c < colCount; c++)
+                {
+                    var cellText = c < rows[r].Count ? rows[r][c] : "";
+                    var para = new Paragraph { Margin = new Thickness(2, 1, 2, 1) };
+
+                    // 表头加粗白色，普通行黑色
+                    var cellTextColor = r == 0 ? Brushes.White : textColor;
+                    var cellFontWeight = r == 0 ? FontWeights.Bold : FontWeights.Normal;
+
+                    // 支持行内 markdown
+                    AddInlineSpans(para, cellText, cellTextColor, codeBg, new SolidColorBrush(Color.FromRgb(0xC7, 0x25, 0x4E)), linkColor);
+
+                    // 给每个 inline 加粗（表头）
+                    if (r == 0)
+                    {
+                        foreach (var inline in para.Inlines)
+                        {
+                            if (inline is Run run)
+                                run.FontWeight = FontWeights.Bold;
+                        }
+                    }
+
+                    var cell = new TableCell(para)
+                    {
+                        BorderBrush = borderBrush,
+                        BorderThickness = new Thickness(0.5),
+                        Padding = new Thickness(4, 2, 4, 2),
+                    };
+                    tr.Cells.Add(cell);
+                }
+
+                rowGroup.Rows.Add(tr);
+            }
+
+            doc.Blocks.Add(table);
         }
 
         /// <summary>行内 span：**加粗** *斜体* `代码` [链接](url)</summary>
