@@ -29,7 +29,7 @@ namespace LDAssistant.Services
                 if (hr != 0) return false; // 用户取消
 
                 dialog.GetResult(out var item);
-                item.GetDisplayName(SIGDN_FILESYSPATH, out var path);
+                item.GetDisplayName(SIGDN.SIGDN_FILESYSPATH, out var path);
                 SelectedPath = path;
                 return true;
             }
