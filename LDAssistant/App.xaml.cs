@@ -1,4 +1,6 @@
+using System.Windows;
 using Application = System.Windows.Application;
+using StartupEventArgs = System.Windows.StartupEventArgs;
 
 namespace LDAssistant
 {
