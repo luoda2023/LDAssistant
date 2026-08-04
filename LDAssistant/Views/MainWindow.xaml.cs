@@ -13,36 +13,26 @@ using Microsoft.Win32;
 using LDAssistant.Models;
 using LDAssistant.Services;
 
-// 消除 WPF 和 WinForms 类型歧义
-using MessageBox = System.Windows.MessageBox;
-using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
-using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
-using Key = System.Windows.Input.Key;
-using KeyEventArgs = System.Windows.Input.KeyEventArgs;
-using Keyboard = System.Windows.Input.Keyboard;
-using ModifierKeys = System.Windows.Input.ModifierKeys;
-using MouseButtonEventArgs = System.Windows.Input.MouseButtonEventArgs;
-using MouseEventArgs = System.Windows.Input.MouseEventArgs;
-using MouseButton = System.Windows.Input.MouseButton;
-using Application = System.Windows.Application;
-
 namespace LDAssistant.Views
 {
     public partial class MainWindow : Window
     {
         // ═════════════ 服务 ═════════════
-        private readonly FilePreviewService _preview = new();
+        private FilePreviewService _preview = new();
         private OcrService _ocr;
         private StandardChecker _checker;
         private readonly AiService _ai = new();
 
         // ═════════════ 数据 ═════════════
-        public ObservableCollection<FileQueueItem> FileQueue { get; } = new();
+        public ObservableCollection<PageThumbItem> PageThumbs { get; } = new();
         public ObservableCollection<CheckResult> CodeList { get; } = new();
         public ObservableCollection<CheckResult> CheckList { get; } = new();
 
+        // 批量文件列表（内部用）
+        private List<FileBatchItem> _batchFiles = new();
+
         // ═════════════ 状态 ═════════════
-        private FileQueueItem _currentFile;
+        private string _currentFilePath;
         private int _currentPage;
         private double _zoom = 1.0;
         private int _rotation;
@@ -52,8 +42,7 @@ namespace LDAssistant.Views
         {
             InitializeComponent();
 
-            // 绑定数据
-            ThumbList.ItemsSource = FileQueue;
+            ThumbList.ItemsSource = PageThumbs;
             CodeGrid.ItemsSource = CodeList;
             CheckGrid.ItemsSource = CheckList;
 
@@ -84,11 +73,9 @@ namespace LDAssistant.Views
                 }
             }
 
-            // 鼠标滚轮缩放
             PreviewCanvas.MouseWheel += OnMouseWheelZoom;
         }
 
-        // ═════════════ 数据库路径 ═════════════
         private string FindDatabasePath()
         {
             var appDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -116,10 +103,17 @@ namespace LDAssistant.Views
 
             if (dlg.ShowDialog() == true)
             {
+                _batchFiles.Clear();
                 foreach (var path in dlg.FileNames)
-                    AddFileToQueue(path);
-                if (FileQueue.Count > 0)
-                    SelectFile(FileQueue[FileQueue.Count - 1]);
+                    _batchFiles.Add(new FileBatchItem
+                    {
+                        FilePath = path,
+                        FileName = Path.GetFileName(path),
+                        FileType = FilePreviewService.DetectFileType(path)
+                    });
+
+                if (_batchFiles.Count > 0)
+                    LoadFile(_batchFiles[0].FilePath);
             }
         }
 
@@ -136,78 +130,87 @@ namespace LDAssistant.Views
                 try { files = Directory.GetFiles(dlg.SelectedPath, "*.*", SearchOption.AllDirectories); }
                 catch { return; }
 
+                _batchFiles.Clear();
                 int added = 0;
                 foreach (var f in files.OrderBy(x => x))
                 {
                     if (exts.Contains(Path.GetExtension(f).ToLower()))
                     {
-                        AddFileToQueue(f);
+                        _batchFiles.Add(new FileBatchItem
+                        {
+                            FilePath = f,
+                            FileName = Path.GetFileName(f),
+                            FileType = FilePreviewService.DetectFileType(f)
+                        });
                         added++;
                     }
                 }
                 StatusText.Text = $"已扫描并添加 {added} 个文件";
-                if (FileQueue.Count > 0)
-                    SelectFile(FileQueue[0]);
+                if (_batchFiles.Count > 0)
+                    LoadFile(_batchFiles[0].FilePath);
             }
         }
 
-        private void AddFileToQueue(string path)
+        // ═════════════ 加载文件 → 生成页面缩略图 ═════════════
+        private void LoadFile(string path)
         {
-            // 避免重复
-            if (FileQueue.Any(f => f.FilePath == path)) return;
-
-            var item = new FileQueueItem
-            {
-                FilePath = path,
-                FileName = Path.GetFileName(path),
-                FileType = FilePreviewService.DetectFileType(path)
-            };
-
-            // 生成缩略图
-            try
-            {
-                var ft = item.FileType;
-                if (ft == "image" || ft == "pdf" || ft == "docx" || ft == "txt")
-                {
-                    var preview = new FilePreviewService();
-                    preview.Open(path);
-                    preview.CurrentPath = path;
-                    var img = preview.RenderPage(0, 150);
-                    if (img != null)
-                        item.Thumbnail = img;
-                    preview.Close();
-                }
-            }
-            catch { }
-
-            FileQueue.Add(item);
-        }
-
-        // ═════════════ 选择文件并显示 ═════════════
-        private void SelectFile(FileQueueItem item)
-        {
-            if (item == null) return;
-
-            // 取消旧文件选中
-            foreach (var f in FileQueue) f.IsActive = false;
-            item.IsActive = true;
-            _currentFile = item;
-
-            // 加载文件
-            StatusText.Text = $"正在加载: {item.FileName}...";
-            _preview.Open(item.FilePath);
-            _preview.CurrentPath = item.FilePath;
+            _currentFilePath = path;
+            _preview?.Close();
+            _preview = new FilePreviewService();
+            _preview.Open(path);
+            _preview.CurrentPath = path;
 
             _currentPage = 0;
             _zoom = 1.0;
             _rotation = 0;
 
-            DisplayCurrentPage();
+            // 生成页面缩略图
+            PageThumbs.Clear();
+            int pages = _preview.TotalPages;
+            ThumbTitle.Text = pages > 1 ? $"页面缩略图 ({pages} 页)" : "页面缩略图";
+
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                for (int i = 0; i < pages; i++)
+                {
+                    try
+                    {
+                        var thumb = new FilePreviewService();
+                        thumb.Open(path);
+                        var img = thumb.RenderPage(i, 150);
+                        thumb.Close();
+
+                        if (img != null)
+                        {
+                            img.Freeze();
+                            var item = new PageThumbItem
+                            {
+                                PageIndex = i,
+                                Label = pages > 1 ? $"第 {i + 1} 页" : Path.GetFileName(path),
+                                Thumbnail = img,
+                            };
+                            Dispatcher.Invoke(() => PageThumbs.Add(item));
+                        }
+                    }
+                    catch { }
+                }
+
+                // 默认选第一页
+                Dispatcher.Invoke(() =>
+                {
+                    if (PageThumbs.Count > 0)
+                    {
+                        PageThumbs[0].IsActive = true;
+                        DisplayCurrentPage();
+                    }
+                });
+            });
         }
 
+        // ═════════════ 显示当前页 ═════════════
         private void DisplayCurrentPage()
         {
-            if (_currentFile == null) return;
+            if (_currentFilePath == null) return;
 
             try
             {
@@ -219,14 +222,14 @@ namespace LDAssistant.Views
                     ScaleTransform.ScaleY = _zoom;
                     RotateTransform.Angle = _rotation;
 
-                    // 居中
                     Canvas.SetLeft(PreviewImage, 0);
                     Canvas.SetTop(PreviewImage, 0);
 
-                    PageInfo.Text = _preview.TotalPages > 1
-                        ? $"{_currentFile.FileName} — 第 {_currentPage + 1}/{_preview.TotalPages} 页"
-                        : _currentFile.FileName;
-                    StatusText.Text = $"已加载: {_currentFile.FileName}";
+                    int pages = _preview.TotalPages;
+                    PageInfo.Text = pages > 1
+                        ? $"{Path.GetFileName(_currentFilePath)} — 第 {_currentPage + 1}/{pages} 页"
+                        : Path.GetFileName(_currentFilePath);
+                    StatusText.Text = $"已加载: {Path.GetFileName(_currentFilePath)}";
                 }
             }
             catch (Exception ex)
@@ -238,25 +241,39 @@ namespace LDAssistant.Views
         // ═════════════ 缩略图点击 ═════════════
         private void ThumbItem_Click(object sender, MouseButtonEventArgs e)
         {
-            if (sender is FrameworkElement fe && fe.DataContext is FileQueueItem item)
-                SelectFile(item);
+            if (sender is FrameworkElement fe && fe.DataContext is PageThumbItem item)
+            {
+                foreach (var p in PageThumbs) p.IsActive = false;
+                item.IsActive = true;
+                _currentPage = item.PageIndex;
+                DisplayCurrentPage();
+            }
         }
 
         // ═════════════ 翻页 ═════════════
         private void BtnPrev_Click(object sender, RoutedEventArgs e)
         {
-            if (_preview.TotalPages <= 1) return;
+            if (_preview?.TotalPages <= 1) return;
             if (_currentPage > 0) _currentPage--;
             else _currentPage = _preview.TotalPages - 1;
+            UpdateActiveThumb();
             DisplayCurrentPage();
         }
 
         private void BtnNext_Click(object sender, RoutedEventArgs e)
         {
-            if (_preview.TotalPages <= 1) return;
+            if (_preview?.TotalPages <= 1) return;
             if (_currentPage < _preview.TotalPages - 1) _currentPage++;
             else _currentPage = 0;
+            UpdateActiveThumb();
             DisplayCurrentPage();
+        }
+
+        private void UpdateActiveThumb()
+        {
+            foreach (var p in PageThumbs) p.IsActive = false;
+            if (_currentPage < PageThumbs.Count)
+                PageThumbs[_currentPage].IsActive = true;
         }
 
         // ═════════════ 缩放/旋转 ═════════════
@@ -292,7 +309,7 @@ namespace LDAssistant.Views
         // ═════════════ OCR ═════════════
         private void BtnOcr_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentFile == null) return;
+            if (_currentFilePath == null) return;
             if (_ocr == null)
             {
                 MessageBox.Show("OCR 引擎未安装。\n需要 PaddleOCR-json.exe，请安装 UmiOCR 或将 OCR 引擎放入程序目录/ocr/。",
@@ -300,7 +317,6 @@ namespace LDAssistant.Views
                 return;
             }
 
-            // 先渲染当前页为临时图片，再 OCR
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 Dispatcher.Invoke(() => { StatusText.Text = "正在 OCR 识别..."; Progress.Value = 0; });
@@ -308,7 +324,6 @@ namespace LDAssistant.Views
                 string tempImg = null;
                 try
                 {
-                    // 渲染当前页为图片
                     var img = _preview.RenderPage(_currentPage, 2000);
                     if (img == null)
                     {
@@ -371,7 +386,6 @@ namespace LDAssistant.Views
                 return;
             }
 
-            // 提取编号
             var codes = CodeExtractor.Extract(text);
             CodeList.Clear();
             CheckList.Clear();
@@ -418,7 +432,7 @@ namespace LDAssistant.Views
         // ═════════════ 批量处理 ═════════════
         private void BtnBatch_Click(object sender, RoutedEventArgs e)
         {
-            if (FileQueue.Count == 0) return;
+            if (_batchFiles.Count == 0) return;
             if (_ocr == null && _checker == null)
             {
                 MessageBox.Show("OCR 或数据库未就绪。", "不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -433,7 +447,7 @@ namespace LDAssistant.Views
             }
 
             _isBatchRunning = true;
-            var allFiles = FileQueue.ToList();
+            var allFiles = _batchFiles.ToList();
 
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -447,11 +461,11 @@ namespace LDAssistant.Views
 
                     try
                     {
-                        // 加载文件
+                        _preview?.Close();
+                        _preview = new FilePreviewService();
                         _preview.Open(file.FilePath);
                         _preview.CurrentPath = file.FilePath;
 
-                        // 渲染每页并 OCR
                         var text = "";
                         for (int pg = 0; pg < _preview.TotalPages; pg++)
                         {
@@ -480,7 +494,6 @@ namespace LDAssistant.Views
                             Dispatcher.Invoke(() => Progress.Value = (i + (double)pg / _preview.TotalPages) / allFiles.Count * 100);
                         }
 
-                        // 提取编号
                         var codes = CodeExtractor.Extract(text);
                         foreach (var c in codes)
                         {
@@ -494,7 +507,6 @@ namespace LDAssistant.Views
                     }
                 }
 
-                // 去重
                 var seen = new HashSet<string>();
                 var unique = new List<CheckResult>();
                 foreach (var c in allCodes)
@@ -510,7 +522,6 @@ namespace LDAssistant.Views
                     foreach (var c in unique)
                         CodeList.Add(c);
 
-                    // 检查
                     if (_checker != null)
                     {
                         foreach (var c in unique)
@@ -550,7 +561,8 @@ namespace LDAssistant.Views
             {
                 try
                 {
-                    ExportService.ExportWord(dlg.FileName, _currentFile?.FileName ?? "批量文件", CheckList.ToList());
+                    var fileName = _currentFilePath != null ? Path.GetFileName(_currentFilePath) : "批量文件";
+                    ExportService.ExportWord(dlg.FileName, fileName, CheckList.ToList());
                     StatusText.Text = $"已导出: {Path.GetFileName(dlg.FileName)}";
                     MessageBox.Show($"已导出到:\n{dlg.FileName}", "导出成功",
                         MessageBoxButton.OK, MessageBoxImage.Information);
@@ -577,7 +589,8 @@ namespace LDAssistant.Views
             {
                 try
                 {
-                    ExportService.ExportExcel(dlg.FileName, _currentFile?.FileName ?? "批量文件", CheckList.ToList());
+                    var fileName = _currentFilePath != null ? Path.GetFileName(_currentFilePath) : "批量文件";
+                    ExportService.ExportExcel(dlg.FileName, fileName, CheckList.ToList());
                     StatusText.Text = $"已导出: {Path.GetFileName(dlg.FileName)}";
                     MessageBox.Show($"已导出到:\n{dlg.FileName}", "导出成功",
                         MessageBoxButton.OK, MessageBoxImage.Information);
@@ -605,7 +618,6 @@ namespace LDAssistant.Views
                 _aiWindow.Activate();
             }
 
-            // 把 OCR 结果发给 AI
             if (!string.IsNullOrEmpty(OcrTextBox.Text))
             {
                 var codes = CodeList.Select(c => $"{c.Code} {c.Name}").ToList();
@@ -617,7 +629,6 @@ namespace LDAssistant.Views
             }
         }
 
-        // ═════════════ 窗口关闭 ═════════════
         protected override void OnClosed(EventArgs e)
         {
             _preview?.Close();
