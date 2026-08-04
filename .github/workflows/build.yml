@@ -49,6 +49,7 @@ jobs:
       - name: 打包 zip
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
           Compress-Archive -Path "publish/*" -DestinationPath "dist/LDAssistant-v3.0.zip" -Force
           Write-Host "=== dist 内容 ==="
           Get-ChildItem dist | Format-Table Name, Length
