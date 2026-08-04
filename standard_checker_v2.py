@@ -591,7 +591,7 @@ def mask_seals_pil(image_path, out_path=None):
 
 
 def render_cad_to_image(dxf_path, dpi=300):
-    """将 DXF 文件渲染为 PNG 图片（仅支持 DXF 格式）"""
+    """将 CAD 文件（DWG/DXF）渲染为 PNG 图片"""
     if not HAS_CAD:
         return None
     try:
@@ -2060,10 +2060,6 @@ class App:
         self._fit_mode = tk.StringVar(value='fit_page')
         self.ai_chat = None
         self._pending_ocr_results = None  # OCR结果缓存（AI窗口未打开时）
-        self._results_panel = None
-        self._results_visible = False
-        self._thumb_panel = None
-        self._thumb_visible = False
         self._setup_style()
         self.setup_ui()
         # 启动时检查AI配置
@@ -2200,176 +2196,129 @@ class App:
         style.configure("Status.TLabel", background=BG_DARK, foreground=TEXT_MUTED, anchor="w", padding=6)
 
     def setup_ui(self):
-        """暗色扁平化主界面布局"""
-        # 暗色调色板
+        """紧凑专业三栏布局"""
         C = {
             'bg': "#1E293B", 'bg_dark': "#0F172A", 'card': "#334155",
             'text': "#E2E8F0", 'text_muted': "#94A3B8",
             'primary': "#3B82F6", 'primary_hover': "#2563EB",
             'select': "#1E40AF", 'success': "#22C55E", 'danger': "#EF4444",
+            'border': "#2D3A4A",
         }
 
-        # ── 顶部工具栏（暗色） ──
-        topbar = tk.Frame(self.root, bg=C['bg_dark'], height=40)
+        # ── 顶部工具栏 ──
+        topbar = tk.Frame(self.root, bg=C['bg_dark'], height=36)
         topbar.pack(side=tk.TOP, fill=tk.X)
         topbar.pack_propagate(False)
 
-        def _make_toolbar_label(parent, text, cmd, tooltip=""):
-            lbl = tk.Label(parent, text=text, font=("Microsoft YaHei UI", 9),
-                           bg=C['bg_dark'], fg=C['text'], cursor="hand2", padx=6, pady=2)
+        def _tb(text, cmd, bold=False, color=None):
+            bg = color or C['bg_dark']
+            fg = "#FFFFFF" if color else C['text']
+            lbl = tk.Label(topbar, text=text, font=("Microsoft YaHei UI", 9, "bold" if bold else "normal"),
+                           bg=bg, fg=fg, cursor="hand2", padx=6, pady=2)
             lbl.pack(side=tk.LEFT, padx=1)
             lbl.bind('<Button-1>', lambda e: cmd())
-            lbl.bind('<Enter>', lambda e: lbl.config(bg=C['primary'], fg="#FFFFFF"))
-            lbl.bind('<Leave>', lambda e: lbl.config(bg=C['bg_dark'], fg=C['text']))
+            if not color:
+                lbl.bind('<Enter>', lambda e: lbl.config(bg=C['card']))
+                lbl.bind('<Leave>', lambda e: lbl.config(bg=C['bg_dark']))
             return lbl
 
-        # 工具栏按钮组
-        _make_toolbar_label(topbar, "📂 打开文件", self.open_file)
-        _make_toolbar_label(topbar, "📁 打开文件夹", self.open_folder)
-        sep = tk.Label(topbar, text="│", bg=C['bg_dark'], fg=C['text_muted'], padx=2)
-        sep.pack(side=tk.LEFT)
-        _make_toolbar_label(topbar, "⬆ 上一页", self._prev_page)
-        _make_toolbar_label(topbar, "⬇ 下一页", self._next_page)
-        _make_toolbar_label(topbar, "🔍+", self._zoom_in)
-        _make_toolbar_label(topbar, "🔍-", self._zoom_out)
-        _make_toolbar_label(topbar, "↻", self._rotate_cw)
-        _make_toolbar_label(topbar, "↺", self._rotate_ccw)
+        def _sep():
+            tk.Label(topbar, text="│", bg=C['bg_dark'], fg=C['text_muted'], padx=2).pack(side=tk.LEFT)
 
-        # 适应模式单选按钮（用 Label 模拟）
-        fit_var = self._fit_mode
-        for txt, val in [("适应页面", 'fit_page'), ("适应宽度", 'fit_width')]:
-            bg = C['primary'] if fit_var.get() == val else C['card']
-            lbl = tk.Label(topbar, text=txt, font=("Microsoft YaHei UI", 9),
-                           bg=bg, fg=C['text'], cursor="hand2", padx=6, pady=2)
-            lbl.pack(side=tk.LEFT, padx=1)
-            def _on_click(v=val, lb=lbl):
-                fit_var.set(v)
-                self._redraw_current_page()
-                # 更新所有适应按钮背景
-                for w in topbar.winfo_children():
-                    if isinstance(w, tk.Label) and w.cget('text') in ("适应页面", "适应宽度"):
-                        w.config(bg=C['primary'] if w.cget('text') == ("适应页面" if v == 'fit_page' else "适应宽度") else C['card'])
-            lbl.bind('<Button-1>', lambda e, c=_on_click: c())
-            lbl.bind('<Enter>', lambda e, lb=lbl: lb.config(bg=C['primary_hover']))
-            lbl.bind('<Leave>', lambda e, lb=lbl, v=val: lb.config(bg=C['primary'] if fit_var.get() == v else C['card']))
-
-        sep2 = tk.Label(topbar, text="│", bg=C['bg_dark'], fg=C['text_muted'], padx=2)
-        sep2.pack(side=tk.LEFT)
-        _make_toolbar_label(topbar, "⬜ 选择区域", self.start_selection)
-        _make_toolbar_label(topbar, "❌ 清除区域", self.clear_region)
-        sep3 = tk.Label(topbar, text="│", bg=C['bg_dark'], fg=C['text_muted'], padx=2)
-        sep3.pack(side=tk.LEFT)
-
-        # 主要操作按钮（高亮）
-        btn_ocr = tk.Label(topbar, text="🔍 OCR", font=("Microsoft YaHei UI", 9, "bold"),
-                           bg=C['primary'], fg="#FFFFFF", cursor="hand2", padx=10, pady=2)
-        btn_ocr.pack(side=tk.LEFT, padx=2)
-        btn_ocr.bind('<Button-1>', lambda e: self.start_ocr())
-        btn_ocr.bind('<Enter>', lambda e: btn_ocr.config(bg=C['primary_hover']))
-        btn_ocr.bind('<Leave>', lambda e: btn_ocr.config(bg=C['primary']))
-
-        _make_toolbar_label(topbar, "📋 批量处理", self.batch_process_all)
-
-        btn_check = tk.Label(topbar, text="✅ 检查规范", font=("Microsoft YaHei UI", 9, "bold"),
-                             bg=C['success'], fg="#FFFFFF", cursor="hand2", padx=10, pady=2)
-        btn_check.pack(side=tk.LEFT, padx=2)
-        btn_check.bind('<Button-1>', lambda e: self.check_standards())
-        btn_check.bind('<Enter>', lambda e: btn_check.config(bg="#16A34A"))
-        btn_check.bind('<Leave>', lambda e: btn_check.config(bg=C['success']))
-
-        _make_toolbar_label(topbar, "📄 导出报告", self.export_doc)
-        _make_toolbar_label(topbar, "📊 导出 Excel", self.export_excel)
-        sep4 = tk.Label(topbar, text="│", bg=C['bg_dark'], fg=C['text_muted'], padx=2)
-        sep4.pack(side=tk.LEFT)
-        _make_toolbar_label(topbar, "📊 结果面板", self._toggle_results_panel)
-        _make_toolbar_label(topbar, "📄 缩略图", self._toggle_thumbnail_panel)
-
-        btn_ai = tk.Label(topbar, text="🤖 AI", font=("Microsoft YaHei UI", 9, "bold"),
-                          bg=C['primary'], fg="#FFFFFF", cursor="hand2", padx=10, pady=2)
-        btn_ai.pack(side=tk.LEFT, padx=2)
-        btn_ai.bind('<Button-1>', lambda e: self._toggle_ai_chat())
-        btn_ai.bind('<Enter>', lambda e: btn_ai.config(bg=C['primary_hover']))
-        btn_ai.bind('<Leave>', lambda e: btn_ai.config(bg=C['primary']))
+        _tb("📂 打开", self.open_file)
+        _tb("📁 文件夹", self.open_folder)
+        _sep()
+        _tb("◀", self._prev_page)
+        _tb("▶", self._next_page)
+        _tb("🔍+", self._zoom_in)
+        _tb("🔍-", self._zoom_out)
+        _tb("↻", self._rotate_cw)
+        _tb("↺", self._rotate_ccw)
+        _sep()
+        _tb("⬜ 选择", self.start_selection)
+        _tb("❌ 清除", self.clear_region)
+        _sep()
+        _tb("🔍 OCR", self.start_ocr, bold=True, color=C['primary'])
+        _tb("✅ 检查", self.check_standards, bold=True, color=C['success'])
+        _tb("📋 批量", self.batch_process_all)
+        _sep()
+        _tb("📄 导出", self.export_doc)
+        _tb("📊 Excel", self.export_excel)
+        _sep()
+        _tb("🤖 AI", self._toggle_ai_chat, bold=True, color=C['primary'])
 
         # 右侧信息
         self.page_var = tk.StringVar(value="第 0 / 0 页")
-        page_lbl = tk.Label(topbar, textvariable=self.page_var,
-                            font=("Microsoft YaHei UI", 9), bg=C['bg_dark'], fg=C['text_muted'])
-        page_lbl.pack(side=tk.RIGHT, padx=8)
+        tk.Label(topbar, textvariable=self.page_var, font=("Microsoft YaHei UI", 9),
+                 bg=C['bg_dark'], fg=C['text_muted']).pack(side=tk.RIGHT, padx=8)
         self._preview_name_var = tk.StringVar(value="")
-        name_lbl = tk.Label(topbar, textvariable=self._preview_name_var,
-                            font=("Microsoft YaHei UI", 9, "bold"), bg=C['bg_dark'], fg=C['danger'])
-        name_lbl.pack(side=tk.RIGHT, padx=8)
+        tk.Label(topbar, textvariable=self._preview_name_var, font=("Microsoft YaHei UI", 9, "bold"),
+                 bg=C['bg_dark'], fg=C['danger']).pack(side=tk.RIGHT, padx=8)
 
-        # ── 主预览区域 ──
-        preview_container = tk.Frame(self.root, bg=C['bg'])
-        preview_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        # 适应模式
+        frm = tk.Frame(topbar, bg=C['bg_dark'])
+        frm.pack(side=tk.RIGHT, padx=2)
+        for txt, val in [("适应页面", 'fit_page'), ("适应宽度", 'fit_width')]:
+            lbl = tk.Label(frm, text=txt, font=("Microsoft YaHei UI", 8),
+                           bg=C['primary'] if self._fit_mode.get() == val else C['card'],
+                           fg=C['text'], cursor="hand2", padx=4, pady=1)
+            lbl.pack(side=tk.LEFT, padx=1)
+            lbl.bind('<Button-1>', lambda e, v=val: (self._fit_mode.set(v), self._redraw_current_page()))
+            lbl.bind('<Enter>', lambda e, lb=lbl: lb.config(bg=C['primary_hover']))
+            lbl.bind('<Leave>', lambda e, lb=lbl, v=val: lb.config(bg=C['primary'] if self._fit_mode.get() == v else C['card']))
 
-        self.pdf_canvas = tk.Canvas(preview_container, bg=C['bg'], highlightthickness=0)
-        self.pdf_canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        # ── 三栏主体 ──
+        main = tk.Frame(self.root, bg=C['bg'])
+        main.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        # 左侧栏：文件列表+缩略图
+        left = tk.Frame(main, bg=C['bg_dark'], width=160)
+        left.pack(side=tk.LEFT, fill=tk.Y)
+        left.pack_propagate(False)
+        tk.Label(left, text="📄 文件列表", font=("Microsoft YaHei UI", 9, "bold"),
+                 bg=C['bg_dark'], fg=C['text']).pack(fill=tk.X, padx=6, pady=(4, 2))
+        self.queue_listbox = tk.Listbox(left, height=6,
+                                         font=("Microsoft YaHei UI", 8), exportselection=False,
+                                         bg=C['card'], fg=C['text'],
+                                         selectbackground=C['select'], selectforeground="#FFFFFF",
+                                         borderwidth=0, highlightthickness=0)
+        self.queue_listbox.pack(fill=tk.X, padx=4, pady=2)
+        self.queue_listbox.bind('<<ListboxSelect>>', self._on_queue_select)
+        self.queue_count_label = tk.Label(left, text="0 个文件", font=("Microsoft YaHei UI", 8),
+                                          bg=C['bg_dark'], fg=C['text_muted'])
+        self.queue_count_label.pack(anchor=tk.W, padx=6)
+
+        # 缩略图
+        self.thumb_canvas = tk.Canvas(left, bg=C['bg_dark'], highlightthickness=0, width=150, height=200)
+        self.thumb_canvas.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        thumb_scroll = ttk.Scrollbar(left, orient=tk.VERTICAL, command=self.thumb_canvas.yview)
+        thumb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.thumb_canvas.configure(yscrollcommand=thumb_scroll.set)
+        self.thumb_frame = tk.Frame(self.thumb_canvas, bg=C['bg_dark'])
+        self.thumb_scroll_window = self.thumb_canvas.create_window(
+            (0, 0), window=self.thumb_frame, anchor='nw', width=150)
+        self.thumb_frame.bind('<Configure>', lambda e: self.thumb_canvas.configure(
+            scrollregion=self.thumb_canvas.bbox('all')))
+
+        # 中间：预览区
+        center = tk.Frame(main, bg=C['bg'])
+        center.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.pdf_canvas = tk.Canvas(center, bg=C['bg'], highlightthickness=0)
+        self.pdf_canvas.pack(fill=tk.BOTH, expand=True)
         self.pdf_canvas.bind('<Configure>', self._on_canvas_resize)
         self.pdf_canvas.bind('<MouseWheel>', self._on_mouse_wheel)
         self.pdf_canvas.bind('<ButtonPress-2>', self._on_pan_start)
         self.pdf_canvas.bind('<B2-Motion>', self._on_pan_drag)
         self.pdf_canvas.bind('<ButtonRelease-2>', self._on_pan_end)
         self._resize_after_id = None
-
-        # ── 底部状态栏 ──
-        bottombar = tk.Frame(self.root, bg=C['bg_dark'], height=28)
-        bottombar.pack(side=tk.BOTTOM, fill=tk.X)
-        bottombar.pack_propagate(False)
-
-        queue_frame = tk.Frame(bottombar, bg=C['bg_dark'])
-        queue_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4, pady=2)
-        self.queue_listbox = tk.Listbox(queue_frame, height=1,
-                                        font=("Microsoft YaHei UI", 8), exportselection=False,
-                                        bg=C['card'], fg=C['text'],
-                                        selectbackground=C['select'], selectforeground="#FFFFFF",
-                                        borderwidth=0, highlightthickness=0)
-        self.queue_listbox.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
-        self.queue_listbox.bind('<<ListboxSelect>>', self._on_queue_select)
-        self.queue_count_label = tk.Label(queue_frame, text="0 个文件",
-                                          font=("Microsoft YaHei UI", 8), bg=C['bg_dark'], fg=C['text_muted'])
-        self.queue_count_label.pack(side=tk.RIGHT)
-
-        self.progress_var = tk.DoubleVar(value=0.0)
-        self.progress_bar = ttk.Progressbar(bottombar, variable=self.progress_var, maximum=100, length=150)
-        self.progress_bar.pack(side=tk.RIGHT, padx=4, pady=2)
-
-        self.region_var = tk.StringVar(value="识别区域：未设置（全页识别）")
-        ttk.Label(bottombar, textvariable=self.region_var, foreground="#555555", font=("SimSun", 8)).pack(side=tk.RIGHT, padx=8)
-
-        self.status_var = tk.StringVar(value="就绪")
-        statusbar = ttk.Label(self.root, textvariable=self.status_var, style="Status.TLabel", font=("SimSun", 8))
-        statusbar.pack(side=tk.BOTTOM, fill=tk.X)
-
         self.selector = RegionSelector(self.pdf_canvas, None, self._on_region_selected)
 
-        # 悬浮面板：结果面板
-    def _toggle_results_panel(self):
-        if self._results_panel is None:
-            self._results_panel = tk.Toplevel(self.root)
-            self._results_panel.title("OCR / 规范列表 / 检查结果")
-            self._set_icon_for_toplevel(self._results_panel)
-            self._results_panel.configure(bg="#1E293B")
-            self._results_panel.geometry("500x400")
-            self._results_panel.attributes('-topmost', True)
-            self._setup_results_panel_ui()
-        if self._results_visible:
-            self._results_panel.withdraw()
-            self._results_visible = False
-        else:
-            self._results_panel.deiconify()
-            self._results_panel.lift()
-            self._results_visible = True
-
-    def _setup_results_panel_ui(self):
-        C = {'bg': "#1E293B", 'bg_dark': "#0F172A", 'card': "#334155",
-             'text': "#E2E8F0", 'text_muted': "#94A3B8",
-             'primary': "#3B82F6", 'select': "#1E40AF"}
-        panel = self._results_panel
-        nb = ttk.Notebook(panel)
-        nb.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        # 右侧：结果面板
+        right = tk.Frame(main, bg=C['bg_dark'], width=320)
+        right.pack(side=tk.RIGHT, fill=tk.Y)
+        right.pack_propagate(False)
+        nb = ttk.Notebook(right)
+        nb.pack(fill=tk.BOTH, expand=True)
         self.notebook = nb
 
         # OCR 文本标签页
@@ -2379,8 +2328,7 @@ class App:
                                 font=("Microsoft YaHei UI", 10),
                                 bg=C['card'], fg=C['text'],
                                 insertbackground=C['text'],
-                                borderwidth=0, highlightthickness=0,
-                                padx=8, pady=4)
+                                borderwidth=0, highlightthickness=0, padx=6, pady=4)
         ocr_scroll = ttk.Scrollbar(ocr_frame, orient=tk.VERTICAL, command=self.ocr_text.yview)
         self.ocr_text.configure(yscrollcommand=ocr_scroll.set)
         ocr_scroll.pack(side=tk.RIGHT, fill=tk.Y)
@@ -2389,22 +2337,16 @@ class App:
         # 规范列表标签页
         list_frame = tk.Frame(nb, bg=C['bg'])
         nb.add(list_frame, text="规范列表")
-        list_toolbar = tk.Frame(list_frame, bg=C['bg_dark'])
-        list_toolbar.pack(side=tk.TOP, fill=tk.X)
-        hint = tk.Label(list_toolbar, text="双击移除，单击定位",
-                        font=("Microsoft YaHei UI", 9),
-                        bg=C['bg_dark'], fg=C['text_muted'], padx=8)
-        hint.pack(side=tk.LEFT)
         list_columns = ('no', 'code', 'name', 'source')
         self.list_tree = ttk.Treeview(list_frame, columns=list_columns, show='headings', selectmode='extended')
-        self.list_tree.heading('no', text='序号')
+        self.list_tree.heading('no', text='#')
         self.list_tree.heading('code', text='规范编号')
-        self.list_tree.heading('name', text='规范名称')
-        self.list_tree.heading('source', text='来源文件')
-        self.list_tree.column('no', width=40, anchor=tk.CENTER)
-        self.list_tree.column('code', width=120, anchor=tk.W)
-        self.list_tree.column('name', width=180, anchor=tk.W)
-        self.list_tree.column('source', width=80, anchor=tk.W)
+        self.list_tree.heading('name', text='名称')
+        self.list_tree.heading('source', text='来源')
+        self.list_tree.column('no', width=30, anchor=tk.CENTER)
+        self.list_tree.column('code', width=100, anchor=tk.W)
+        self.list_tree.column('name', width=160, anchor=tk.W)
+        self.list_tree.column('source', width=60, anchor=tk.W)
         list_scroll = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.list_tree.yview)
         self.list_tree.configure(yscrollcommand=list_scroll.set)
         list_scroll.pack(side=tk.RIGHT, fill=tk.Y)
@@ -2417,18 +2359,18 @@ class App:
         nb.add(check_frame, text="检查结果")
         columns = ('code', 'name', 'status', 'replacement', 'action')
         self.check_tree = ttk.Treeview(check_frame, columns=columns, show='tree headings', selectmode='extended')
-        self.check_tree.heading('#0', text='序号')
+        self.check_tree.heading('#0', text='#')
         self.check_tree.heading('code', text='规范编号')
-        self.check_tree.heading('name', text='规范名称')
+        self.check_tree.heading('name', text='名称')
         self.check_tree.heading('status', text='状态')
-        self.check_tree.heading('replacement', text='替代情况')
+        self.check_tree.heading('replacement', text='替代')
         self.check_tree.heading('action', text='建议')
-        self.check_tree.column('#0', width=40, anchor=tk.CENTER)
-        self.check_tree.column('code', width=120)
-        self.check_tree.column('name', width=180)
-        self.check_tree.column('status', width=70)
-        self.check_tree.column('replacement', width=140)
-        self.check_tree.column('action', width=70)
+        self.check_tree.column('#0', width=30, anchor=tk.CENTER)
+        self.check_tree.column('code', width=100)
+        self.check_tree.column('name', width=160)
+        self.check_tree.column('status', width=60)
+        self.check_tree.column('replacement', width=120)
+        self.check_tree.column('action', width=60)
         check_scroll = ttk.Scrollbar(check_frame, orient=tk.VERTICAL, command=self.check_tree.yview)
         self.check_tree.configure(yscrollcommand=check_scroll.set)
         check_scroll.pack(side=tk.RIGHT, fill=tk.Y)
@@ -2436,33 +2378,22 @@ class App:
         self.check_tree.bind('<Double-Button-1>', self.on_check_item_double_click)
         self.check_tree.bind('<<TreeviewSelect>>', self.on_check_item_selected)
 
-        # 悬浮面板：缩略图
-    def _toggle_thumbnail_panel(self):
-        if self._thumb_panel is None:
-            self._thumb_panel = tk.Toplevel(self.root)
-            self._thumb_panel.title("文件缩略图")
-            self._set_icon_for_toplevel(self._thumb_panel)
-            self._thumb_panel.configure(bg="#1E293B")
-            self._thumb_panel.geometry("120x500")
-            self._thumb_panel.attributes('-topmost', True)
-            self.thumb_canvas = tk.Canvas(self._thumb_panel, bg="#1E293B", highlightthickness=0, width=110)
-            self.thumb_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-            thumb_scroll = ttk.Scrollbar(self._thumb_panel, orient=tk.VERTICAL, command=self.thumb_canvas.yview)
-            thumb_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-            self.thumb_canvas.configure(yscrollcommand=thumb_scroll.set)
-            self.thumb_frame = tk.Frame(self.thumb_canvas, bg="#1E293B")
-            self.thumb_scroll_window = self.thumb_canvas.create_window(
-                (0, 0), window=self.thumb_frame, anchor='nw', width=110)
-            self.thumb_frame.bind('<Configure>',
-                                  lambda e: self.thumb_canvas.configure(scrollregion=self.thumb_canvas.bbox('all')))
-        if self._thumb_visible:
-            self._thumb_panel.withdraw()
-            self._thumb_visible = False
-        else:
-            self._thumb_panel.deiconify()
-            self._thumb_panel.lift()
-            self._thumb_visible = True
-            self._update_thumbnails()
+        # ── 底部状态栏 ──
+        bottombar = tk.Frame(self.root, bg=C['bg_dark'], height=26)
+        bottombar.pack(side=tk.BOTTOM, fill=tk.X)
+        bottombar.pack_propagate(False)
+
+        self.status_var = tk.StringVar(value="就绪")
+        tk.Label(bottombar, textvariable=self.status_var, font=("Microsoft YaHei UI", 8),
+                 bg=C['bg_dark'], fg=C['text_muted']).pack(side=tk.LEFT, padx=8)
+
+        self.progress_var = tk.DoubleVar(value=0.0)
+        self.progress_bar = ttk.Progressbar(bottombar, variable=self.progress_var, maximum=100, length=100)
+        self.progress_bar.pack(side=tk.LEFT, padx=4, pady=2)
+
+        self.region_var = tk.StringVar(value="区域：未设置")
+        tk.Label(bottombar, textvariable=self.region_var, font=("Microsoft YaHei UI", 8),
+                 bg=C['bg_dark'], fg=C['text_muted']).pack(side=tk.LEFT, padx=8)
 
     def _get_render_dpi(self):
         """根据显示器 DPI 缩放比例动态计算渲染 DPI，消除高 DPI 屏幕上的文字虚边"""
@@ -4326,7 +4257,7 @@ class App:
         self._start_periodic_redraw()
         self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
         self.root.mainloop()
-def _on_exit(self):
+    def _on_exit(self):
         # 取消所有 pending after 回调
         if hasattr(self, '_redraw_after_id'):
             try:
