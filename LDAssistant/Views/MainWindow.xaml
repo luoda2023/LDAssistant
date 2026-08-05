@@ -82,12 +82,21 @@ PreviewKeyDown="Window_PreviewKeyDown">
 <TextBlock Text="区域OCR" Margin="4,0,0,0"/>
 </StackPanel>
 </Button>
+<Button x:Name="BtnUmiOcr" Style="{StaticResource ToolBarButton}" Click="BtnUmiOcr_Click" ToolTip="Umi-OCR本地引擎（中文+表格识别，速度快）">
+<StackPanel Orientation="Horizontal">
+<TextBlock Text="🔥" FontSize="14"/>
+<TextBlock Text="Umi-OCR" Margin="4,0,0,0"/>
+</StackPanel>
+</Button>
 <Button x:Name="BtnOnlineOcr" Style="{StaticResource ToolBarButton}" Click="BtnOnlineOcr_Click" ToolTip="在线OCR（OCR.space，支持表格识别，需免费注册API Key）">
 <StackPanel Orientation="Horizontal">
 <TextBlock Text="🌐" FontSize="14"/>
 <TextBlock Text="在线OCR" Margin="4,0,0,0"/>
 </StackPanel>
 </Button>
+<CheckBox x:Name="ChkInvertOcr" VerticalAlignment="Center" Margin="6,0" ToolTip="勾选后对图片做反色处理再识别">
+<TextBlock Text="🌙反色" FontSize="12"/>
+</CheckBox>
                     <Button x:Name="BtnCheck" Style="{StaticResource ToolBarButton}" Click="BtnCheck_Click" ToolTip="规范检查">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="✓" FontSize="14"/>

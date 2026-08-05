@@ -62,3 +62,4 @@ test_ocr*
 
 test_ocr*.ps1
 test_ocr*.bat
+UmiOCR/

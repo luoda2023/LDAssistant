@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -137,13 +138,15 @@ return true;
 	/// </summary>
 	private Canvas RenderCadVector(int pageIndex)
 	{
-		var doc = _cadDoc;
-		if (doc == null)
-		{
-			LoadCadDocument(_currentPath);
-			doc = _cadDoc;
-			if (doc == null) return null;
-		}
+ var doc = _cadDoc;
+ if (doc == null)
+ {
+ LoadCadDocument(_currentPath);
+ doc = _cadDoc;
+ if (doc == null) return null;
+ }
+ // 初始化SHX字体缓存
+ InitShxFonts();
 
 		string spaceName = "模型";
 		if (pageIndex >= 0 && pageIndex < _cadSpaceNames.Count)
@@ -562,20 +565,75 @@ return true;
  }
 	}
 
-	/// 将文字转为矢量路径（不依赖字体渲染，缩放不失真）
+	/// SHX字体解析缓存
+	private static ShxFontCache _shxCache;
+
+	/// 初始化SHX字体缓存（在Open时调用）
+	private void InitShxFonts()
+	{
+		try
+		{
+			if (_shxCache != null) return;
+			_shxCache = new ShxFontCache();
+			var fontsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "fonts");
+			if (!Directory.Exists(fontsDir)) return;
+			_shxCache.LoadFonts(fontsDir);
+		}
+		catch { }
+	}
+
+	/// 将文字转为矢量路径
+	/// 优先使用SHX矢量字体，回退到TrueType（仿宋）
 	private System.Windows.Shapes.Path CreateTextGeometry(string text, double fontSize, Brush color,
  double x, double y, double rotation)
 	{
  try
  {
- var typeface = new Typeface(new System.Windows.Media.FontFamily("宋体, Microsoft YaHei, Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
- var formatted = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture,
- System.Windows.FlowDirection.LeftToRight, typeface, fontSize, color, 1.0);
- var geometry = formatted.BuildGeometry(new Point(0, 0));
+ if (string.IsNullOrEmpty(text)) return null;
+
+ var geometry = new StreamGeometry();
+ using (var ctx = geometry.Open())
+ {
+ double xOffset = 0;
+ foreach (var ch in text)
+ {
+ // 尝试用SHX字体解析
+ var strokes = GetShxCharStrokes(ch, fontSize);
+ if (strokes != null && strokes.Count > 0)
+ {
+ // 用SHX矢量笔画
+ foreach (var stroke in strokes)
+ {
+ if (stroke.Count < 2) continue;
+ ctx.BeginFigure(new Point(xOffset + stroke[0].X, stroke[0].Y), false, false);
+ for (int i = 1; i < stroke.Count; i++)
+ ctx.LineTo(new Point(xOffset + stroke[i].X, stroke[i].Y), true, false);
+ }
+ }
+ else
+ {
+ // 回退到TrueType字形（仿宋）
+ var ttfStrokes = GetTtfCharStrokes(ch, fontSize);
+ if (ttfStrokes != null)
+ {
+ foreach (var stroke in ttfStrokes)
+ {
+ if (stroke.Count < 2) continue;
+ ctx.BeginFigure(new Point(xOffset + stroke[0].X, stroke[0].Y), true, false);
+ for (int i = 1; i < stroke.Count; i++)
+ ctx.LineTo(new Point(xOffset + stroke[i].X, stroke[i].Y), true, false);
+ }
+ }
+ }
+ xOffset += fontSize; // 简单等宽间距
+ }
+ }
+
  var path = new System.Windows.Shapes.Path
  {
  Data = geometry,
- Fill = color,
+ Stroke = color,
+ StrokeThickness = Math.Max(0.5, fontSize / 20),
  };
  // 应用变换：先平移到目标位置，再旋转
  var tg = new System.Windows.Media.TransformGroup();
@@ -586,6 +644,65 @@ return true;
  return path;
  }
  catch { return null; }
+	}
+
+	/// 从SHX字体获取字符的笔画
+	private List<List<Point>> GetShxCharStrokes(char ch, double fontSize)
+	{
+		if (_shxCache == null) return null;
+		try
+		{
+			// ASCII字符用unifont (Tssdeng.shx)
+			if (ch < 128)
+				return _shxCache.GetCharStrokes("Tssdeng", ch, fontSize);
+
+			// 中文字符用bigfont (HZTXT.SHX)
+			// 需要将Unicode字符转为GB2312编码
+			var gbBytes = Encoding.GetEncoding("GB2312").GetBytes(ch.ToString());
+			if (gbBytes.Length == 2)
+			{
+				int gbCode = (gbBytes[0] << 8) | gbBytes[1];
+				return _shxCache.GetCharStrokes("HZTXT", (char)gbCode, fontSize);
+			}
+			return null;
+		}
+		catch { return null; }
+	}
+
+	/// 从TrueType字体获取字符的笔画（回退方案）
+	private List<List<Point>> GetTtfCharStrokes(char ch, double fontSize)
+	{
+		try
+		{
+			var typeface = new Typeface(new System.Windows.Media.FontFamily("仿宋, 仿宋_GB2312, FangSong, SimFang, 宋体, SimSun"),
+				FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+			if (!typeface.TryGetGlyphTypeface(out var glyphTypeface)) return null;
+
+			ushort glyphIndex = glyphTypeface.CharacterToGlyphMap.ContainsKey(ch) ? glyphTypeface.CharacterToGlyphMap[ch] : (ushort)0;
+			if (glyphIndex == 0) return null;
+
+			// 获取字形几何
+			var glyphGeometry = glyphTypeface.GetGlyphOutline(glyphIndex, fontSize, 1.0);
+			// 转换为笔画列表
+			var strokes = new List<List<Point>>();
+			var pathGeometry = PathGeometry.CreateFromGeometry(glyphGeometry);
+			foreach (var figure in pathGeometry.Figures)
+			{
+				var stroke = new List<Point>();
+				stroke.Add(figure.StartPoint);
+				foreach (var seg in figure.Segments)
+				{
+					if (seg is LineSegment ls)
+						stroke.Add(ls.Point);
+					else if (seg is PolyLineSegment pls)
+						foreach (var p in pls.Points) stroke.Add(p);
+				}
+				if (stroke.Count >= 2)
+					strokes.Add(stroke);
+			}
+			return strokes;
+		}
+		catch { return null; }
 	}
 
  private static SolidColorBrush GetEntityWpfColor(ACadSharp.Entities.Entity ent)

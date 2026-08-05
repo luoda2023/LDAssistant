@@ -20,7 +20,7 @@ namespace LDAssistant.Views
     {
         // ═════════════ 服务 ═════════════
         private FilePreviewService _preview = new();
-        private OcrService _ocr;
+        private UmiOcrService _umiOcr = new();
         private StandardChecker _checker;
         private readonly AiService _ai = new();
 
@@ -48,12 +48,8 @@ namespace LDAssistant.Views
  ThumbList.ItemsSource = PageThumbs;
 
 
- // 初始化 OCR（内置 ONNX 模型，无需外部 exe）
- _ocr = OcrService.Create();
- if (_ocr != null)
- StatusText.Text = "就绪 — OCR 已就绪";
- else
- StatusText.Text = "就绪 — OCR 未安装";
+ // 初始化 OCR（使用 Umi-OCR 本地引擎）
+ StatusText.Text = "就绪 — 点击 Umi-OCR 按钮识别文字";
 
             // 初始化标准数据库
             var dbPath = FindDatabasePath();
@@ -510,11 +506,6 @@ DisplayCurrentPage();
  private void BtnOcrArea_Click(object sender, RoutedEventArgs e)
  {
  if (_currentFilePath == null) return;
- if (_ocr == null)
- {
- MessageBox.Show("OCR 引擎未安装。", "OCR 不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
- return;
- }
  _isAreaOcrMode = !_isAreaOcrMode;
  if (_isAreaOcrMode)
  {
@@ -569,7 +560,29 @@ DisplayCurrentPage();
 
  var rect = GetSelectionRectangle();
  if (rect.Width > 10 && rect.Height > 10)
- DoAreaOcr(rect);
+ {
+ // 询问：仅当前页 还是 所有后续页
+ int totalPages = _preview?.TotalPages ?? 1;
+ int currentPage = _currentPage;
+ if (totalPages > 1 && currentPage < totalPages - 1)
+ {
+ var choice = MessageBox.Show(
+ $"框选区域已确定。\n\n" +
+ $"当前共 {totalPages} 页，当前第 {currentPage + 1} 页。\n\n" +
+ $"是 — 仅识别当前页\n" +
+ $"否 — 自动识别当前页到最后一页（同一区域）\n\n" +
+ $"是否识别所有后续页面？",
+ "区域OCR范围",
+ MessageBoxButton.YesNoCancel,
+ MessageBoxImage.Question);
+ if (choice == MessageBoxResult.Cancel) return;
+ DoAreaOcr(rect, choice == MessageBoxResult.No);
+ }
+ else
+ {
+ DoAreaOcr(rect, false);
+ }
+ }
 
  SelectionRect.Visibility = Visibility.Collapsed;
  _isAreaOcrMode = false;
@@ -658,27 +671,37 @@ DisplayCurrentPage();
  }
 
  /// <summary>区域OCR：将选框映射到原图坐标，裁剪后OCR</summary>
- private void DoAreaOcr(Rect screenRect)
+ private void DoAreaOcr(Rect screenRect, bool allPages = false)
  {
  ThreadPool.QueueUserWorkItem(_ =>
  {
- string tempImg = null;
- string tempFull = null;
+ var tempFiles = new List<string>();
  try
  {
- Dispatcher.Invoke(() => { StatusText.Text = "正在区域OCR识别..."; Progress.Value = 0; });
+ int startPage = _currentPage;
+ int endPage = allPages ? (_preview?.TotalPages ?? 1) - 1 : startPage;
+ int totalPages = endPage - startPage + 1;
+ var allText = new StringBuilder();
 
- // 渲染高清原图（200 DPI），矢量/位图文件都支持
- BitmapSource fullImg = null;
- Dispatcher.Invoke(() => { fullImg = _preview.RenderPage(_currentPage, 0, 200); });
- if (fullImg == null)
+ // 计算裁剪参数（基于当前页的缩放比例）
+ double scale = _zoom * (200.0 / 96.0);
+ int cropX = Math.Max(0, (int)((screenRect.X + PreviewScroll.HorizontalOffset) / scale));
+ int cropY = Math.Max(0, (int)((screenRect.Y + PreviewScroll.VerticalOffset) / scale));
+ int cropW = (int)(screenRect.Width / scale);
+ int cropH = (int)(screenRect.Height / scale);
+
+ for (int pg = startPage; pg <= endPage; pg++)
  {
- Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败");
- return;
- }
+ Dispatcher.Invoke(() => { StatusText.Text = $"区域OCR: 第{pg + 1}页 / 共{totalPages}页..."; Progress.Value = (double)(pg - startPage) / totalPages * 100; });
 
- // 在 UI 线程用 PngBitmapEncoder 保存全图（避免跨线程像素格式问题）
- tempFull = Path.GetTempFileName() + ".png";
+ // 渲染当前页
+ BitmapSource fullImg = null;
+ Dispatcher.Invoke(() => { fullImg = _preview.RenderPage(pg, 0, 200); });
+ if (fullImg == null) continue;
+
+ // 保存全图
+ var tempFull = Path.GetTempFileName() + ".png";
+ tempFiles.Add(tempFull);
  Dispatcher.Invoke(() =>
  {
  var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
@@ -687,53 +710,53 @@ DisplayCurrentPage();
  encoder.Save(fs);
  });
 
- // 用 System.Drawing.Bitmap 从文件加载，裁剪
  using var fullBmp = new System.Drawing.Bitmap(tempFull);
+ // 裁剪区域不能超出图片边界
+ int actualX = Math.Min(cropX, fullBmp.Width - 10);
+ int actualY = Math.Min(cropY, fullBmp.Height - 10);
+ int actualW = Math.Min(cropW, fullBmp.Width - actualX);
+ int actualH = Math.Min(cropH, fullBmp.Height - actualY);
+ if (actualW <= 10 || actualH <= 10) continue;
 
- // 将屏幕坐标映射到原图坐标
- double scale = _zoom * (200.0 / 96.0);
- int cropX = Math.Max(0, (int)((screenRect.X + PreviewScroll.HorizontalOffset) / scale));
- int cropY = Math.Max(0, (int)((screenRect.Y + PreviewScroll.VerticalOffset) / scale));
- int cropW = Math.Min((int)(screenRect.Width / scale), fullBmp.Width - cropX);
- int cropH = Math.Min((int)(screenRect.Height / scale), fullBmp.Height - cropY);
-
- if (cropW <= 10 || cropH <= 10)
- {
- Dispatcher.Invoke(() => StatusText.Text = "选区无效");
- return;
- }
-
- // 裁剪并保存
- tempImg = Path.GetTempFileName() + ".png";
- using var croppedBmp = new System.Drawing.Bitmap(cropW, cropH);
+ var tempImg = Path.GetTempFileName() + ".png";
+ tempFiles.Add(tempImg);
+ using var croppedBmp = new System.Drawing.Bitmap(actualW, actualH);
  using (var g = System.Drawing.Graphics.FromImage(croppedBmp))
  {
- g.DrawImage(fullBmp, new System.Drawing.Rectangle(0, 0, cropW, cropH),
- new System.Drawing.Rectangle(cropX, cropY, cropW, cropH),
+ g.DrawImage(fullBmp, new System.Drawing.Rectangle(0, 0, actualW, actualH),
+ new System.Drawing.Rectangle(actualX, actualY, actualW, actualH),
  System.Drawing.GraphicsUnit.Pixel);
  }
- croppedBmp.Save(tempImg, System.Drawing.Imaging.ImageFormat.Png);
+	 croppedBmp.Save(tempImg, System.Drawing.Imaging.ImageFormat.Png);
 
- Dispatcher.Invoke(() => Progress.Value = 50);
+ var result = _umiOcr.RecognizeAsync(tempImg, "text", ChkInvertOcr.IsChecked == true).GetAwaiter().GetResult();
+ if (result.Success)
+ {
+ allText.AppendLine($"--- 第{pg + 1}页 ---");
+ allText.AppendLine(TextNormalizer.Normalize(result.FullText));
+	 allText.AppendLine();
+	 }
+	 }
 
- var result = _ocr.Recognize(tempImg);
+ Dispatcher.Invoke(() => Progress.Value = 90);
 
+ var finalText = allText.ToString().Trim();
  Dispatcher.Invoke(() =>
  {
  Progress.Value = 100;
- if (result.Success)
+ if (!string.IsNullOrEmpty(finalText))
  {
- _lastOcrText = TextNormalizer.Normalize(result.FullText);
- StatusText.Text = $"区域OCR完成 — {result.Items.Count} 行";
- var preview = _lastOcrText.Length > 2000
- ? _lastOcrText.Substring(0, 2000) + "\n\n... (文本已截断)"
+ _lastOcrText = finalText;
+ var lineCount = allPages ? totalPages : 1;
+ StatusText.Text = $"区域OCR完成 — {lineCount}页识别";
+ var preview = _lastOcrText.Length > 3000
+ ? _lastOcrText.Substring(0, 3000) + "\n\n... (文本已截断)"
  : _lastOcrText;
- PushToAi("区域OCR识别结果", $"识别到 **{result.Items.Count}** 行文字：\n\n```\n{preview}\n```");
+ PushToAi("区域OCR识别结果", $"区域OCR识别完成（{lineCount}页）：\n\n```\n{preview}\n```");
  }
  else
  {
- StatusText.Text = result.FullText;
- PushToAi("OCR 失败", result.FullText);
+ StatusText.Text = "区域OCR未识别到文字";
  }
  });
  }
@@ -743,10 +766,8 @@ DisplayCurrentPage();
  }
  finally
  {
- if (tempImg != null && File.Exists(tempImg))
- try { File.Delete(tempImg); } catch { }
- if (tempFull != null && File.Exists(tempFull))
- try { File.Delete(tempFull); } catch { }
+ foreach (var f in tempFiles)
+ if (File.Exists(f)) try { File.Delete(f); } catch { }
  }
  });
  }
@@ -979,14 +1000,15 @@ DisplayCurrentPage();
  Progress.Value = 100;
  if (result.Success)
  {
- var normalizedText = TextNormalizer.Normalize(result.FullText);
- _lastOcrText = normalizedText;
- StatusText.Text = $"在线OCR完成 — {result.Items.Count} 行";
+	 var normalizedText = TextNormalizer.Normalize(result.FullText);
+	 _lastOcrText = normalizedText;
+	 var ocrLines = _lastOcrText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+	 StatusText.Text = $"在线OCR完成 — {ocrLines.Length} 行";
 
- var preview = _lastOcrText.Length > 3000
- ? _lastOcrText.Substring(0, 3000) + "\n\n... (文本已截断)"
- : _lastOcrText;
- PushToAi("在线OCR识别结果", $"识别到 **{result.Items.Count}** 行文字（支持表格）：\n\n```\n{preview}\n```");
+	 var preview = _lastOcrText.Length > 3000
+	 ? _lastOcrText.Substring(0, 3000) + "\n\n... (文本已截断)"
+	 : _lastOcrText;
+	 PushToAi("在线OCR识别结果", $"识别到 **{ocrLines.Length}** 行文字（支持表格）：\n\n```\n{preview}\n```");
  }
  else
  {
@@ -1049,16 +1071,10 @@ DisplayCurrentPage();
  private void BtnOcr_Click(object sender, RoutedEventArgs e)
  {
  if (_currentFilePath == null) return;
- if (_ocr == null)
- {
- MessageBox.Show("OCR 引擎未安装。\n请确保 models/v5/ 目录存在且包含模型文件。",
- "OCR 不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
- return;
- }
 
- ThreadPool.QueueUserWorkItem(_ =>
+ ThreadPool.QueueUserWorkItem(async _ =>
  {
- Dispatcher.Invoke(() => { StatusText.Text = "正在 OCR 识别..."; Progress.Value = 0; });
+ Dispatcher.Invoke(() => { StatusText.Text = "Umi-OCR 启动中..."; Progress.Value = 0; });
 
 string tempImg = null;
 try
@@ -1095,21 +1111,24 @@ try
 
  Dispatcher.Invoke(() => Progress.Value = 50);
 
- var result = _ocr.Recognize(tempImg);
+ var invert = false;
+ Dispatcher.Invoke(() => { invert = ChkInvertOcr.IsChecked == true; });
+ var result = await _umiOcr.RecognizeAsync(tempImg, "text", invert);
 
-                    Dispatcher.Invoke(() =>
-                    {
-                        Progress.Value = 100;
- if (result.Success)
-{
-_lastOcrText = TextNormalizer.Normalize(result.FullText);
-StatusText.Text = $"OCR 完成 — {result.Items.Count} 行";
+	Dispatcher.Invoke(() =>
+	{
+	Progress.Value = 100;
+		if (result.Success)
+	{
+	_lastOcrText = TextNormalizer.Normalize(result.FullText);
+	var lines = _lastOcrText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+	StatusText.Text = $"OCR 完成 — {lines.Length} 行";
 
 // 推送到 AI 窗口
 var preview = _lastOcrText.Length > 2000
 ? _lastOcrText.Substring(0, 2000) + "\n\n... (文本已截断，完整文本已保存)"
 : _lastOcrText;
-PushToAi("OCR 识别结果", $"识别到 **{result.Items.Count}** 行文字：\n\n```\n{preview}\n```");
+PushToAi("OCR 识别结果", $"识别到 **{lines.Length}** 行文字：\n\n```\n{preview}\n```");
 }
                         else
                         {
@@ -1127,11 +1146,78 @@ PushToAi("OCR 识别结果", $"识别到 **{result.Items.Count}** 行文字：\n
  // 只删除临时文件，不删除用户加载的图片文件
  if (tempImg != null && File.Exists(tempImg) && tempImg != _currentImageForOcr)
  try { File.Delete(tempImg); } catch { }
- }
-            });
-        }
+	 }
+});
+}
 
-        // ═════════════ 规范检查 — 结果推送到 AI 窗口 ═════════════
+	/// Umi-OCR 本地引擎（Rapid OCR，速度快，中文识别好）
+	private void BtnUmiOcr_Click(object sender, RoutedEventArgs e)
+	{
+		if (_currentFilePath == null && _currentImageForOcr == null) return;
+
+		ThreadPool.QueueUserWorkItem(async _ =>
+		{
+			Dispatcher.Invoke(() => { StatusText.Text = "Umi-OCR 启动中..."; Progress.Value = 0; });
+
+			try
+			{
+				// 准备图片
+				string tempImg = null;
+				var ext = (_currentFilePath ?? "").ToLower();
+				var imgExt = ext.EndsWith(".png") || ext.EndsWith(".jpg") || ext.EndsWith(".jpeg") || ext.EndsWith(".bmp") || ext.EndsWith(".tiff") || ext.EndsWith(".tif") || ext.EndsWith(".webp");
+
+				if (_currentImageForOcr != null && File.Exists(_currentImageForOcr) && imgExt)
+				{
+					tempImg = _currentImageForOcr;
+				}
+				else
+				{
+					BitmapSource img = null;
+					Dispatcher.Invoke(() => { img = _preview.RenderPage(_currentPage, 0, 200); });
+					if (img == null) { Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败"); return; }
+					tempImg = Path.GetTempFileName() + ".png";
+					Dispatcher.Invoke(() =>
+					{
+						var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+						encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(img));
+						using var fs = File.OpenWrite(tempImg);
+						encoder.Save(fs);
+					});
+				}
+
+ Dispatcher.Invoke(() => { StatusText.Text = "Umi-OCR 识别中..."; Progress.Value = 50; });
+
+ var umi = new UmiOcrService();
+ var invertUmi = false;
+ Dispatcher.Invoke(() => { invertUmi = ChkInvertOcr.IsChecked == true; });
+ var result = await umi.RecognizeAsync(tempImg, "text", invertUmi);
+
+				Dispatcher.Invoke(() =>
+				{
+					Progress.Value = 100;
+					if (result.Success)
+					{
+						_lastOcrText = TextNormalizer.Normalize(result.FullText);
+						var lines = _lastOcrText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+						StatusText.Text = $"Umi-OCR 完成 — {lines.Length} 行";
+						var preview = _lastOcrText.Length > 2000 ? _lastOcrText.Substring(0, 2000) + "\n\n... (文本已截断)" : _lastOcrText;
+						PushToAi("Umi-OCR 识别结果", $"识别到 **{lines.Length}** 行文字：\n\n```\n{preview}\n```");
+					}
+					else
+					{
+						StatusText.Text = "Umi-OCR: " + (result.Error ?? "未知错误");
+						PushToAi("Umi-OCR 失败", result.Error ?? "未知错误");
+					}
+				});
+			}
+			catch (Exception ex)
+			{
+				Dispatcher.Invoke(() => StatusText.Text = $"Umi-OCR 错误: {ex.Message}");
+			}
+		});
+	}
+
+// ═════════════ 规范检查 — 结果推送到 AI 窗口 ═════════════
         private void BtnCheck_Click(object sender, RoutedEventArgs e)
         {
             if (_checker == null)
@@ -1212,11 +1298,11 @@ PushToAi("OCR 识别结果", $"识别到 **{result.Items.Count}** 行文字：\n
         private void BtnBatch_Click(object sender, RoutedEventArgs e)
         {
             if (_batchFiles.Count == 0) return;
-            if (_ocr == null && _checker == null)
-            {
-                MessageBox.Show("OCR 或数据库未就绪。", "不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
+ if (_checker == null)
+ {
+ MessageBox.Show("数据库未就绪。", "不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
+ return;
+ }
 
             if (_isBatchRunning)
             {
@@ -1225,8 +1311,9 @@ PushToAi("OCR 识别结果", $"识别到 **{result.Items.Count}** 行文字：\n
                 return;
             }
 
-            _isBatchRunning = true;
-            var allFiles = _batchFiles.ToList();
+ _isBatchRunning = true;
+ var allFiles = _batchFiles.ToList();
+ var doOcr = true; // 批量处理时自动OCR
 
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -1260,12 +1347,12 @@ PushToAi("OCR 识别结果", $"识别到 **{result.Items.Count}** 行文字：\n
  sdBmp.Save(tempImg, System.Drawing.Imaging.ImageFormat.Png);
  sdBmp.Dispose();
 
-	 if (_ocr != null)
-{
-	var result = _ocr.Recognize(tempImg);
-	if (result.Success)
-	text += TextNormalizer.Normalize(result.FullText) + "\n";
-}
+ if (doOcr)
+	{
+	var result = _umiOcr.RecognizeAsync(tempImg, "text", doOcr && ChkInvertOcr.IsChecked == true).GetAwaiter().GetResult();
+ if (result.Success)
+ text += TextNormalizer.Normalize(result.FullText) + "\n";
+	}
  }
  finally { try { File.Delete(tempImg); } catch { } }
 

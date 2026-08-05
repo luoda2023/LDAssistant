@@ -10,11 +10,11 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <PublishTrimmed>false</PublishTrimmed>
-    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+<PublishSingleFile>true</PublishSingleFile>
+<SelfContained>true</SelfContained>
+<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+<PublishTrimmed>false</PublishTrimmed>
+<IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,35 +24,42 @@
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.0.*" />
     <PackageReference Include="ClosedXML" Version="0.102.*" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.*" />
-    <PackageReference Include="RapidOcrNet" Version="3.0.0" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.*" />
  <PackageReference Include="ACadSharp" Version="3.*" />
   </ItemGroup>
 
-  <!-- 确保原生 pdfium.dll 被打包进单文件 exe -->
-  <Target Name="IncludePdfiumNative" AfterTargets="ComputeFilesToPublish">
-    <ItemGroup>
-      <Content Include="$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll" Condition="Exists('$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll')" CopyToOutputDirectory="PreserveNewest" Pack="true" PackagePath="runtimes/win-x64/native/" />
-    </ItemGroup>
-  </Target>
-
+<!-- 确保原生 pdfium.dll 被打包进单文件 exe -->
+<Target Name="IncludePdfiumNative" AfterTargets="ComputeFilesToPublish">
 <ItemGroup>
-<None Update="..\standards.db" Condition="Exists('..\standards.db')">
-<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-<Link>standards.db</Link>
-</None>
-<None Update="..\app_icon.ico">
-<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-<Link>app_icon.ico</Link>
-</None>
+<Content Include="$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll" Condition="Exists('$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll')" CopyToOutputDirectory="PreserveNewest" Pack="true" PackagePath="runtimes/win-x64/native/" />
 </ItemGroup>
+</Target>
 
-<!-- OCR 中文模型文件 -->
-<ItemGroup>
-<None Include="models\v5\**\*">
-<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-<Link>models\v5\%(RecursiveDir)%(Filename)%(Extension)</Link>
-</None>
-</ItemGroup>
+	<ItemGroup>
+	<None Update="..\standards.db" Condition="Exists('..\standards.db')">
+	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	<Link>standards.db</Link>
+	</None>
+	<None Update="..\app_icon.ico">
+	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	<Link>app_icon.ico</Link>
+	</None>
+	</ItemGroup>
+
+	<!-- CAD SHX 矢量字体文件 -->
+	<ItemGroup>
+	<None Include="fonts\**\*">
+	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	<Link>fonts\%(RecursiveDir)%(Filename)%(Extension)</Link>
+	</None>
+	</ItemGroup>
+
+	<!-- Umi-OCR 引擎（Rapid OCR，打包到输出目录） -->
+	<ItemGroup>
+	<None Include="..\UmiOCR\Umi-OCR_Rapid_v2.1.5\**\*">
+	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	<Link>Umi-OCR\%(RecursiveDir)%(Filename)%(Extension)</Link>
+	</None>
+	</ItemGroup>
 
 </Project>

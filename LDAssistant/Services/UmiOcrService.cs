@@ -32,47 +32,57 @@ namespace LDAssistant.Services
 			try { File.WriteAllText(ConfigPath, path?.Trim() ?? ""); } catch { }
 		}
 
-		/// 自动查找 UmiOCR.exe
-		public static string AutoDetectUmiOcr()
-		{
-			// 常见安装路径
-			var candidates = new[]
-			{
-				@"D:\Program Files\图片文字识别\Umi-OCR.exe",
-				@"C:\Program Files\图片文字识别\Umi-OCR.exe",
-				@"C:\Program Files (x86)\图片文字识别\Umi-OCR.exe",
-				Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "图片文字识别", "Umi-OCR.exe"),
-			};
+	/// 自动查找 UmiOCR.exe
+	/// 优先使用程序目录下打包的 Umi-OCR
+	public static string AutoDetectUmiOcr()
+	{
+ // 1. 程序目录下打包的 Umi-OCR
+ var appDir = AppDomain.CurrentDomain.BaseDirectory;
+ var bundled = Path.Combine(appDir, "Umi-OCR", "Umi-OCR.exe");
+ if (File.Exists(bundled)) return bundled;
 
-			foreach (var p in candidates)
-			{
-				if (File.Exists(p)) return p;
-			}
+ // 2. 用户保存的路径
+ var saved = GetSavedPath();
+ if (!string.IsNullOrEmpty(saved) && File.Exists(saved)) return saved;
 
-			// 搜索桌面和D盘
-			try
-			{
-				var drives = new[] { "D:", "C:", "E:" };
-				foreach (var drive in drives)
-				{
-					var baseDir = $"{drive}\\Program Files\\图片文字识别";
-					if (Directory.Exists(baseDir))
-					{
-						var exe = Path.Combine(baseDir, "Umi-OCR.exe");
-						if (File.Exists(exe)) return exe;
-					}
-					var baseDir2 = $"{drive}\\图片文字识别";
-					if (Directory.Exists(baseDir2))
-					{
-						var exe = Path.Combine(baseDir2, "Umi-OCR.exe");
-						if (File.Exists(exe)) return exe;
-					}
-				}
-			}
-			catch { }
+ // 3. 常见安装路径
+ var candidates = new[]
+ {
+ @"D:\Program Files\图片文字识别\Umi-OCR.exe",
+ @"C:\Program Files\图片文字识别\Umi-OCR.exe",
+ @"C:\Program Files (x86)\图片文字识别\Umi-OCR.exe",
+ Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "图片文字识别", "Umi-OCR.exe"),
+ };
 
-			return null;
-		}
+ foreach (var p in candidates)
+ {
+ if (File.Exists(p)) return p;
+ }
+
+ // 4. 搜索磁盘
+ try
+ {
+ var drives = new[] { "D:", "C:", "E:" };
+ foreach (var drive in drives)
+ {
+ var baseDir = $"{drive}\\Program Files\\图片文字识别";
+ if (Directory.Exists(baseDir))
+ {
+ var exe = Path.Combine(baseDir, "Umi-OCR.exe");
+ if (File.Exists(exe)) return exe;
+ }
+ var baseDir2 = $"{drive}\\图片文字识别";
+ if (Directory.Exists(baseDir2))
+ {
+ var exe = Path.Combine(baseDir2, "Umi-OCR.exe");
+ if (File.Exists(exe)) return exe;
+ }
+ }
+ }
+ catch { }
+
+ return null;
+	}
 
 		/// 检查 UmiOCR HTTP 服务是否在运行
 		public static async Task<bool> IsRunningAsync()
@@ -107,17 +117,18 @@ namespace LDAssistant.Services
 				return false;
 			}
 
-			log?.Invoke($"启动 UmiOCR: {exePath}");
-			try
-			{
-				var psi = new ProcessStartInfo
-				{
-					FileName = exePath,
-					WorkingDirectory = Path.GetDirectoryName(exePath),
-					UseShellExecute = false,
-					CreateNoWindow = true
-				};
-				Process.Start(psi);
+ log?.Invoke($"启动 UmiOCR: {exePath}");
+ try
+ {
+ var psi = new ProcessStartInfo
+ {
+ FileName = exePath,
+ WorkingDirectory = Path.GetDirectoryName(exePath),
+ Arguments = "--host 127.0.0.1 --port 1224",
+ UseShellExecute = false,
+ CreateNoWindow = true
+ };
+ Process.Start(psi);
 
 				// 等待HTTP服务就绪（最多等30秒）
 				for (int i = 0; i < 30; i++)
@@ -139,14 +150,15 @@ namespace LDAssistant.Services
 			}
 		}
 
-		/// 调用 UmiOCR HTTP API 识别图片
-		public async Task<UmiOcrResult> RecognizeAsync(string imagePath, string format = "text")
-		{
-			var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ocr_init.log");
-			void Log(string msg)
-			{
-				try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] [UmiOCR] {msg}\n"); } catch { }
-			}
+ /// 调用 UmiOCR HTTP API 识别图片
+ /// invertColors=true 时对图片做反色处理（黑底白字场景）
+ public async Task<UmiOcrResult> RecognizeAsync(string imagePath, string format = "text", bool invertColors = false)
+ {
+ var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ocr_init.log");
+ void Log(string msg)
+ {
+ try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] [UmiOCR] {msg}\n"); } catch { }
+ }
 
 			try
 			{
@@ -159,9 +171,18 @@ namespace LDAssistant.Services
 				if (!await EnsureRunningAsync(Log))
 					return new UmiOcrResult { Error = "UmiOCR服务未运行" };
 
-				// 读取图片转base64
-				var imgBytes = File.ReadAllBytes(imagePath);
-				var base64 = Convert.ToBase64String(imgBytes);
+ // 读取图片，如需反色则处理
+ byte[] imgBytes;
+ if (invertColors)
+ {
+ Log("反色处理（黑底白字）");
+ imgBytes = InvertImageColors(imagePath);
+ }
+ else
+ {
+ imgBytes = File.ReadAllBytes(imagePath);
+ }
+ var base64 = Convert.ToBase64String(imgBytes);
 				Log($"Image base64 length: {base64.Length}");
 
 				// 构建请求
@@ -241,9 +262,39 @@ namespace LDAssistant.Services
 			catch (Exception ex)
 			{
 				Log($"ParseResult exception: {ex.Message}");
-				return new UmiOcrResult { Error = $"解析结果失败: {ex.Message}" };
-			}
+		return new UmiOcrResult { Error = $"解析结果失败: {ex.Message}" };
+	}
+}
+
+	/// 对图片做反色处理（黑底白字→白底黑字）
+	private byte[] InvertImageColors(string imagePath)
+	{
+		using var srcBmp = new System.Drawing.Bitmap(imagePath);
+		var bmp = new System.Drawing.Bitmap(srcBmp.Width, srcBmp.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+		using (var g = System.Drawing.Graphics.FromImage(bmp))
+		{
+			// 先画白色背景再画原图（处理透明PNG）
+			g.Clear(System.Drawing.Color.White);
+			g.DrawImage(srcBmp, 0, 0, srcBmp.Width, srcBmp.Height);
 		}
+
+		var rect = new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height);
+		var data = bmp.LockBits(rect, System.Drawing.Imaging.ImageLockMode.ReadWrite, bmp.PixelFormat);
+		var stride = data.Stride;
+		var bytes = new byte[stride * data.Height];
+		System.Runtime.InteropServices.Marshal.Copy(data.Scan0, bytes, 0, bytes.Length);
+
+		for (int i = 0; i < bytes.Length; i++)
+			bytes[i] = (byte)(255 - bytes[i]);
+
+		System.Runtime.InteropServices.Marshal.Copy(bytes, 0, data.Scan0, bytes.Length);
+		bmp.UnlockBits(data);
+
+		using var ms = new System.IO.MemoryStream();
+		bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+		bmp.Dispose();
+		return ms.ToArray();
+	}
 	}
 
 	public class UmiOcrResult
