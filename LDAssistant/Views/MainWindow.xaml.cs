@@ -324,8 +324,9 @@ DisplayCurrentPage();
  PreviewCanvas.Children.Add(content);
 
  // 设置 Canvas 尺寸（让 ScrollViewer 可滚动 + 鼠标拖动生效）
- PreviewCanvas.Width = contentW;
- PreviewCanvas.Height = contentH;
+ // 尺寸 = 内容尺寸 × 缩放（因为 RenderTransform 缩放不影响布局尺寸）
+ PreviewCanvas.Width = contentW * _zoom;
+ PreviewCanvas.Height = contentH * _zoom;
 
  // 应用缩放
  ScaleTransform.ScaleX = _zoom;
@@ -654,23 +655,29 @@ DisplayCurrentPage();
  {
  ScaleTransform.ScaleX = _zoom;
  ScaleTransform.ScaleY = _zoom;
- // 更新 Canvas 尺寸，让 ScrollViewer 滚动条正确响应
+ // 更新 Canvas 尺寸 = 内容尺寸 × 缩放，让 ScrollViewer 滚动条正确响应
  if (PreviewCanvas.Children.Count > 0)
  {
  var child = PreviewCanvas.Children[0] as FrameworkElement;
+ double w = 0, h = 0;
  if (child != null && child.ActualWidth > 0)
  {
- PreviewCanvas.Width = child.ActualWidth;
- PreviewCanvas.Height = child.ActualHeight;
+ w = child.ActualWidth;
+ h = child.ActualHeight;
  }
  else if (child != null && child.DesiredSize.Width > 0)
  {
- PreviewCanvas.Width = child.DesiredSize.Width;
- PreviewCanvas.Height = child.DesiredSize.Height;
+ w = child.DesiredSize.Width;
+ h = child.DesiredSize.Height;
+ }
+ if (w > 0)
+ {
+ PreviewCanvas.Width = w * _zoom;
+ PreviewCanvas.Height = h * _zoom;
  }
  }
  }
- 
+
  private void BtnRotate_Click(object sender, RoutedEventArgs e)
  {
  _rotation = (_rotation + 90) % 360;
@@ -708,9 +715,8 @@ DisplayCurrentPage();
  encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(img));
  using var fs = File.OpenWrite(tempImg);
  encoder.Save(fs);
- encoder.Save(fs);
 
-                    Dispatcher.Invoke(() => Progress.Value = 50);
+ Dispatcher.Invoke(() => Progress.Value = 50);
 
                     var result = _ocr.Recognize(tempImg);
 
