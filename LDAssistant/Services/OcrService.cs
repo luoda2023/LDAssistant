@@ -13,8 +13,14 @@ namespace LDAssistant.Services
 	/// 基于 RapidOcrNet (ONNX) 的 OCR 服务，内置中文模型，无需外部 exe。
 	public class OcrService
 	{
-		private RapidOcr _ocr;
-		private string _initError;
+ private RapidOcr _ocr;
+ private string _initError;
+
+ private static string _logPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ocr_init.log");
+ private static void Log(string msg)
+ {
+ try { File.AppendAllText(_logPath, $"[{DateTime.Now:HH:mm:ss}] {msg}\n"); } catch { }
+ }
 
 /// 创建并初始化 OCR 引擎。模型文件位于 appDir/models/v5/ 目录。
 public static OcrService Create()
@@ -94,14 +100,14 @@ Log($"libSkiaSharp.dll exists={File.Exists(skiaDll)}");
 			var fi = new FileInfo(imagePath);
 			Log($"File size: {fi.Length} bytes");
 
-				// 用 SkiaSharp 加载图片，如果失败则用 System.Drawing
-				SKBitmap bitmap = null;
-				try
-				{
-					bitmap = SKBitmap.Decode(imagePath);
-					Log($"SKBitmap.Decode: {(bitmap != null ? $"{bitmap.Width}x{bitmap.Height}" : "null")}");
-				}
-				catch (Exception ex) { Log($"SKBitmap.Decode exception: {ex.Message}"); }
+ // 用 SkiaSharp 加载图片，如果失败则用 System.Drawing
+ SKBitmap bitmap = null;
+ try
+ {
+ bitmap = SKBitmap.Decode(imagePath);
+ Log($"SKBitmap.Decode: {(bitmap != null ? $"{bitmap.Width}x{bitmap.Height} type={bitmap.ColorType} alpha={bitmap.AlphaType}" : "null")}");
+ }
+ catch (Exception ex) { Log($"SKBitmap.Decode exception: {ex.Message}"); }
 
 				if (bitmap == null)
 				{
@@ -113,16 +119,35 @@ Log($"libSkiaSharp.dll exists={File.Exists(skiaDll)}");
 					Log($"Converted to SKBitmap: {(bitmap != null ? $"{bitmap.Width}x{bitmap.Height}" : "null")}");
 				}
 
-				if (bitmap == null)
-					return new OcrResult { FullText = "OCR_ERROR: 无法加载图片" };
+ if (bitmap == null)
+ return new OcrResult { FullText = "OCR_ERROR: 无法加载图片" };
 
-				using (bitmap)
-				{
-					Log("Calling _ocr.Detect...");
-					var rapidResult = _ocr.Detect(bitmap, RapidOcrOptions.Default);
-					Log($"Detect returned: {rapidResult != null}");
-					return BuildResult(rapidResult);
-				}
+	 // 确保颜色类型为 Bgra8888（RapidOcr 需要）
+	 if (bitmap.ColorType != SKColorType.Bgra8888)
+	 {
+	 Log($"Converting {bitmap.ColorType} -> Bgra8888");
+	 var converted = new SKBitmap(new SKImageInfo(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
+	 bitmap.CopyTo(converted);
+	 bitmap.Dispose();
+	 bitmap = converted;
+	 Log($"Converted: {bitmap.Width}x{bitmap.Height} type={bitmap.ColorType}");
+	 }
+
+	 // 检测是否为黑底白字（暗背景），如果是则反色
+	 if (IsDarkBackground(bitmap))
+	 {
+	 Log("Detected dark background, inverting image...");
+	 InvertBitmap(bitmap);
+	 Log("Image inverted.");
+	 }
+
+	 using (bitmap)
+	 {
+	 Log("Calling _ocr.Detect...");
+	 var rapidResult = _ocr.Detect(bitmap, RapidOcrOptions.Default);
+	 Log($"Detect returned: {rapidResult != null}");
+ return BuildResult(rapidResult);
+ }
 			}
 			catch (Exception ex)
 			{
@@ -257,6 +282,61 @@ public OcrResult Recognize(BitmapSource bitmapSource)
  {
  try { if (tempImg != null) File.Delete(tempImg); } catch { }
  }
-}
+ }
+
+	/// 检测图片是否为暗背景（黑底白字等）
+	private bool IsDarkBackground(SKBitmap bitmap)
+	{
+		try
+		{
+		// 采样图片中心区域和四角，计算平均亮度
+		int w = bitmap.Width;
+		int h = bitmap.Height;
+		long totalBrightness = 0;
+		int sampleCount = 0;
+		int stepX = Math.Max(1, w / 20);
+		int stepY = Math.Max(1, h / 20);
+
+		for (int y = 0; y < h; y += stepY)
+		{
+		for (int x = 0; x < w; x += stepX)
+		{
+		var pixel = bitmap.GetPixel(x, y);
+		// 亮度 = (R*0.299 + G*0.587 + B*0.114)
+		int brightness = (int)(pixel.Red * 0.299 + pixel.Green * 0.587 + pixel.Blue * 0.114);
+		totalBrightness += brightness;
+		sampleCount++;
+		}
+		}
+
+		if (sampleCount == 0) return false;
+		double avg = (double)totalBrightness / sampleCount;
+		Log($"Average brightness: {avg:F1} (threshold=128)");
+		// 亮度 < 128 表示暗背景
+		return avg < 128;
+		}
+		catch (Exception ex) { Log($"IsDarkBackground exception: {ex.Message}"); return false; }
 	}
+
+	/// 反色处理（黑底白字 → 白底黑字）
+	private void InvertBitmap(SKBitmap bitmap)
+	{
+		IntPtr ptr = bitmap.GetPixels();
+		int len = bitmap.RowBytes * bitmap.Height;
+		byte[] buffer = new byte[len];
+		System.Runtime.InteropServices.Marshal.Copy(ptr, buffer, 0, len);
+
+		// BGRA 格式，每4字节一个像素，反转 RGB（不动 Alpha）
+		for (int i = 0; i < len; i += 4)
+		{
+		buffer[i] = (byte)(255 - buffer[i]);	 // B
+		buffer[i + 1] = (byte)(255 - buffer[i + 1]); // G
+		buffer[i + 2] = (byte)(255 - buffer[i + 2]); // R
+		// buffer[i + 3] 是 Alpha，不动
+		}
+
+		System.Runtime.InteropServices.Marshal.Copy(buffer, 0, ptr, len);
+		bitmap.NotifyPixelsChanged();
+	}
+ }
 }

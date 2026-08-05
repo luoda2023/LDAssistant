@@ -146,48 +146,88 @@ namespace LDAssistant.Views
  if (_batchFiles.Count > 0)
  LoadFile(_batchFiles[0].FilePath);
  }
-        }
+}
 
-        private void BtnFolder_Click(object sender, RoutedEventArgs e)
-        {
-            var dlg = new FolderPicker
-            {
-                Description = "选择文件夹（递归扫描所有支持的文件）"
-            };
-            if (dlg.ShowDialog())
-            {
-                var exts = new HashSet<string> { ".pdf", ".docx", ".txt", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp", ".dxf", ".dwg" };
-                string[] files;
-                try { files = Directory.GetFiles(dlg.SelectedPath, "*.*", SearchOption.AllDirectories); }
-                catch { return; }
+// ═════════════ 打开图片 / Ctrl+V 粘贴图片 ═════════════
+private void BtnOpenImage_Click(object sender, RoutedEventArgs e)
+{
+var dlg = new Microsoft.Win32.OpenFileDialog
+{
+Filter = "图片文件|*.png;*.jpg;*.jpeg;*.bmp;*.tiff;*.tif;*.webp|所有文件|*.*",
+Title = "选择图片文件"
+};
+if (dlg.ShowDialog() == true)
+{
+LoadImageForOcr(dlg.FileName);
+}
+}
 
- _batchFiles.Clear();
- FileListItems.Clear();
- int added = 0;
- foreach (var f in files.OrderBy(x => x))
- {
- if (exts.Contains(Path.GetExtension(f).ToLower()))
- {
- var item = new FileBatchItem
- {
- FilePath = f,
- FileName = Path.GetFileName(f),
- FileType = FilePreviewService.DetectFileType(f)
- };
- _batchFiles.Add(item);
- FileListItems.Add(item);
- added++;
- }
- }
- StatusText.Text = $"已扫描并添加 {added} 个文件";
- if (_batchFiles.Count > 0)
- LoadFile(_batchFiles[0].FilePath);
-            }
-        }
+/// 从文件加载图片，显示到预览区并可直接OCR
+private void LoadImageForOcr(string imagePath)
+{
+try
+{
+// 用 BitmapImage 加载图片
+var bmp = new BitmapImage();
+bmp.BeginInit();
+bmp.CacheOption = BitmapCacheOption.OnLoad;
+bmp.UriSource = new Uri(imagePath);
+bmp.EndInit();
+bmp.Freeze();
 
-        // ═════════════ 加载文件 → 生成页面缩略图 ═════════════
-        private void LoadFile(string path)
-        {
+// 显示到预览区
+PreviewCanvas.Children.Clear();
+var img = new System.Windows.Controls.Image { Source = bmp };
+PreviewCanvas.Children.Add(img);
+PreviewCanvas.Width = bmp.PixelWidth;
+PreviewCanvas.Height = bmp.PixelHeight;
+_zoom = 1.0;
+_rotation = 0;
+ApplyZoom();
+
+// 记录当前图片路径，供 OCR 使用
+_currentImageForOcr = imagePath;
+_currentFilePath = imagePath;
+
+StatusText.Text = $"已加载图片: {Path.GetFileName(imagePath)} ({bmp.PixelWidth}×{bmp.PixelHeight})";
+}
+catch (Exception ex)
+{
+StatusText.Text = $"加载图片失败: {ex.Message}";
+}
+}
+
+private string _currentImageForOcr;
+
+/// Ctrl+V 粘贴剪贴板图片
+private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+{
+// Ctrl+V 粘贴图片
+if (e.Key == Key.V && Keyboard.Modifiers == ModifierKeys.Control)
+{
+if (Clipboard.ContainsImage())
+{
+var clipImg = Clipboard.GetImage();
+if (clipImg != null)
+{
+// 保存到临时文件
+var tempImg = Path.GetTempFileName() + ".png";
+var encoder = new PngBitmapEncoder();
+encoder.Frames.Add(BitmapFrame.Create(clipImg));
+using (var fs = File.OpenWrite(tempImg))
+encoder.Save(fs);
+
+LoadImageForOcr(tempImg);
+StatusText.Text = "已从剪贴板粘贴图片，可直接点击OCR识别";
+e.Handled = true;
+}
+}
+}
+}
+
+// ═════════════ 加载文件 → 生成页面缩略图 ═════════════
+private void LoadFile(string path)
+{
  _currentFilePath = path;
  _preview?.Close();
  _preview = new FilePreviewService();
@@ -768,6 +808,9 @@ DisplayCurrentPage();
  // ═════════════ 等宽/等高 + 居中 ═════════════
  private void CenterContent()
  {
+ // 延迟到布局更新后执行，确保读到正确的 Canvas 尺寸
+ Dispatcher.BeginInvoke(new Action(() =>
+ {
  double availW = PreviewScroll.ActualWidth;
  double availH = PreviewScroll.ActualHeight;
  double canvasW = PreviewCanvas.Width;
@@ -777,6 +820,7 @@ DisplayCurrentPage();
  TranslateTransform.X = (availW - canvasW) / 2.0;
  TranslateTransform.Y = (availH - canvasH) / 2.0;
  }
+ }), System.Windows.Threading.DispatcherPriority.Render);
  }
 
  private void BtnFitWidth_Click(object sender, RoutedEventArgs e)
@@ -848,8 +892,8 @@ DisplayCurrentPage();
  if (_currentFilePath == null) return;
  if (_ocr == null)
  {
-	 MessageBox.Show("OCR 引擎未安装。\n请确保 models/v5/ 目录存在且包含模型文件。",
-	 "OCR 不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
+ MessageBox.Show("OCR 引擎未安装。\n请确保 models/v5/ 目录存在且包含模型文件。",
+ "OCR 不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
  return;
  }
 
@@ -857,9 +901,19 @@ DisplayCurrentPage();
  {
  Dispatcher.Invoke(() => { StatusText.Text = "正在 OCR 识别..."; Progress.Value = 0; });
 
-	 string tempImg = null;
-	 try
-	 {
+string tempImg = null;
+try
+{
+ // 如果是直接加载的图片文件，直接 OCR
+ var ext = Path.GetExtension(_currentFilePath).ToLower();
+ if (_currentImageForOcr != null && File.Exists(_currentImageForOcr) &&
+	 (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tiff" || ext == ".tif" || ext == ".webp"))
+ {
+ tempImg = _currentImageForOcr;
+ Dispatcher.Invoke(() => Progress.Value = 50);
+ }
+ else
+ {
  // 用 RenderPage 渲染位图（矢量/位图文件都支持）
  BitmapSource img = null;
  Dispatcher.Invoke(() => { img = _preview.RenderPage(_currentPage, 0, 200); });
@@ -878,10 +932,11 @@ DisplayCurrentPage();
  using var fs = System.IO.File.OpenWrite(tempImg);
  encoder.Save(fs);
  });
+ }
 
  Dispatcher.Invoke(() => Progress.Value = 50);
 
-                    var result = _ocr.Recognize(tempImg);
+ var result = _ocr.Recognize(tempImg);
 
                     Dispatcher.Invoke(() =>
                     {
@@ -908,11 +963,12 @@ PushToAi("OCR 识别结果", $"识别到 **{result.Items.Count}** 行文字：\n
                 {
                     Dispatcher.Invoke(() => StatusText.Text = $"OCR 错误: {ex.Message}");
                 }
-                finally
-                {
-                    if (tempImg != null && File.Exists(tempImg))
-                        try { File.Delete(tempImg); } catch { }
-                }
+ finally
+ {
+ // 只删除临时文件，不删除用户加载的图片文件
+ if (tempImg != null && File.Exists(tempImg) && tempImg != _currentImageForOcr)
+ try { File.Delete(tempImg); } catch { }
+ }
             });
         }
 

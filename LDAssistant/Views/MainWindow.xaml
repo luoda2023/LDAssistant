@@ -1,11 +1,12 @@
 <Window x:Class="LDAssistant.Views.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="LDAssistant v3.0 — 工程规范助手"
-        Width="1400" Height="900"
-        WindowState="Maximized"
-        Background="#F5F5F5"
-        WindowStartupLocation="CenterScreen">
+xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+Title="LDAssistant v3.0 — 工程规范助手"
+Width="1400" Height="900"
+WindowState="Maximized"
+Background="#F5F5F5"
+WindowStartupLocation="CenterScreen"
+PreviewKeyDown="Window_PreviewKeyDown">
 
     <Window.Resources>
         <Style x:Key="StatusTag" TargetType="TextBlock">
@@ -29,16 +30,17 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="📂" FontSize="14"/>
                             <TextBlock Text="打开" Margin="4,0,0,0"/>
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="BtnFolder" Style="{StaticResource ToolBarButton}" Click="BtnFolder_Click" ToolTip="打开文件夹">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📁" FontSize="14"/>
-                            <TextBlock Text="文件夹" Margin="4,0,0,0"/>
-                        </StackPanel>
-                    </Button>
+</StackPanel>
+ </Button>
 
-                    <Rectangle Width="1" Height="24" Fill="#E0E0E0" Margin="6,0"/>
+<Button x:Name="BtnOpenImage" Style="{StaticResource ToolBarButton}" Click="BtnOpenImage_Click" ToolTip="打开图片直接OCR识别">
+<StackPanel Orientation="Horizontal">
+<TextBlock Text="🖼" FontSize="14"/>
+<TextBlock Text="图片" Margin="4,0,0,0"/>
+</StackPanel>
+</Button>
+
+<Rectangle Width="1" Height="24" Fill="#E0E0E0" Margin="6,0"/>
 
                     <Button x:Name="BtnPrev" Style="{StaticResource ToolBarButton}" Click="BtnPrev_Click" ToolTip="上一页">
                         <TextBlock Text="◀" FontSize="12"/>
@@ -201,7 +203,7 @@
  PreviewMouseDown="PreviewArea_MouseDown"
  PreviewMouseUp="PreviewArea_MouseUp"
  PreviewMouseMove="PreviewArea_MouseMove"
- MouseWheel="PreviewArea_MouseWheel">
+ PreviewMouseWheel="PreviewArea_MouseWheel">
  <ScrollViewer x:Name="PreviewScroll"
  HorizontalScrollBarVisibility="Auto"
  VerticalScrollBarVisibility="Auto">
