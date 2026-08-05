@@ -355,10 +355,62 @@ DisplayCurrentPage();
  {
  if (sender is FrameworkElement fe && fe.DataContext is PageThumbItem item)
  {
+ // Ctrl+点击 = 切换选中状态（不切换当前页）
+ if (Keyboard.Modifiers == ModifierKeys.Control)
+ {
+ item.IsSelected = !item.IsSelected;
+ return;
+ }
+
+ // 普通点击 = 切换当前页，并选中这一页
  foreach (var p in PageThumbs) p.IsActive = false;
  item.IsActive = true;
  _currentPage = item.PageIndex;
  DisplayCurrentPage();
+ }
+ }
+
+ // ═════════════ 缩略图批量操作 ═════════════
+ private void BtnThumbSelectAll_Click(object sender, RoutedEventArgs e)
+ {
+ bool anySelected = PageThumbs.Any(p => p.IsSelected);
+ foreach (var p in PageThumbs) p.IsSelected = !anySelected;
+ }
+
+ private void BtnThumbRotateLeft_Click(object sender, RoutedEventArgs e)
+ {
+ var selected = PageThumbs.Where(p => p.IsSelected).ToList();
+ if (selected.Count == 0)
+ {
+ StatusText.Text = "请先 Ctrl+点击选中缩略图";
+ return;
+ }
+ foreach (var p in selected)
+ RotateThumbItem(p, -90);
+ StatusText.Text = $"已左旋转 {selected.Count} 页";
+ }
+
+ private void BtnThumbRotateRight_Click(object sender, RoutedEventArgs e)
+ {
+ var selected = PageThumbs.Where(p => p.IsSelected).ToList();
+ if (selected.Count == 0)
+ {
+ StatusText.Text = "请先 Ctrl+点击选中缩略图";
+ return;
+ }
+ foreach (var p in selected)
+ RotateThumbItem(p, 90);
+ StatusText.Text = $"已右旋转 {selected.Count} 页";
+ }
+
+ private void RotateThumbItem(PageThumbItem item, int deltaAngle)
+ {
+ if (item.Thumbnail is BitmapSource bmp)
+ {
+ var rt = new RotateTransform(deltaAngle);
+ var rb = new TransformedBitmap(bmp, rt);
+ rb.Freeze();
+ item.Thumbnail = rb;
  }
  }
 
@@ -598,10 +650,17 @@ DisplayCurrentPage();
  var croppedBitmap = new System.Windows.Media.Imaging.CroppedBitmap(fullImg, cropped);
 
  tempImg = Path.GetTempFileName() + ".png";
- var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
- encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(croppedBitmap));
- using var fs = File.OpenWrite(tempImg);
- encoder.Save(fs);
+ try
+ {
+	 var sdBmp = BitmapSourceToBitmap(croppedBitmap);
+	 sdBmp.Save(tempImg, System.Drawing.Imaging.ImageFormat.Png);
+	 sdBmp.Dispose();
+ }
+ catch (Exception ex)
+ {
+	 Dispatcher.Invoke(() => StatusText.Text = $"保存图片失败: {ex.Message}");
+	 return;
+ }
 
  Dispatcher.Invoke(() => Progress.Value = 50);
 
@@ -684,6 +743,82 @@ DisplayCurrentPage();
  RotateTransform.Angle = _rotation;
  }
 
+ // ═════════════ 等宽/等高/适合全部 ═════════════
+ private void BtnFitWidth_Click(object sender, RoutedEventArgs e)
+ {
+ if (PreviewCanvas.Children.Count == 0) return;
+ var child = PreviewCanvas.Children[0] as FrameworkElement;
+ double contentW = child?.ActualWidth > 0 ? child.ActualWidth :
+ (child?.DesiredSize.Width > 0 ? child.DesiredSize.Width : 0);
+ if (contentW <= 0) return;
+
+ double availW = PreviewScroll.ActualWidth - 20;
+ if (availW <= 0) availW = 800;
+ _zoom = availW / contentW;
+ ApplyZoom();
+ StatusText.Text = $"等宽显示 — 缩放 {_zoom:P0}";
+ }
+
+ private void BtnFitHeight_Click(object sender, RoutedEventArgs e)
+ {
+ if (PreviewCanvas.Children.Count == 0) return;
+ var child = PreviewCanvas.Children[0] as FrameworkElement;
+ double contentH = child?.ActualHeight > 0 ? child.ActualHeight :
+ (child?.DesiredSize.Height > 0 ? child.DesiredSize.Height : 0);
+ if (contentH <= 0) return;
+
+ double availH = PreviewScroll.ActualHeight - 20;
+ if (availH <= 0) availH = 600;
+ _zoom = availH / contentH;
+ ApplyZoom();
+ StatusText.Text = $"等高显示 — 缩放 {_zoom:P0}";
+ }
+
+ private void BtnFitAll_Click(object sender, RoutedEventArgs e)
+ {
+ if (PreviewCanvas.Children.Count == 0) return;
+ var child = PreviewCanvas.Children[0] as FrameworkElement;
+ double contentW = child?.ActualWidth > 0 ? child.ActualWidth :
+ (child?.DesiredSize.Width > 0 ? child.DesiredSize.Width : 0);
+ double contentH = child?.ActualHeight > 0 ? child.ActualHeight :
+ (child?.DesiredSize.Height > 0 ? child.DesiredSize.Height : 0);
+ if (contentW <= 0 || contentH <= 0) return;
+
+ double availW = PreviewScroll.ActualWidth - 20;
+ double availH = PreviewScroll.ActualHeight - 20;
+ if (availW <= 0) availW = 800;
+ if (availH <= 0) availH = 600;
+
+ double zoomW = availW / contentW;
+ double zoomH = availH / contentH;
+ _zoom = Math.Min(zoomW, zoomH);
+ ApplyZoom();
+ StatusText.Text = $"适合全部 — 缩放 {_zoom:P0}";
+ }
+
+ // ═════════════ BitmapSource → System.Drawing.Bitmap 转换 ═════════════
+ private static System.Drawing.Bitmap BitmapSourceToBitmap(BitmapSource source)
+ {
+ int width = source.PixelWidth;
+ int height = source.PixelHeight;
+ int stride = width * ((source.Format.BitsPerPixel + 7) / 8);
+ byte[] pixels = new byte[height * stride];
+ source.CopyPixels(pixels, stride, 0);
+
+ var bmp = new System.Drawing.Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+ var data = bmp.LockBits(new System.Drawing.Rectangle(0, 0, width, height),
+ System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+ try
+ {
+ System.Runtime.InteropServices.Marshal.Copy(pixels, 0, data.Scan0, pixels.Length);
+ }
+ finally
+ {
+ bmp.UnlockBits(data);
+ }
+ return bmp;
+ }
+
  // ═════════════ OCR — 结果推送到 AI 窗口 ═════════════
  private void BtnOcr_Click(object sender, RoutedEventArgs e)
  {
@@ -702,7 +837,7 @@ DisplayCurrentPage();
 	 string tempImg = null;
 	 try
 	 {
- // 用 RenderPage 渲染位图（矢量/位图文件都支持，RenderPage 内部会调用位图渲染）
+	 // 用 RenderPage 渲染位图（矢量/位图文件都支持，RenderPage 内部会调用位图渲染）
  var img = _preview.RenderPage(_currentPage, 0, 200);
  if (img == null)
  {
@@ -710,11 +845,19 @@ DisplayCurrentPage();
 	 return;
 	 }
 
+ // 将 BitmapSource 转为 System.Drawing.Bitmap 再保存为 PNG（避免 PngBitmapEncoder 跨线程问题）
  tempImg = Path.GetTempFileName() + ".png";
- var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
- encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(img));
- using var fs = File.OpenWrite(tempImg);
- encoder.Save(fs);
+ try
+ {
+	 var sdBmp = BitmapSourceToBitmap(img);
+	 sdBmp.Save(tempImg, System.Drawing.Imaging.ImageFormat.Png);
+	 sdBmp.Dispose();
+ }
+ catch (Exception ex)
+ {
+	 Dispatcher.Invoke(() => StatusText.Text = $"保存图片失败: {ex.Message}");
+	 return;
+ }
 
  Dispatcher.Invoke(() => Progress.Value = 50);
 
@@ -875,22 +1018,21 @@ PushToAi("OCR 识别结果", $"识别到 **{result.Items.Count}** 行文字：\n
  var img = _preview.RenderPage(pg, 0, 200);
  if (img == null) continue;
 
-                            var tempImg = Path.GetTempFileName() + ".png";
-                            try
-                            {
-                                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
-                                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(img));
-                                using var fs = File.OpenWrite(tempImg);
-                                encoder.Save(fs);
+ var tempImg = Path.GetTempFileName() + ".png";
+ try
+ {
+ var sdBmp = BitmapSourceToBitmap(img);
+ sdBmp.Save(tempImg, System.Drawing.Imaging.ImageFormat.Png);
+ sdBmp.Dispose();
 
- if (_ocr != null)
+	 if (_ocr != null)
 {
-var result = _ocr.Recognize(tempImg);
-if (result.Success)
-text += TextNormalizer.Normalize(result.FullText) + "\n";
+	var result = _ocr.Recognize(tempImg);
+	if (result.Success)
+	text += TextNormalizer.Normalize(result.FullText) + "\n";
 }
-                            }
-                            finally { try { File.Delete(tempImg); } catch { } }
+ }
+ finally { try { File.Delete(tempImg); } catch { } }
 
                             Dispatcher.Invoke(() => Progress.Value = (i + (double)pg / _preview.TotalPages) / allFiles.Count * 100);
                         }

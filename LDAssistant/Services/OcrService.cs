@@ -79,9 +79,12 @@ namespace LDAssistant.Services
 
 			try
 			{
-				Log($"Recognize: {imagePath}, exists={File.Exists(imagePath)}");
-				if (!File.Exists(imagePath))
-					return new OcrResult { FullText = "OCR_ERROR: 图片文件不存在" };
+		Log($"Recognize: {imagePath}, exists={File.Exists(imagePath)}");
+			if (!File.Exists(imagePath))
+				return new OcrResult { FullText = "OCR_ERROR: 图片文件不存在" };
+
+			var fi = new FileInfo(imagePath);
+			Log($"File size: {fi.Length} bytes");
 
 				// 用 SkiaSharp 加载图片，如果失败则用 System.Drawing
 				SKBitmap bitmap = null;

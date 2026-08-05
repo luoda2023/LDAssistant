@@ -28,6 +28,13 @@ namespace LDAssistant.Models
  get => _isActive;
  set { _isActive = value; Notify(nameof(IsActive)); }
  }
+
+ private bool _isSelected;
+ public bool IsSelected
+ {
+ get => _isSelected;
+ set { _isSelected = value; Notify(nameof(IsSelected)); }
+ }
  }
 
  /// <summary>批量文件列表项</summary>

@@ -49,15 +49,25 @@
 
                     <Rectangle Width="1" Height="24" Fill="#E0E0E0" Margin="6,0"/>
 
-                    <Button x:Name="BtnZoomIn" Style="{StaticResource ToolBarButton}" Click="BtnZoomIn_Click" ToolTip="放大">
-                        <TextBlock Text="🔍+" FontSize="12"/>
-                    </Button>
-                    <Button x:Name="BtnZoomOut" Style="{StaticResource ToolBarButton}" Click="BtnZoomOut_Click" ToolTip="缩小">
-                        <TextBlock Text="🔍−" FontSize="12"/>
-                    </Button>
-                    <Button x:Name="BtnRotate" Style="{StaticResource ToolBarButton}" Click="BtnRotate_Click" ToolTip="旋转90°">
-                        <TextBlock Text="⟳" FontSize="14"/>
-                    </Button>
+<Button x:Name="BtnZoomIn" Style="{StaticResource ToolBarButton}" Click="BtnZoomIn_Click" ToolTip="放大">
+<TextBlock Text="🔍+" FontSize="12"/>
+</Button>
+<Button x:Name="BtnZoomOut" Style="{StaticResource ToolBarButton}" Click="BtnZoomOut_Click" ToolTip="缩小">
+<TextBlock Text="🔍−" FontSize="12"/>
+</Button>
+<Button x:Name="BtnFitWidth" Style="{StaticResource ToolBarButton}" Click="BtnFitWidth_Click" ToolTip="等宽显示">
+<TextBlock Text="↔宽" FontSize="11"/>
+</Button>
+<Button x:Name="BtnFitHeight" Style="{StaticResource ToolBarButton}" Click="BtnFitHeight_Click" ToolTip="等高显示">
+<TextBlock Text="↕高" FontSize="11"/>
+</Button>
+<Button x:Name="BtnFitAll" Style="{StaticResource ToolBarButton}" Click="BtnFitAll_Click" ToolTip="适合全部">
+<TextBlock Text="⤧全" FontSize="11"/>
+</Button>
+<Button x:Name="BtnRotate" Style="{StaticResource ToolBarButton}" Click="BtnRotate_Click" ToolTip="旋转90°">
+<TextBlock Text="⟳" FontSize="14"/>
+</Button>
+
 
                     <Rectangle Width="1" Height="24" Fill="#E0E0E0" Margin="6,0"/>
 
@@ -178,13 +188,26 @@
 
  <!-- 下方：页面缩略图 -->
  <DockPanel Grid.Row="2">
- <TextBlock DockPanel.Dock="Top" x:Name="ThumbTitle" Text="页面缩略图" FontSize="13" FontWeight="SemiBold"
- Foreground="#333" Margin="10,8" />
+ <DockPanel DockPanel.Dock="Top" Margin="10,8,10,4">
+ <TextBlock x:Name="ThumbTitle" Text="页面缩略图" FontSize="13" FontWeight="SemiBold"
+    Foreground="#333" VerticalAlignment="Center"/>
+ <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+ <Button x:Name="BtnThumbSelectAll" Click="BtnThumbSelectAll_Click" ToolTip="全选/取消全选"
+ Background="#F5F5F5" BorderBrush="#DDD" Padding="6,2" Margin="2,0" FontSize="11"
+ Content="全选"/>
+ <Button x:Name="BtnThumbRotateLeft" Click="BtnThumbRotateLeft_Click" ToolTip="选中页左旋转90°"
+ Background="#F5F5F5" BorderBrush="#DDD" Padding="6,2" Margin="2,0" FontSize="11"
+ Content="↺左转"/>
+ <Button x:Name="BtnThumbRotateRight" Click="BtnThumbRotateRight_Click" ToolTip="选中页右旋转90°"
+ Background="#F5F5F5" BorderBrush="#DDD" Padding="6,2" Margin="2,0" FontSize="11"
+ Content="↻右转"/>
+ </StackPanel>
+ </DockPanel>
  <ScrollViewer VerticalScrollBarVisibility="Auto">
  <ItemsControl x:Name="ThumbList" ItemsSource="{Binding}">
  <ItemsControl.ItemTemplate>
  <DataTemplate>
- <Border MouseLeftButtonDown="ThumbItem_Click">
+ <Border MouseLeftButtonDown="ThumbItem_Click" Tag="{Binding}">
  <Border.Style>
  <Style TargetType="Border">
  <Setter Property="Background" Value="White"/>
@@ -199,15 +222,20 @@
  <Setter Property="BorderThickness" Value="2"/>
  <Setter Property="Background" Value="#E3F2FD"/>
  </DataTrigger>
+ <DataTrigger Binding="{Binding IsSelected}" Value="True">
+ <Setter Property="BorderBrush" Value="#FF9800"/>
+ <Setter Property="BorderThickness" Value="2"/>
+ <Setter Property="Background" Value="#FFF3E0"/>
+ </DataTrigger>
  </Style.Triggers>
  </Style>
  </Border.Style>
  <StackPanel>
  <Image Source="{Binding Thumbnail}" Width="148" Height="200"
- Stretch="Uniform" Margin="0,0,0,4"/>
+    Stretch="Uniform" Margin="0,0,0,4"/>
  <TextBlock Text="{Binding Label}" FontSize="11"
- Foreground="#555"
- HorizontalAlignment="Center"/>
+    Foreground="#555"
+    HorizontalAlignment="Center"/>
  </StackPanel>
  </Border>
  </DataTemplate>
