@@ -230,16 +230,15 @@
  <ScrollViewer x:Name="PreviewScroll"
  HorizontalScrollBarVisibility="Auto"
  VerticalScrollBarVisibility="Auto">
- <Canvas x:Name="PreviewCanvas" Background="#E0E0E0">
- <Image x:Name="PreviewImage" Stretch="None"
- RenderTransformOrigin="0.5,0.5">
- <Image.RenderTransform>
+ <Canvas x:Name="PreviewCanvas" Background="#E0E0E0"
+ RenderTransformOrigin="0,0">
+ <Canvas.RenderTransform>
  <TransformGroup>
  <ScaleTransform x:Name="ScaleTransform" ScaleX="1" ScaleY="1"/>
  <RotateTransform x:Name="RotateTransform" Angle="0"/>
  </TransformGroup>
- </Image.RenderTransform>
- </Image>
+ </Canvas.RenderTransform>
+ <Image x:Name="PreviewImage" Stretch="None"/>
  </Canvas>
  </ScrollViewer>
  <!-- 区域选择矩形覆盖层（不随 ScrollViewer 滚动） -->

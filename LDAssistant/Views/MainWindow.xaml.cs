@@ -273,41 +273,80 @@ DisplayCurrentPage();
 });
         }
 
-        // ═════════════ 显示当前页 ═════════════
-        private void DisplayCurrentPage()
-        {
-            if (_currentFilePath == null) return;
+ // ═════════════ 显示当前页 ═════════════
+ private void DisplayCurrentPage()
+ {
+ if (_currentFilePath == null) return;
 
  try
  {
- // 150 DPI 渲染（减少内存占用，用户可缩放查看细节）
+ // 清除旧内容（保留 XAML 中的 PreviewImage 引用但不显示）
+ PreviewCanvas.Children.Clear();
+ PreviewImage.Visibility = Visibility.Collapsed;
+
+ UIElement content = null;
+ double contentW = 0, contentH = 0;
+
+ // 矢量渲染（CAD/DOCX/TXT）—— 不经过位图，缩放不失真
+ if (_preview.IsVectorRender)
+ {
+ content = _preview.RenderVector(_currentPage);
+ if (content is FrameworkElement fe)
+ {
+ fe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+ contentW = fe.DesiredSize.Width;
+ contentH = fe.DesiredSize.Height;
+ }
+ }
+ else
+ {
+ // 位图渲染（PDF/Image）
  var img = _preview.RenderPage(_currentPage, 0, 150);
  if (img != null)
  {
-                    PreviewImage.Source = img;
-                    ScaleTransform.ScaleX = _zoom;
-                    ScaleTransform.ScaleY = _zoom;
-                    RotateTransform.Angle = _rotation;
+ PreviewImage.Source = img;
+ PreviewImage.Visibility = Visibility.Visible;
+ content = PreviewImage;
+ contentW = img.PixelWidth / 150.0 * 96.0;
+ contentH = img.PixelHeight / 150.0 * 96.0;
+ }
+ }
 
-                    Canvas.SetLeft(PreviewImage, 0);
-                    Canvas.SetTop(PreviewImage, 0);
+ if (content != null)
+ {
+ // 添加到 Canvas
+ if (content != PreviewImage)
+ {
+ Canvas.SetLeft(content, 0);
+ Canvas.SetTop(content, 0);
+ }
+ PreviewCanvas.Children.Add(content);
 
+ // 设置 Canvas 尺寸（让 ScrollViewer 可滚动 + 鼠标拖动生效）
+ PreviewCanvas.Width = contentW;
+ PreviewCanvas.Height = contentH;
+
+ // 应用缩放
+ ScaleTransform.ScaleX = _zoom;
+ ScaleTransform.ScaleY = _zoom;
+ RotateTransform.Angle = _rotation;
+ }
+
+ // PageInfo
  int pages = _preview.TotalPages;
- // CAD 文件显示空间名称
  if (_preview.FileType == "cad" && _preview.PageNames.Count > _currentPage)
  PageInfo.Text = $"{Path.GetFileName(_currentFilePath)} — [{_preview.PageNames[_currentPage]}]";
  else
  PageInfo.Text = pages > 1
  ? $"{Path.GetFileName(_currentFilePath)} — 第 {_currentPage + 1}/{pages} 页"
  : Path.GetFileName(_currentFilePath);
-                    StatusText.Text = $"已加载: {Path.GetFileName(_currentFilePath)}";
-                }
-            }
-            catch (Exception ex)
-            {
-                StatusText.Text = $"显示失败: {ex.Message}";
-            }
-        }
+ StatusText.Text = $"已加载: {Path.GetFileName(_currentFilePath)}";
+ }
+ catch (Exception ex)
+ {
+ StatusText.Text = $"显示失败: {ex.Message}";
+ }
+ }
 
  // ═════════════ 缩略图点击 ═════════════
  private void ThumbItem_Click(object sender, MouseButtonEventArgs e)
@@ -602,15 +641,34 @@ DisplayCurrentPage();
  private void BtnZoomIn_Click(object sender, RoutedEventArgs e)
  {
  _zoom = Math.Min(_zoom * 1.25, 10.0);
- ScaleTransform.ScaleX = _zoom;
- ScaleTransform.ScaleY = _zoom;
+ ApplyZoom();
  }
- 
+
  private void BtnZoomOut_Click(object sender, RoutedEventArgs e)
  {
  _zoom = Math.Max(_zoom / 1.25, 0.1);
+ ApplyZoom();
+ }
+
+ private void ApplyZoom()
+ {
  ScaleTransform.ScaleX = _zoom;
  ScaleTransform.ScaleY = _zoom;
+ // 更新 Canvas 尺寸，让 ScrollViewer 滚动条正确响应
+ if (PreviewCanvas.Children.Count > 0)
+ {
+ var child = PreviewCanvas.Children[0] as FrameworkElement;
+ if (child != null && child.ActualWidth > 0)
+ {
+ PreviewCanvas.Width = child.ActualWidth;
+ PreviewCanvas.Height = child.ActualHeight;
+ }
+ else if (child != null && child.DesiredSize.Width > 0)
+ {
+ PreviewCanvas.Width = child.DesiredSize.Width;
+ PreviewCanvas.Height = child.DesiredSize.Height;
+ }
+ }
  }
  
  private void BtnRotate_Click(object sender, RoutedEventArgs e)

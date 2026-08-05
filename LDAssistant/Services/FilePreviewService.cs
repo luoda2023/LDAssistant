@@ -2,13 +2,20 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using SD = System.Drawing;
 using SDI = System.Drawing.Imaging;
+// 别名消除歧义
+using Path = System.IO.Path;
+using WpfColor = System.Windows.Media.Color;
+using WpfPath = System.Windows.Shapes.Path;
 
 // 别名消除歧义
 using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
@@ -94,6 +101,449 @@ return true;
         }
 
         /// <summary>渲染指定页为 BitmapSource</summary>
+/// <summary>
+	/// 判断当前文件是否使用矢量渲染（非位图）。
+	/// </summary>
+	public bool IsVectorRender => FileType == "cad" || FileType == "docx" || FileType == "txt";
+
+	/// <summary>
+	/// 矢量渲染：返回 WPF UIElement，缩放不失真。
+	/// CAD 返回 Canvas（矢量线条），DOCX/TXT 返回 StackPanel（原生文字）。
+	/// </summary>
+	public UIElement RenderVector(int pageIndex)
+	{
+		try
+		{
+			switch (FileType)
+			{
+				case "cad":
+					return RenderCadVector(pageIndex);
+				case "docx":
+				case "txt":
+					return RenderDocxVector(pageIndex);
+				default:
+					return null;
+			}
+		}
+		catch (Exception ex)
+		{
+			System.Diagnostics.Debug.WriteLine($"矢量渲染失败: {ex.Message}");
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// DWG/DXF 矢量渲染——直接用 WPF Shape 绘制到 Canvas，缩放不失真。
+	/// </summary>
+	private Canvas RenderCadVector(int pageIndex)
+	{
+		var doc = _cadDoc;
+		if (doc == null)
+		{
+			LoadCadDocument(_currentPath);
+			doc = _cadDoc;
+			if (doc == null) return null;
+		}
+
+		string spaceName = "模型";
+		if (pageIndex >= 0 && pageIndex < _cadSpaceNames.Count)
+			spaceName = _cadSpaceNames[pageIndex];
+		bool isModelSpace = (pageIndex <= 0);
+
+		List<ACadSharp.Entities.Entity> entities;
+		if (isModelSpace)
+			entities = doc.ModelSpace?.Entities?.ToList() ?? new List<ACadSharp.Entities.Entity>();
+		else
+		{
+			var layout = doc.Layouts?.FirstOrDefault(l => l.Name == spaceName);
+			var block = layout?.AssociatedBlock;
+			entities = block?.Entities?.ToList() ?? new List<ACadSharp.Entities.Entity>();
+		}
+
+		if (entities.Count == 0) return null;
+
+		// 计算包围盒
+		double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
+		if (isModelSpace)
+		{
+			var hMin = doc.Header.ModelSpaceExtMin;
+			var hMax = doc.Header.ModelSpaceExtMax;
+			if (!double.IsNaN(hMin.X) && !double.IsNaN(hMax.X))
+			{ minX = hMin.X; minY = hMin.Y; maxX = hMax.X; maxY = hMax.Y; }
+		}
+		if (minX >= maxX || minY >= maxY)
+			foreach (var ent in entities)
+				AccumulateBoundingBox(ent, ref minX, ref minY, ref maxX, ref maxY);
+
+		if (minX >= maxX || minY >= maxY) return null;
+
+		// CAD 坐标→WPF 坐标：Y 轴翻转
+		double dwgW = maxX - minX;
+		double dwgH = maxY - minY;
+		double margin = 50;
+		double canvasW = dwgW + margin * 2;
+		double canvasH = dwgH + margin * 2;
+
+		var canvas = new Canvas
+		{
+			Width = canvasW,
+			Height = canvasH,
+			Background = new SolidColorBrush(WpfColor.FromRgb(0x1E, 0x1E, 0x1E)),
+		};
+
+		// 标题
+		var title = new TextBlock
+		{
+			Text = $"{Path.GetFileName(_currentPath)}  [{spaceName}]",
+			FontSize = 14,
+			FontWeight = FontWeights.Bold,
+			Foreground = new SolidColorBrush(WpfColor.FromRgb(0xBB, 0xBB, 0xBB)),
+		};
+		Canvas.SetLeft(title, margin);
+		Canvas.SetTop(title, 8);
+		canvas.Children.Add(title);
+
+		// 标题分隔线
+		var sep = new Line
+		{
+			X1 = margin, Y1 = 36, X2 = canvasW - margin, Y2 = 36,
+			Stroke = new SolidColorBrush(WpfColor.FromRgb(0x44, 0x44, 0x44)),
+			StrokeThickness = 1,
+		};
+		canvas.Children.Add(sep);
+
+		// 绘制实体
+		double offsetX = margin - minX;
+		double offsetY = margin + maxY;
+
+		foreach (var ent in entities)
+			AddCadEntityToCanvas(canvas, ent, offsetX, offsetY);
+
+		// 边界框
+		var border = new Rectangle
+		{
+			Width = dwgW + 4, Height = dwgH + 4,
+			Stroke = new SolidColorBrush(WpfColor.FromRgb(0x55, 0x55, 0x55)),
+			StrokeThickness = 1,
+		};
+		Canvas.SetLeft(border, margin - 2);
+		Canvas.SetTop(border, margin - 2);
+		canvas.Children.Add(border);
+
+		// 底部信息
+		var layerCount = doc.Layers?.Count() ?? 0;
+		var info = new TextBlock
+		{
+			Text = $"[{spaceName}] 实体: {entities.Count} | 图层: {layerCount} | 范围: {dwgW:F1}×{dwgH:F1}",
+			FontSize = 10,
+			Foreground = new SolidColorBrush(WpfColor.FromRgb(0x88, 0x88, 0x88)),
+		};
+		Canvas.SetLeft(info, margin);
+		Canvas.SetTop(info, canvasH - 25);
+		canvas.Children.Add(info);
+
+		return canvas;
+	}
+
+	private void AddCadEntityToCanvas(Canvas canvas, ACadSharp.Entities.Entity ent,
+		double offsetX, double offsetY)
+	{
+		var color = GetEntityWpfColor(ent);
+		double penWidth = 0.5;
+
+		switch (ent)
+		{
+			case ACadSharp.Entities.Line line:
+			{
+				var shape = new Line
+				{
+					X1 = line.StartPoint.X + offsetX,
+					Y1 = offsetY - line.StartPoint.Y,
+					X2 = line.EndPoint.X + offsetX,
+					Y2 = offsetY - line.EndPoint.Y,
+					Stroke = color,
+					StrokeThickness = penWidth,
+				};
+				canvas.Children.Add(shape);
+				break;
+			}
+			case ACadSharp.Entities.Arc arc:
+			{
+				double cx = arc.Center.X + offsetX;
+				double cy = offsetY - arc.Center.Y;
+				double r = arc.Radius;
+				double startAngle = arc.StartAngle;
+				double endAngle = arc.EndAngle;
+
+				var p1 = new Point(cx + r * Math.Cos(startAngle), cy - r * Math.Sin(startAngle));
+				var p2 = new Point(cx + r * Math.Cos(endAngle), cy - r * Math.Sin(endAngle));
+				double sweep = endAngle - startAngle;
+				bool isLargeArc = Math.Abs(sweep) > Math.PI;
+				var sweepDir = sweep > 0 ? SweepDirection.Counterclockwise : SweepDirection.Clockwise;
+
+ var path = new WpfPath
+ {
+ Stroke = color,
+ StrokeThickness = penWidth,
+ Data = new PathGeometry
+ {
+ Figures =
+ {
+ new PathFigure
+ {
+ StartPoint = p1,
+ Segments = { new ArcSegment(p2, new Size(r, r), 0, isLargeArc, sweepDir, true) }
+ }
+ }
+ }
+ };
+ canvas.Children.Add(path);
+				break;
+			}
+			case ACadSharp.Entities.Circle circle:
+			{
+				double cx = circle.Center.X + offsetX;
+				double cy = offsetY - circle.Center.Y;
+				double r = circle.Radius;
+				var shape = new Ellipse
+				{
+					Width = r * 2, Height = r * 2,
+					Stroke = color, StrokeThickness = penWidth,
+				};
+				Canvas.SetLeft(shape, cx - r);
+				Canvas.SetTop(shape, cy - r);
+				canvas.Children.Add(shape);
+				break;
+			}
+			case ACadSharp.Entities.LwPolyline poly:
+			{
+				var verts = poly.Vertices;
+				if (verts.Count < 2) break;
+				var pts = new PointCollection(verts.Count);
+				foreach (var v in verts)
+ pts.Add(new Point(v.Location.X + offsetX, offsetY - v.Location.Y));
+ if (poly.IsClosed)
+ {
+ canvas.Children.Add(new Polygon
+ {
+ Points = pts,
+ Stroke = color, StrokeThickness = penWidth,
+ });
+ }
+ else
+ {
+ canvas.Children.Add(new Polyline
+ {
+ Points = pts,
+ Stroke = color, StrokeThickness = penWidth,
+ });
+ }
+				break;
+			}
+			case ACadSharp.Entities.TextEntity text:
+			{
+				double tx = text.InsertPoint.X + offsetX;
+				double ty = offsetY - text.InsertPoint.Y;
+				double h = Math.Max(8, text.Height);
+				var tb = new TextBlock
+				{
+					Text = text.Value ?? "",
+					FontSize = h,
+					Foreground = color,
+				};
+				Canvas.SetLeft(tb, tx);
+				Canvas.SetTop(tb, ty - h);
+				canvas.Children.Add(tb);
+				break;
+			}
+			case ACadSharp.Entities.MText mtext:
+			{
+				double tx = mtext.InsertPoint.X + offsetX;
+				double ty = offsetY - mtext.InsertPoint.Y;
+				double h = Math.Max(8, mtext.Height);
+				var tb = new TextBlock
+				{
+					Text = mtext.PlainText ?? "",
+					FontSize = h,
+					Foreground = color,
+					TextWrapping = TextWrapping.Wrap,
+					MaxWidth = 500,
+				};
+				Canvas.SetLeft(tb, tx);
+				Canvas.SetTop(tb, ty - h);
+				canvas.Children.Add(tb);
+				break;
+			}
+		}
+	}
+
+	private static SolidColorBrush GetEntityWpfColor(ACadSharp.Entities.Entity ent)
+	{
+		var c = ent.Color;
+		if (c.IsByLayer && ent.Layer != null)
+			c = ent.Layer.Color;
+		if (c.IsByLayer || c.IsByBlock)
+			return Brushes.White;
+		var rgb = c.GetRgb();
+		if (rgb.Length >= 3)
+		{
+			if (rgb[0] == 0 && rgb[1] == 0 && rgb[2] == 0)
+				return Brushes.White;
+			return new SolidColorBrush(WpfColor.FromRgb((byte)rgb[0], (byte)rgb[1], (byte)rgb[2]));
+		}
+		return Brushes.White;
+	}
+
+	/// <summary>
+	/// DOCX/TXT 矢量渲染——用 WPF TextBlock 原生文字，缩放不失真。
+	/// </summary>
+	private StackPanel RenderDocxVector(int pageIndex)
+	{
+ if (FileType == "txt")
+ {
+ var txtPanel = new StackPanel { Margin = new Thickness(40, 30, 40, 30), MaxWidth = 900 };
+ txtPanel.Children.Add(new TextBlock
+ {
+ Text = Path.GetFileName(_currentPath),
+ FontSize = 16, FontWeight = FontWeights.Bold,
+ Foreground = new SolidColorBrush(WpfColor.FromRgb(0x1A, 0x23, 0x7A)),
+ Margin = new Thickness(0, 0, 0, 16),
+ });
+
+ string text;
+ try { text = File.ReadAllText(_currentPath, System.Text.Encoding.UTF8); }
+ catch { text = "（无法读取文件）"; }
+
+ txtPanel.Children.Add(new TextBlock
+ {
+ Text = text,
+ FontSize = 13,
+ FontFamily = new System.Windows.Media.FontFamily("微软雅黑"),
+ TextWrapping = TextWrapping.Wrap,
+ LineHeight = 22,
+ });
+ return txtPanel;
+ }
+
+		// DOCX
+		var (blocks, imageParts) = ParseDocxBlocks(_currentPath);
+		if (blocks.Count == 0) return null;
+
+		const float canvasW = 1000;
+		const float pageH = 1400;
+
+		// 测量每块高度
+		var blockHeights = new List<float>();
+		using (var measureBmp = new SD.Bitmap(1, 1))
+		using (var measureG = SD.Graphics.FromImage(measureBmp))
+		{
+			float y = 60; float maxH = 60;
+			foreach (var b in blocks)
+			{
+				float beforeY = y;
+				b.Draw(measureG, ref y, canvasW, ref maxH);
+				blockHeights.Add(y - beforeY);
+			}
+		}
+
+		// 按页分割
+		var pageBlocks = new List<List<DocBlock>>();
+		var currentPageBlocks = new List<DocBlock>();
+		float pageY = 60;
+		for (int i = 0; i < blocks.Count; i++)
+		{
+			float blockH = blockHeights[i];
+			if (pageY + blockH > pageH && currentPageBlocks.Count > 0)
+			{
+				pageBlocks.Add(currentPageBlocks);
+				currentPageBlocks = new List<DocBlock>();
+				pageY = 20;
+			}
+			currentPageBlocks.Add(blocks[i]);
+			pageY += blockH;
+		}
+		if (currentPageBlocks.Count > 0) pageBlocks.Add(currentPageBlocks);
+
+		if (pageBlocks.Count == 0) return null;
+		if (pageIndex < 0 || pageIndex >= pageBlocks.Count) pageIndex = 0;
+
+		// 构建 WPF 原生文字面板
+		var panel = new StackPanel
+		{
+			Margin = new Thickness(0),
+			Background = Brushes.White,
+			MaxWidth = canvasW,
+			MinWidth = canvasW,
+		};
+
+		if (pageIndex == 0)
+		{
+			panel.Children.Add(new TextBlock
+			{
+				Text = Path.GetFileName(_currentPath),
+				FontSize = 14, FontWeight = FontWeights.Bold,
+				Foreground = new SolidColorBrush(WpfColor.FromRgb(0x1A, 0x23, 0x7A)),
+				Margin = new Thickness(40, 16, 40, 8),
+			});
+ panel.Children.Add(new System.Windows.Controls.Border
+ {
+ Height = 2,
+ Background = new SolidColorBrush(WpfColor.FromRgb(0x21, 0x96, 0xF3)),
+ Margin = new Thickness(40, 0, 40, 12),
+ });
+		}
+
+		if (pageBlocks.Count > 1)
+		{
+			panel.Children.Add(new TextBlock
+			{
+				Text = $"第 {pageIndex + 1} / {pageBlocks.Count} 页",
+				FontSize = 10,
+				Foreground = new SolidColorBrush(WpfColor.FromRgb(0x99, 0x99, 0x99)),
+				Margin = new Thickness(40, 0, 0, 8),
+				HorizontalAlignment = HorizontalAlignment.Right,
+			});
+		}
+
+		// 将 DocBlock 转为 WPF 元素
+		foreach (var b in pageBlocks[pageIndex])
+		{
+			if (b is DocTextBlock tb)
+			{
+				panel.Children.Add(new TextBlock
+				{
+					Text = tb.Text,
+					FontSize = tb.FontSize,
+					FontWeight = tb.Bold ? FontWeights.Bold : FontWeights.Normal,
+					FontStyle = tb.Italic ? FontStyles.Italic : FontStyles.Normal,
+					Foreground = new SolidColorBrush(WpfColor.FromRgb(
+						tb.Color.R, tb.Color.G, tb.Color.B)),
+					TextWrapping = TextWrapping.Wrap,
+					Margin = new Thickness(40, 2, 40, 2),
+					LineHeight = tb.FontSize * 1.6,
+				});
+			}
+			else if (b is DocImageBlock ib && ib.Image != null)
+			{
+				panel.Children.Add(new System.Windows.Controls.Image
+				{
+					Source = ConvertBitmap(ib.Image),
+					Stretch = System.Windows.Media.Stretch.Uniform,
+					MaxHeight = 400,
+					HorizontalAlignment = HorizontalAlignment.Center,
+					Margin = new Thickness(40, 8, 40, 8),
+				});
+			}
+		}
+
+		// 清理图片缓存
+		foreach (var kv in imageParts)
+			try { kv.Value?.Dispose(); } catch { }
+
+		return panel;
+	}
+
+	/// 
         public BitmapSource RenderPage(int pageIndex, int width = 0, int dpi = 150)
         {
             try
