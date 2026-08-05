@@ -1221,11 +1221,12 @@ PushToAi("OCR 识别结果", $"识别到 **{result.Items.Count}** 行文字：\n
             }
         }
 
-        protected override void OnClosed(EventArgs e)
-        {
-            _preview?.Close();
-            _checker?.Dispose();
-            base.OnClosed(e);
-        }
+ protected override void OnClosed(EventArgs e)
+ {
+ _aiWindow?.Close();
+ _preview?.Close();
+ _checker?.Dispose();
+ base.OnClosed(e);
+ }
     }
 }
