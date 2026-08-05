@@ -14,74 +14,112 @@ namespace LDAssistant.Services
     /// <summary>
     /// 基于 RapidOcrNet (ONNX) 的 OCR 服务，内置中文模型，无需外部 exe。
     /// </summary>
-    public class OcrService
-    {
-        private RapidOcr _ocr;
+public class OcrService
+{
+ private RapidOcr _ocr;
+ private string _initError;
 
         /// <summary>
         /// 创建并初始化 OCR 引擎。模型文件位于 appDir/models/v5/ 目录。
         /// </summary>
-        public static OcrService Create()
-        {
-            try
-            {
-                var appDir = AppDomain.CurrentDomain.BaseDirectory;
-                var modelDir = Path.Combine(appDir, "models", "v5");
+ public static OcrService Create()
+ {
+ try
+ {
+ var appDir = AppDomain.CurrentDomain.BaseDirectory;
+ var modelDir = Path.Combine(appDir, "models", "v5");
 
-                // 中文模型路径
-                var detPath = Path.Combine(modelDir, "ch_PP-OCRv4_det_mobile.onnx");
-                var clsPath = Path.Combine(modelDir, "ch_PP-LCNet_x0_25_textline_ori_cls_mobile.onnx");
-                var recPath = Path.Combine(modelDir, "ch_PP-OCRv4_rec_mobile.onnx");
-                var keysPath = Path.Combine(modelDir, "ppocrv4_chinese_dict.txt");
+ // 写日志
+ var logPath = Path.Combine(appDir, "ocr_init.log");
+ void Log(string msg)
+ {
+ try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] {msg}\n"); } catch { }
+ }
 
-                // 如果中文模型不存在，尝试用包内置的 latin 模型
-                if (!File.Exists(recPath) || !File.Exists(keysPath))
-                {
-                    detPath = Path.Combine(modelDir, "ch_PP-OCRv5_mobile_det.onnx");
-                    recPath = Path.Combine(modelDir, "latin_PP-OCRv5_rec_mobile_infer.onnx");
-                    keysPath = Path.Combine(modelDir, "ppocrv5_latin_dict.txt");
-                }
+ Log($"appDir={appDir}");
+ Log($"modelDir={modelDir}");
+ Log($"modelDir exists={Directory.Exists(modelDir)}");
 
-                var ocr = new RapidOcr();
-                ocr.InitModels(
-                    detPath: detPath,
-                    clsPath: clsPath,
-                    recPath: recPath,
-                    keysPath: keysPath);
+ // 中文模型路径
+ var detPath = Path.Combine(modelDir, "ch_PP-OCRv4_det_mobile.onnx");
+ var clsPath = Path.Combine(modelDir, "ch_PP-LCNet_x0_25_textline_ori_cls_mobile.onnx");
+ var recPath = Path.Combine(modelDir, "ch_PP-OCRv4_rec_mobile.onnx");
+ var keysPath = Path.Combine(modelDir, "ppocrv4_chinese_dict.txt");
 
-                return new OcrService { _ocr = ocr };
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"OCR 初始化失败: {ex.Message}");
-                return new OcrService(); // _ocr 为 null，Recognize 会返回错误
-            }
-        }
+ Log($"det exists={File.Exists(detPath)}: {detPath}");
+ Log($"cls exists={File.Exists(clsPath)}: {clsPath}");
+ Log($"rec exists={File.Exists(recPath)}: {recPath}");
+ Log($"keys exists={File.Exists(keysPath)}: {keysPath}");
+
+ // 如果中文模型不存在，尝试用包内置的 latin 模型
+ if (!File.Exists(recPath) || !File.Exists(keysPath))
+ {
+ detPath = Path.Combine(modelDir, "ch_PP-OCRv5_mobile_det.onnx");
+ recPath = Path.Combine(modelDir, "latin_PP-OCRv5_rec_mobile_infer.onnx");
+ keysPath = Path.Combine(modelDir, "ppocrv5_latin_dict.txt");
+ Log($"Falling back to latin models");
+ }
+
+ Log("Creating RapidOcr instance...");
+ var ocr = new RapidOcr();
+ Log("RapidOcr created. Calling InitModels...");
+ ocr.InitModels(
+ detPath: detPath,
+ clsPath: clsPath,
+ recPath: recPath,
+ keysPath: keysPath);
+ Log("InitModels OK!");
+
+ return new OcrService { _ocr = ocr };
+ }
+ catch (Exception ex)
+ {
+ var appDir = AppDomain.CurrentDomain.BaseDirectory;
+ try { File.AppendAllText(Path.Combine(appDir, "ocr_init.log"),
+ $"[{DateTime.Now:HH:mm:ss}] EXCEPTION: {ex}\n\n"); } catch { }
+ return new OcrService { _initError = ex.ToString() }; // 保留错误信息
+ }
+ }
 
         /// <summary>
         /// 从图片文件识别文字。
         /// </summary>
-        public OcrResult Recognize(string imagePath)
-        {
-            if (_ocr == null)
-                return new OcrResult { FullText = "OCR_ERROR: OCR 引擎未初始化" };
+ public OcrResult Recognize(string imagePath)
+ {
+ if (_ocr == null)
+ return new OcrResult { FullText = $"OCR_ERROR: OCR 引擎未初始化\n{_initError}" };
 
-            try
-            {
-                if (!File.Exists(imagePath))
-                    return new OcrResult { FullText = "OCR_ERROR: 图片文件不存在" };
+ try
+ {
+ var appDir = AppDomain.CurrentDomain.BaseDirectory;
+ void Log(string msg)
+ {
+ try { File.AppendAllText(Path.Combine(appDir, "ocr_init.log"), $"[{DateTime.Now:HH:mm:ss}] {msg}\n"); } catch { }
+ }
 
-                // 用 SkiaSharp 加载图片
-                using var bitmap = SKBitmap.Decode(imagePath);
-                if (bitmap == null)
-                    return new OcrResult { FullText = "OCR_ERROR: 无法加载图片" };
+ Log($"Recognize: imagePath={imagePath}, exists={File.Exists(imagePath)}");
 
-                var rapidResult = _ocr.Detect(bitmap, RapidOcrOptions.Default);
-                if (rapidResult == null)
-                    return new OcrResult { FullText = "OCR_ERROR: OCR 返回空结果" };
+ if (!File.Exists(imagePath))
+ return new OcrResult { FullText = "OCR_ERROR: 图片文件不存在" };
 
-                var texts = new List<string>();
-                var items = new List<OcrItem>();
+ // 用 SkiaSharp 加载图片
+ Log("Loading image with SKBitmap.Decode...");
+ using var bitmap = SKBitmap.Decode(imagePath);
+ if (bitmap == null)
+ {
+ Log("SKBitmap.Decode returned null!");
+ return new OcrResult { FullText = "OCR_ERROR: 无法加载图片" };
+ }
+ Log($"Image loaded: {bitmap.Width}x{bitmap.Height}, colorType={bitmap.ColorType}");
+
+ Log("Calling _ocr.Detect...");
+ var rapidResult = _ocr.Detect(bitmap, RapidOcrOptions.Default);
+ Log($"Detect returned: {rapidResult != null}");
+ if (rapidResult == null)
+ return new OcrResult { FullText = "OCR_ERROR: OCR 返回空结果" };
+
+ var texts = new List<string>();
+ var items = new List<OcrItem>();
 
  if (rapidResult.TextBlocks != null)
  {
@@ -114,12 +152,14 @@ namespace LDAssistant.Services
                     FullText = string.Join("\n", texts),
                     Items = items
                 };
-            }
-            catch (Exception ex)
-            {
-                return new OcrResult { FullText = $"OCR_ERROR: {ex.Message}" };
-            }
-        }
+ }
+ catch (Exception ex)
+ {
+ try { File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ocr_init.log"),
+ $"[{DateTime.Now:HH:mm:ss}] Recognize EXCEPTION: {ex}\n\n"); } catch { }
+ return new OcrResult { FullText = $"OCR_ERROR: {ex.Message}\n{ex.StackTrace}" };
+ }
+ }
 
         /// <summary>
         /// 从 WPF BitmapSource 识别文字（先保存为临时 PNG）。
