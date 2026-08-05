@@ -324,8 +324,16 @@ DisplayCurrentPage();
 
  // 设置 Canvas 尺寸（让 ScrollViewer 可滚动 + 鼠标拖动生效）
  // 尺寸 = 内容尺寸 × 缩放（因为 RenderTransform 缩放不影响布局尺寸）
- PreviewCanvas.Width = contentW * _zoom;
- PreviewCanvas.Height = contentH * _zoom;
+ // 旋转 90/270° 时宽高交换
+ double canvasW = contentW * _zoom;
+ double canvasH = contentH * _zoom;
+ if (_rotation == 90 || _rotation == 270)
+ {
+ canvasW = contentH * _zoom;
+ canvasH = contentW * _zoom;
+ }
+ PreviewCanvas.Width = canvasW;
+ PreviewCanvas.Height = canvasH;
 
  // 应用缩放
  ScaleTransform.ScaleX = _zoom;
@@ -721,8 +729,15 @@ DisplayCurrentPage();
  }
  if (w > 0)
  {
- PreviewCanvas.Width = w * _zoom;
- PreviewCanvas.Height = h * _zoom;
+ double canvasW = w * _zoom;
+ double canvasH = h * _zoom;
+ if (_rotation == 90 || _rotation == 270)
+ {
+ canvasW = h * _zoom;
+ canvasH = w * _zoom;
+ }
+ PreviewCanvas.Width = canvasW;
+ PreviewCanvas.Height = canvasH;
  }
  }
  }
@@ -731,6 +746,7 @@ DisplayCurrentPage();
  {
  _rotation = (_rotation + 90) % 360;
  RotateTransform.Angle = _rotation;
+ ApplyZoom(); // 旋转后宽高可能交换，更新 Canvas 尺寸
  }
 
  // ═════════════ 等宽/等高/适合全部 ═════════════

@@ -224,7 +224,7 @@
  </Canvas>
  </ScrollViewer>
  <!-- 区域选择矩形覆盖层（不随 ScrollViewer 滚动） -->
- <Canvas x:Name="OverlayCanvas" Background="Transparent">
+ <Canvas x:Name="OverlayCanvas" Background="Transparent" IsHitTestVisible="False">
  <Rectangle x:Name="SelectionRect" Stroke="#2196F3" StrokeThickness="2" Fill="#2196F3" Opacity="0.2" Visibility="Collapsed"/>
  </Canvas>
  <!-- 模式提示 -->
