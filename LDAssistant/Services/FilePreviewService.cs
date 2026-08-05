@@ -340,59 +340,133 @@ return true;
  }
 				break;
 			}
-			case ACadSharp.Entities.TextEntity text:
-			{
-				double tx = text.InsertPoint.X + offsetX;
-				double ty = offsetY - text.InsertPoint.Y;
-				double h = Math.Max(8, text.Height);
-				var tb = new TextBlock
-				{
-					Text = text.Value ?? "",
-					FontSize = h,
-					Foreground = color,
-				};
-				Canvas.SetLeft(tb, tx);
-				Canvas.SetTop(tb, ty - h);
-				canvas.Children.Add(tb);
-				break;
-			}
-			case ACadSharp.Entities.MText mtext:
-			{
-				double tx = mtext.InsertPoint.X + offsetX;
-				double ty = offsetY - mtext.InsertPoint.Y;
-				double h = Math.Max(8, mtext.Height);
-				var tb = new TextBlock
-				{
-					Text = mtext.PlainText ?? "",
-					FontSize = h,
-					Foreground = color,
-					TextWrapping = TextWrapping.Wrap,
-					MaxWidth = 500,
-				};
-				Canvas.SetLeft(tb, tx);
-				Canvas.SetTop(tb, ty - h);
-				canvas.Children.Add(tb);
-				break;
-			}
+ case ACadSharp.Entities.TextEntity text:
+ {
+ double tx = text.InsertPoint.X + offsetX;
+ double ty = offsetY - text.InsertPoint.Y;
+ double h = Math.Max(8, text.Height);
+ var rotation = text.Rotation * 180.0 / Math.PI; // 弧度转角度
+ var tb = new TextBlock
+ {
+ Text = text.Value ?? "",
+ FontSize = h,
+ Foreground = color,
+ FontFamily = TryGetCadFontFamily(text.Style?.Name),
+ };
+ // 应用旋转
+ if (Math.Abs(rotation) > 0.1)
+ {
+ var rt = new System.Windows.Media.RotateTransform(rotation);
+ tb.RenderTransform = rt;
+ tb.RenderTransformOrigin = new Point(0, 0.5);
+ }
+ Canvas.SetLeft(tb, tx);
+ Canvas.SetTop(tb, ty - h);
+ canvas.Children.Add(tb);
+ break;
+ }
+ case ACadSharp.Entities.MText mtext:
+ {
+ double tx = mtext.InsertPoint.X + offsetX;
+ double ty = offsetY - mtext.InsertPoint.Y;
+ double h = Math.Max(8, mtext.Height);
+ var rotation = mtext.Rotation * 180.0 / Math.PI;
+ // 解析MText内容，清理格式化代码
+ var mtextText = ParseMTextContent(mtext.PlainText ?? "");
+ var tb = new TextBlock
+ {
+ Text = mtextText,
+ FontSize = h,
+ Foreground = color,
+ FontFamily = TryGetCadFontFamily(mtext.Style?.Name),
+ TextWrapping = TextWrapping.Wrap,
+ MaxWidth = 2000,
+ };
+ // 应用旋转
+ if (Math.Abs(rotation) > 0.1)
+ {
+ var rt = new System.Windows.Media.RotateTransform(rotation);
+ tb.RenderTransform = rt;
+ tb.RenderTransformOrigin = new Point(0, 0.5);
+ }
+ Canvas.SetLeft(tb, tx);
+ Canvas.SetTop(tb, ty - h);
+ canvas.Children.Add(tb);
+ break;
+ }
 		}
 	}
 
-	private static SolidColorBrush GetEntityWpfColor(ACadSharp.Entities.Entity ent)
-	{
-		var c = ent.Color;
-		if (c.IsByLayer && ent.Layer != null)
-			c = ent.Layer.Color;
-		if (c.IsByLayer || c.IsByBlock)
-			return Brushes.White;
-		var rgb = c.GetRgb();
-		if (rgb.Length >= 3)
-		{
-			if (rgb[0] == 0 && rgb[1] == 0 && rgb[2] == 0)
-				return Brushes.White;
-			return new SolidColorBrush(WpfColor.FromRgb((byte)rgb[0], (byte)rgb[1], (byte)rgb[2]));
-		}
-		return Brushes.White;
-	}
+ private static SolidColorBrush GetEntityWpfColor(ACadSharp.Entities.Entity ent)
+ {
+ var c = ent.Color;
+ if (c.IsByLayer && ent.Layer != null)
+ c = ent.Layer.Color;
+ if (c.IsByLayer || c.IsByBlock)
+ return Brushes.White;
+ var rgb = c.GetRgb();
+ if (rgb.Length >= 3)
+ {
+ if (rgb[0] == 0 && rgb[1] == 0 && rgb[2] == 0)
+ return Brushes.White;
+ return new SolidColorBrush(WpfColor.FromRgb((byte)rgb[0], (byte)rgb[1], (byte)rgb[2]));
+ }
+ return Brushes.White;
+ }
+
+ /// 根据CAD文字样式名获取对应的WPF字体
+ private static System.Windows.Media.FontFamily TryGetCadFontFamily(string styleName)
+ {
+ if (string.IsNullOrEmpty(styleName))
+ return new System.Windows.Media.FontFamily("宋体, Microsoft YaHei, Arial");
+
+ // CAD常见样式名→WPF字体映射
+ var lowerName = styleName.ToLower();
+ var fontMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+ {
+ { "standard", "txt.shx, 宋体" },
+ { "annotative", "宋体, Microsoft YaHei" },
+ { "宋体", "宋体, SimSun" },
+ { "仿宋", "仿宋, FangSong" },
+ { "黑体", "黑体, SimHei" },
+ { "楷体", "楷体, KaiTi" },
+ { "工程字", "宋体, SimSun" },
+ { "hztxt", "宋体, SimSun" },
+ { "txt", "txt.shx, 宋体" },
+ { " simplex", "Arial" },
+ { "complex", "Arial" },
+ };
+
+ foreach (var kv in fontMap)
+ {
+ if (lowerName.Contains(kv.Key))
+ return new System.Windows.Media.FontFamily(kv.Value);
+ }
+
+ // 默认用宋体（最接近CAD中文字体）
+ return new System.Windows.Media.FontFamily("宋体, Microsoft YaHei, Arial");
+ }
+
+ /// 解析MText内容，清理格式化代码
+ private static string ParseMTextContent(string raw)
+ {
+ if (string.IsNullOrEmpty(raw)) return "";
+
+ var text = raw;
+ // 移除MText格式化代码
+ // \P = 段落换行, \n = 换行
+ text = text.Replace("\\P", "\n").Replace("\\p", "\n");
+ // \A = 对齐, \f = 字体, \H = 高度, \C = 颜色, \S = 堆叠, \Q = 倾斜
+ text = System.Text.RegularExpressions.Regex.Replace(text, @"\\[AaFfHhCcSsQqWwTtOoLlKkDd][^;]*;", "");
+ text = System.Text.RegularExpressions.Regex.Replace(text, @"\\[AaFfHhCcSsQqWwTtOoLlKkDd][^;]*", "");
+ // { } 分组
+ text = System.Text.RegularExpressions.Regex.Replace(text, @"[{}]", "");
+ // %%d=度, %%c=直径, %%p=正负
+ text = text.Replace("%%d", "°").Replace("%%c", "Φ").Replace("%%p", "±");
+ text = text.Replace("%%D", "°").Replace("%%C", "Φ").Replace("%%P", "±");
+
+ return text.Trim();
+ }
 
 	/// <summary>
 	/// DOCX/TXT 矢量渲染——用 WPF TextBlock 原生文字，缩放不失真。
