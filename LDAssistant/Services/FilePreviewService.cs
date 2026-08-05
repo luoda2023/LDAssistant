@@ -505,36 +505,82 @@ return true;
 			});
 		}
 
-		// 将 DocBlock 转为 WPF 元素
-		foreach (var b in pageBlocks[pageIndex])
-		{
-			if (b is DocTextBlock tb)
-			{
-				panel.Children.Add(new TextBlock
-				{
-					Text = tb.Text,
-					FontSize = tb.FontSize,
-					FontWeight = tb.Bold ? FontWeights.Bold : FontWeights.Normal,
-					FontStyle = tb.Italic ? FontStyles.Italic : FontStyles.Normal,
-					Foreground = new SolidColorBrush(WpfColor.FromRgb(
-						tb.Color.R, tb.Color.G, tb.Color.B)),
-					TextWrapping = TextWrapping.Wrap,
-					Margin = new Thickness(40, 2, 40, 2),
-					LineHeight = tb.FontSize * 1.6,
-				});
-			}
-			else if (b is DocImageBlock ib && ib.Image != null)
-			{
-				panel.Children.Add(new System.Windows.Controls.Image
-				{
-					Source = ConvertBitmap(ib.Image),
-					Stretch = System.Windows.Media.Stretch.Uniform,
-					MaxHeight = 400,
-					HorizontalAlignment = HorizontalAlignment.Center,
-					Margin = new Thickness(40, 8, 40, 8),
-				});
-			}
-		}
+ // 将 DocBlock 转为 WPF 元素
+ foreach (var b in pageBlocks[pageIndex])
+ {
+ if (b is DocTextBlock tb)
+ {
+ panel.Children.Add(new TextBlock
+ {
+ Text = tb.Text,
+ FontSize = tb.FontSize,
+ FontWeight = tb.Bold ? FontWeights.Bold : FontWeights.Normal,
+ FontStyle = tb.Italic ? FontStyles.Italic : FontStyles.Normal,
+ Foreground = new SolidColorBrush(WpfColor.FromRgb(
+ tb.Color.R, tb.Color.G, tb.Color.B)),
+ TextWrapping = TextWrapping.Wrap,
+ Margin = new Thickness(40, 2, 40, 2),
+ LineHeight = tb.FontSize * 1.6,
+ });
+ }
+ else if (b is DocImageBlock ib && ib.Image != null)
+ {
+ panel.Children.Add(new System.Windows.Controls.Image
+ {
+ Source = ConvertBitmap(ib.Image),
+ Stretch = System.Windows.Media.Stretch.Uniform,
+ MaxHeight = 400,
+ HorizontalAlignment = HorizontalAlignment.Center,
+ Margin = new Thickness(40, 8, 40, 8),
+ });
+ }
+ else if (b is DocTableBlock tblock)
+ {
+ // 表格 → WPF Grid
+ var grid = new System.Windows.Controls.Grid
+ {
+ Margin = new Thickness(40, 4, 40, 8),
+ };
+ int cols = tblock.Rows.Count > 0 ? tblock.Rows[0].Count : 0;
+ for (int c = 0; c < cols; c++)
+ grid.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+ for (int r = 0; r < tblock.Rows.Count; r++)
+ {
+ grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = GridLength.Auto });
+ for (int c = 0; c < tblock.Rows[r].Count && c < cols; c++)
+ {
+ var cellText = tblock.Rows[r][c] ?? "";
+ var cellBorder = new System.Windows.Controls.Border
+ {
+ BorderBrush = new SolidColorBrush(WpfColor.FromRgb(0xCC, 0xCC, 0xCC)),
+ BorderThickness = new Thickness(0.5),
+ Padding = new Thickness(4, 2, 4, 2),
+ };
+ if (r == 0)
+ cellBorder.Background = new SolidColorBrush(WpfColor.FromRgb(0x42, 0xA5, 0xF5));
+ else if (r % 2 == 0)
+ cellBorder.Background = new SolidColorBrush(WpfColor.FromRgb(0xF5, 0xF5, 0xF5));
+
+ cellBorder.Child = new TextBlock
+ {
+ Text = cellText,
+ FontSize = r == 0 ? 11 : 10,
+ FontWeight = r == 0 ? FontWeights.Bold : FontWeights.Normal,
+ Foreground = r == 0 ? Brushes.White : Brushes.Black,
+ TextWrapping = TextWrapping.Wrap,
+ };
+ System.Windows.Controls.Grid.SetRow(cellBorder, r);
+ System.Windows.Controls.Grid.SetColumn(cellBorder, c);
+ grid.Children.Add(cellBorder);
+ }
+ }
+ panel.Children.Add(grid);
+ }
+ else if (b is DocSpacerBlock sb)
+ {
+ panel.Children.Add(new System.Windows.Controls.Border { Height = sb.Space });
+ }
+ }
 
 		// 清理图片缓存
 		foreach (var kv in imageParts)

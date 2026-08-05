@@ -339,6 +339,8 @@ DisplayCurrentPage();
  ScaleTransform.ScaleX = _zoom;
  ScaleTransform.ScaleY = _zoom;
  RotateTransform.Angle = _rotation;
+ TranslateTransform.X = 0;
+ TranslateTransform.Y = 0;
  }
 
  // PageInfo
@@ -501,11 +503,11 @@ DisplayCurrentPage();
  }
  else
  {
- // 拖拽模式 — 用相对窗口坐标（不受ScrollViewer滚动影响）
+ // 拖拽模式 — 用 TranslateTransform 自由移动（不受 ScrollViewer 限制）
  _isDragging = true;
  _dragStartScreenPos = e.GetPosition(this);
- _dragStartHOffset = PreviewScroll.HorizontalOffset;
- _dragStartVOffset = PreviewScroll.VerticalOffset;
+ _dragStartHOffset = TranslateTransform.X;
+ _dragStartVOffset = TranslateTransform.Y;
  PreviewGrid.CaptureMouse();
  e.Handled = true;
  }
@@ -555,12 +557,12 @@ DisplayCurrentPage();
  }
  else if (_isDragging || _isMiddleDragging)
  {
- // 拖拽 — 用相对窗口坐标（不随ScrollViewer滚动变化，避免飘移）
+ // 拖拽 — 用 TranslateTransform 自由移动（不受 ScrollViewer 限制）
  var screenPos = e.GetPosition(this);
  double dx = screenPos.X - _dragStartScreenPos.X;
  double dy = screenPos.Y - _dragStartScreenPos.Y;
- PreviewScroll.ScrollToHorizontalOffset(_dragStartHOffset - dx);
- PreviewScroll.ScrollToVerticalOffset(_dragStartVOffset - dy);
+ TranslateTransform.X = _dragStartHOffset + dx;
+ TranslateTransform.Y = _dragStartVOffset + dy;
  }
  }
 
@@ -572,8 +574,8 @@ DisplayCurrentPage();
  {
  _isMiddleDragging = true;
  _dragStartScreenPos = e.GetPosition(this);
- _dragStartHOffset = PreviewScroll.HorizontalOffset;
- _dragStartVOffset = PreviewScroll.VerticalOffset;
+ _dragStartHOffset = TranslateTransform.X;
+ _dragStartVOffset = TranslateTransform.Y;
  PreviewGrid.CaptureMouse();
  e.Handled = true;
  }

@@ -213,11 +213,12 @@
  HorizontalScrollBarVisibility="Auto"
  VerticalScrollBarVisibility="Auto">
  <Canvas x:Name="PreviewCanvas" Background="#E0E0E0"
- RenderTransformOrigin="0,0">
+ RenderTransformOrigin="0.5,0.5">
  <Canvas.RenderTransform>
  <TransformGroup>
  <ScaleTransform x:Name="ScaleTransform" ScaleX="1" ScaleY="1"/>
  <RotateTransform x:Name="RotateTransform" Angle="0"/>
+ <TranslateTransform x:Name="TranslateTransform" X="0" Y="0"/>
  </TransformGroup>
  </Canvas.RenderTransform>
  <Image x:Name="PreviewImage" Stretch="None"/>
