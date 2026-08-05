@@ -45,8 +45,8 @@ namespace LDAssistant.Views
         {
             InitializeComponent();
 
-            ThumbList.ItemsSource = PageThumbs;
- FileList.ItemsSource = FileListItems;
+ ThumbList.ItemsSource = PageThumbs;
+
 
  // 初始化 OCR（内置 ONNX 模型，无需外部 exe）
  _ocr = OcrService.Create();
@@ -197,7 +197,6 @@ namespace LDAssistant.Views
  // 更新文件列表高亮
  foreach (var f in FileListItems)
  f.IsActive = (f.FilePath == path);
- FileListTitle.Text = FileListItems.Count > 1 ? $"文件列表 ({FileListItems.Count})" : "文件列表";
 
  _currentPage = 0;
             _zoom = 1.0;
@@ -414,16 +413,7 @@ DisplayCurrentPage();
  }
  }
 
- // ═════════════ 文件列表点击 ═════════════
- private void FileItem_Click(object sender, MouseButtonEventArgs e)
- {
- if (sender is FrameworkElement fe && fe.DataContext is FileBatchItem item)
- {
- LoadFile(item.FilePath);
- }
- }
-
-        // ═════════════ 翻页 ═════════════
+ // ═════════════ 翻页 ═════════════
         private void BtnPrev_Click(object sender, RoutedEventArgs e)
         {
             if (_preview?.TotalPages <= 1) return;

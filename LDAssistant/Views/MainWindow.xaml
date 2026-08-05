@@ -133,61 +133,15 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
- <!-- ═══ 左栏：文件列表 + 页面缩略图（上下分栏） ═══ -->
- <Border Grid.Column="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
- <Grid>
- <Grid.RowDefinitions>
- <RowDefinition Height="*" MinHeight="80"/>
- <RowDefinition Height="Auto"/>
- <RowDefinition Height="1.5*" MinHeight="80"/>
- </Grid.RowDefinitions>
+	 <!-- ═══ 左栏：页面缩略图 ═══ -->
+	 <Border Grid.Column="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
+	 <Grid>
+	 <Grid.RowDefinitions>
+	 <RowDefinition Height="*"/>
+	 </Grid.RowDefinitions>
 
- <!-- 上方：文件列表 -->
- <DockPanel Grid.Row="0">
- <TextBlock DockPanel.Dock="Top" x:Name="FileListTitle" Text="文件列表" FontSize="13" FontWeight="SemiBold"
- Foreground="#333" Margin="10,8" />
- <ScrollViewer VerticalScrollBarVisibility="Auto">
- <ItemsControl x:Name="FileList" ItemsSource="{Binding}">
- <ItemsControl.ItemTemplate>
- <DataTemplate>
- <Border MouseLeftButtonDown="FileItem_Click" Cursor="Hand">
- <Border.Style>
- <Style TargetType="Border">
- <Setter Property="Background" Value="Transparent"/>
- <Setter Property="BorderBrush" Value="Transparent"/>
- <Setter Property="BorderThickness" Value="2,0,0,0"/>
- <Setter Property="Padding" Value="8,4"/>
- <Setter Property="Margin" Value="0"/>
- <Style.Triggers>
- <DataTrigger Binding="{Binding IsActive}" Value="True">
- <Setter Property="Background" Value="#E3F2FD"/>
- <Setter Property="BorderBrush" Value="#2196F3"/>
- </DataTrigger>
- <Trigger Property="IsMouseOver" Value="True">
- <Setter Property="Background" Value="#F5F5F5"/>
- </Trigger>
- </Style.Triggers>
- </Style>
- </Border.Style>
- <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
- <TextBlock Text="{Binding Icon}" FontSize="14" VerticalAlignment="Center"/>
- <TextBlock Text="{Binding FileName}" FontSize="12" Margin="6,0,0,0"
- Foreground="#333" TextTrimming="CharacterEllipsis" MaxWidth="110"
- VerticalAlignment="Center"/>
- </StackPanel>
- </Border>
- </DataTemplate>
- </ItemsControl.ItemTemplate>
- </ItemsControl>
- </ScrollViewer>
- </DockPanel>
-
- <!-- 可拖拽分割线 -->
- <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" Background="#E8E8E8"
- ResizeBehavior="PreviousAndNext" ResizeDirection="Rows"/>
-
- <!-- 下方：页面缩略图 -->
- <DockPanel Grid.Row="2">
+	 <!-- 页面缩略图 -->
+	 <DockPanel Grid.Row="0">
  <DockPanel DockPanel.Dock="Top" Margin="10,8,10,4">
  <TextBlock x:Name="ThumbTitle" Text="页面缩略图" FontSize="13" FontWeight="SemiBold"
     Foreground="#333" VerticalAlignment="Center"/>
