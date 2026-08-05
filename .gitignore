@@ -47,3 +47,18 @@ ocr/
 # 但允许 download_ocr.py 脚本提交
 !download_ocr.py
 downloads/
+
+# .NET 构建输出
+**/bin/
+**/obj/
+
+dist_wpf/
+
+# 调试临时文件
+ocr_*.txt
+ocr_bat_out.txt
+test_ocr*
+.zcode/
+
+test_ocr*.ps1
+test_ocr*.bat

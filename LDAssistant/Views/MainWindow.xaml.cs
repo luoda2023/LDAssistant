@@ -23,14 +23,15 @@ namespace LDAssistant.Views
         private StandardChecker _checker;
         private readonly AiService _ai = new();
 
-        // ═════════════ 数据 ═════════════
-        public ObservableCollection<PageThumbItem> PageThumbs { get; } = new();
-
-        // 内部数据（不绑定到 UI，推送到 AI 窗口）
-        private List<CheckResult> _lastCodes = new();
-        private List<CheckResult> _lastResults = new();
-        private string _lastOcrText = "";
-        private List<FileBatchItem> _batchFiles = new();
+ // ═════════════ 数据 ═════════════
+ public ObservableCollection<PageThumbItem> PageThumbs { get; } = new();
+ public ObservableCollection<FileBatchItem> FileListItems { get; } = new();
+ 
+ // 内部数据（不绑定到 UI，推送到 AI 窗口）
+ private List<CheckResult> _lastCodes = new();
+ private List<CheckResult> _lastResults = new();
+ private string _lastOcrText = "";
+ private List<FileBatchItem> _batchFiles = new();
 
         // ═════════════ 状态 ═════════════
         private string _currentFilePath;
@@ -44,18 +45,14 @@ namespace LDAssistant.Views
             InitializeComponent();
 
             ThumbList.ItemsSource = PageThumbs;
+ FileList.ItemsSource = FileListItems;
 
-            // 初始化 OCR
-            var (exe, dir) = OcrService.FindOcrPath();
-            if (exe != null)
-            {
-                _ocr = new OcrService(exe, dir);
-                StatusText.Text = "就绪 — OCR 已就绪";
-            }
-            else
-            {
-                StatusText.Text = "就绪 — OCR 未安装（需 PaddleOCR-json.exe）";
-            }
+ // 初始化 OCR（内置 ONNX 模型，无需外部 exe）
+ _ocr = OcrService.Create();
+ if (_ocr != null)
+ StatusText.Text = "就绪 — OCR 已就绪";
+ else
+ StatusText.Text = "就绪 — OCR 未安装";
 
             // 初始化标准数据库
             var dbPath = FindDatabasePath();
@@ -72,8 +69,7 @@ namespace LDAssistant.Views
                 }
             }
 
-            PreviewCanvas.MouseWheel += OnMouseWheelZoom;
-        }
+ }
 
         private string FindDatabasePath()
         {
@@ -92,23 +88,32 @@ namespace LDAssistant.Views
         // ═════════════ AI 窗口 ═════════════
         private AiChatWindow _aiWindow;
 
-        private void ShowAiWindow()
-        {
-            if (_aiWindow == null || !_aiWindow.IsVisible)
-            {
-                _aiWindow = new AiChatWindow(_ai);
-                _aiWindow.Show();
-            }
-            _aiWindow.Activate();
-        }
-
-        /// <summary>推送到 AI 窗口</summary>
-        private void PushToAi(string title, string content)
-        {
-            ShowAiWindow();
-            var msg = $"## {title}\n\n{content}";
-            _aiWindow.AddMessage("系统", msg);
-        }
+ private void ShowAiWindow()
+ {
+ if (_aiWindow == null || !_aiWindow.IsVisible)
+ {
+ _aiWindow = new AiChatWindow(_ai);
+ _aiWindow.Closed += (s, e) => _aiWindow = null;
+ _aiWindow.Show();
+ }
+ _aiWindow.Activate();
+ }
+ 
+ /// <summary>推送消息到AI窗口（带异常保护）</summary>
+ private void PushToAi(string title, string content)
+ {
+ try
+ {
+ ShowAiWindow();
+ var msg = $"## {title}\n\n{content}";
+ _aiWindow.AddMessage("系统", msg);
+ }
+ catch (Exception ex)
+ {
+ System.Diagnostics.Debug.WriteLine($"PushToAi失败: {ex.Message}");
+ StatusText.Text = $"AI窗口推送失败: {ex.Message}";
+ }
+ }
 
         // ═════════════ 打开文件 ═════════════
         private void BtnOpen_Click(object sender, RoutedEventArgs e)
@@ -121,20 +126,25 @@ namespace LDAssistant.Views
                          "PDF|*.pdf|Word|*.docx|文本|*.txt|图片|*.png;*.jpg;*.jpeg;*.bmp;*.tiff;*.tif;*.webp|CAD|*.dxf;*.dwg|所有文件|*.*"
             };
 
-            if (dlg.ShowDialog() == true)
-            {
-                _batchFiles.Clear();
-                foreach (var path in dlg.FileNames)
-                    _batchFiles.Add(new FileBatchItem
-                    {
-                        FilePath = path,
-                        FileName = Path.GetFileName(path),
-                        FileType = FilePreviewService.DetectFileType(path)
-                    });
-
-                if (_batchFiles.Count > 0)
-                    LoadFile(_batchFiles[0].FilePath);
-            }
+ if (dlg.ShowDialog() == true)
+ {
+ _batchFiles.Clear();
+ FileListItems.Clear();
+ foreach (var path in dlg.FileNames)
+ {
+ var item = new FileBatchItem
+ {
+ FilePath = path,
+ FileName = Path.GetFileName(path),
+ FileType = FilePreviewService.DetectFileType(path)
+ };
+ _batchFiles.Add(item);
+ FileListItems.Add(item);
+ }
+ 
+ if (_batchFiles.Count > 0)
+ LoadFile(_batchFiles[0].FilePath);
+ }
         }
 
         private void BtnFolder_Click(object sender, RoutedEventArgs e)
@@ -145,91 +155,122 @@ namespace LDAssistant.Views
             };
             if (dlg.ShowDialog())
             {
-                var exts = new HashSet<string> { ".pdf", ".docx", ".txt", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp", ".dxf" };
+                var exts = new HashSet<string> { ".pdf", ".docx", ".txt", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp", ".dxf", ".dwg" };
                 string[] files;
                 try { files = Directory.GetFiles(dlg.SelectedPath, "*.*", SearchOption.AllDirectories); }
                 catch { return; }
 
-                _batchFiles.Clear();
-                int added = 0;
-                foreach (var f in files.OrderBy(x => x))
-                {
-                    if (exts.Contains(Path.GetExtension(f).ToLower()))
-                    {
-                        _batchFiles.Add(new FileBatchItem
-                        {
-                            FilePath = f,
-                            FileName = Path.GetFileName(f),
-                            FileType = FilePreviewService.DetectFileType(f)
-                        });
-                        added++;
-                    }
-                }
-                StatusText.Text = $"已扫描并添加 {added} 个文件";
-                if (_batchFiles.Count > 0)
-                    LoadFile(_batchFiles[0].FilePath);
+ _batchFiles.Clear();
+ FileListItems.Clear();
+ int added = 0;
+ foreach (var f in files.OrderBy(x => x))
+ {
+ if (exts.Contains(Path.GetExtension(f).ToLower()))
+ {
+ var item = new FileBatchItem
+ {
+ FilePath = f,
+ FileName = Path.GetFileName(f),
+ FileType = FilePreviewService.DetectFileType(f)
+ };
+ _batchFiles.Add(item);
+ FileListItems.Add(item);
+ added++;
+ }
+ }
+ StatusText.Text = $"已扫描并添加 {added} 个文件";
+ if (_batchFiles.Count > 0)
+ LoadFile(_batchFiles[0].FilePath);
             }
         }
 
         // ═════════════ 加载文件 → 生成页面缩略图 ═════════════
         private void LoadFile(string path)
         {
-            _currentFilePath = path;
-            _preview?.Close();
-            _preview = new FilePreviewService();
-            _preview.Open(path);
-            _preview.CurrentPath = path;
+ _currentFilePath = path;
+ _preview?.Close();
+ _preview = new FilePreviewService();
+ _preview.Open(path);
+ _preview.CurrentPath = path;
 
-            _currentPage = 0;
+ // 更新文件列表高亮
+ foreach (var f in FileListItems)
+ f.IsActive = (f.FilePath == path);
+ FileListTitle.Text = FileListItems.Count > 1 ? $"文件列表 ({FileListItems.Count})" : "文件列表";
+
+ _currentPage = 0;
             _zoom = 1.0;
             _rotation = 0;
 
-            // 生成页面缩略图
-            PageThumbs.Clear();
+ // 释放旧缩略图资源
+ foreach (var thumb in PageThumbs)
+ {
+ if (thumb.Thumbnail is System.Windows.Media.Imaging.BitmapSource bmp)
+ bmp = null; // Freeze 过的位图无法 Dispose，但可以解除引用
+ }
+ PageThumbs.Clear();
             int pages = _preview.TotalPages;
             ThumbTitle.Text = pages > 1 ? $"页面缩略图 ({pages} 页)" : "页面缩略图";
 
-        ThreadPool.QueueUserWorkItem(_ =>
-        {
-            for (int i = 0; i < pages; i++)
-            {
-                try
-                {
-                    // 复用同一个 _preview 实例（内部已加锁）
-                    var img = _preview.RenderPage(i, 150);
+ ThreadPool.QueueUserWorkItem(_ =>
+{
+for (int i = 0; i < pages; i++)
+{
+// 检查是否已切换到其他文件（取消旧渲染）
+if (_currentFilePath != path) return;
 
-                    if (img != null)
-                    {
-                        img.Freeze();
-                        var item = new PageThumbItem
-                        {
-                            PageIndex = i,
-                            Label = pages > 1 ? $"第 {i + 1} 页" : Path.GetFileName(path),
-                            Thumbnail = img,
-                        };
-                        Dispatcher.Invoke(() => PageThumbs.Add(item));
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"缩略图渲染失败 page {i}: {ex.Message}");
-                }
-            }
+try
+{
+// 72 DPI 缩略图（内存极小）
+var img = _preview.RenderPage(i, 0, 72);
 
-            Dispatcher.Invoke(() =>
-            {
-                if (PageThumbs.Count > 0)
-                {
-                    PageThumbs[0].IsActive = true;
-                    DisplayCurrentPage();
-                }
-                else
-                {
-                    // 缩略图全部失败，仍然尝试显示当前页
-                    DisplayCurrentPage();
-                }
-            });
-        });
+if (img != null)
+{
+img.Freeze();
+
+// 标签：CAD 文件用空间名称，其他用页码
+string label;
+if (_preview.FileType == "cad" && _preview.PageNames.Count > i)
+ label = _preview.PageNames[i];
+else if (pages > 1)
+ label = $"第 {i + 1} 页";
+else
+ label = Path.GetFileName(path);
+
+var item = new PageThumbItem
+{
+PageIndex = i,
+Label = label,
+Thumbnail = img,
+};
+// 逐页添加，避免一次性大量UI更新
+Dispatcher.Invoke(() =>
+{
+if (_currentFilePath == path)
+PageThumbs.Add(item);
+});
+}
+}
+catch (Exception ex)
+{
+System.Diagnostics.Debug.WriteLine($"缩略图渲染失败 page {i}: {ex.Message}");
+}
+}
+
+Dispatcher.Invoke(() =>
+{
+if (_currentFilePath != path) return;
+if (PageThumbs.Count > 0)
+{
+PageThumbs[0].IsActive = true;
+DisplayCurrentPage();
+}
+else
+{
+DisplayCurrentPage();
+}
+});
+});
         }
 
         // ═════════════ 显示当前页 ═════════════
@@ -237,12 +278,12 @@ namespace LDAssistant.Views
         {
             if (_currentFilePath == null) return;
 
-        try
-        {
-            // 300 DPI 高清晰度渲染
-            var img = _preview.RenderPage(_currentPage, 0, 300);
-            if (img != null)
-            {
+ try
+ {
+ // 150 DPI 渲染（减少内存占用，用户可缩放查看细节）
+ var img = _preview.RenderPage(_currentPage, 0, 150);
+ if (img != null)
+ {
                     PreviewImage.Source = img;
                     ScaleTransform.ScaleX = _zoom;
                     ScaleTransform.ScaleY = _zoom;
@@ -251,10 +292,14 @@ namespace LDAssistant.Views
                     Canvas.SetLeft(PreviewImage, 0);
                     Canvas.SetTop(PreviewImage, 0);
 
-                    int pages = _preview.TotalPages;
-                    PageInfo.Text = pages > 1
-                        ? $"{Path.GetFileName(_currentFilePath)} — 第 {_currentPage + 1}/{pages} 页"
-                        : Path.GetFileName(_currentFilePath);
+ int pages = _preview.TotalPages;
+ // CAD 文件显示空间名称
+ if (_preview.FileType == "cad" && _preview.PageNames.Count > _currentPage)
+ PageInfo.Text = $"{Path.GetFileName(_currentFilePath)} — [{_preview.PageNames[_currentPage]}]";
+ else
+ PageInfo.Text = pages > 1
+ ? $"{Path.GetFileName(_currentFilePath)} — 第 {_currentPage + 1}/{pages} 页"
+ : Path.GetFileName(_currentFilePath);
                     StatusText.Text = $"已加载: {Path.GetFileName(_currentFilePath)}";
                 }
             }
@@ -264,17 +309,26 @@ namespace LDAssistant.Views
             }
         }
 
-        // ═════════════ 缩略图点击 ═════════════
-        private void ThumbItem_Click(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is FrameworkElement fe && fe.DataContext is PageThumbItem item)
-            {
-                foreach (var p in PageThumbs) p.IsActive = false;
-                item.IsActive = true;
-                _currentPage = item.PageIndex;
-                DisplayCurrentPage();
-            }
-        }
+ // ═════════════ 缩略图点击 ═════════════
+ private void ThumbItem_Click(object sender, MouseButtonEventArgs e)
+ {
+ if (sender is FrameworkElement fe && fe.DataContext is PageThumbItem item)
+ {
+ foreach (var p in PageThumbs) p.IsActive = false;
+ item.IsActive = true;
+ _currentPage = item.PageIndex;
+ DisplayCurrentPage();
+ }
+ }
+
+ // ═════════════ 文件列表点击 ═════════════
+ private void FileItem_Click(object sender, MouseButtonEventArgs e)
+ {
+ if (sender is FrameworkElement fe && fe.DataContext is FileBatchItem item)
+ {
+ LoadFile(item.FilePath);
+ }
+ }
 
         // ═════════════ 翻页 ═════════════
         private void BtnPrev_Click(object sender, RoutedEventArgs e)
@@ -302,66 +356,268 @@ namespace LDAssistant.Views
                 PageThumbs[_currentPage].IsActive = true;
         }
 
-        // ═══════════════ 鼠标拖拽预览区 ═══════════════
-        private bool _isDragging = false;
-        private Point _dragStartPoint;
-        private double _dragStartHOffset;
-        private double _dragStartVOffset;
+ // ═══════════════ 鼠标拖拽 + 区域选择 ═══════════════
+ private bool _isDragging = false;
+ private bool _isMiddleDragging = false;
+ private bool _isSelecting = false;
+ private bool _isAreaOcrMode = false;
+ private Point _dragStartScreenPos;   // 相对窗口的坐标（不随滚动变化）
+ private double _dragStartHOffset;
+ private double _dragStartVOffset;
+ private Point _selectStartScreenPos; // 选框起点（相对窗口）
 
-        private void PreviewScroll_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            _isDragging = true;
-            _dragStartPoint = e.GetPosition(PreviewScroll);
-            _dragStartHOffset = PreviewScroll.HorizontalOffset;
-            _dragStartVOffset = PreviewScroll.VerticalOffset;
-            PreviewScroll.CaptureMouse();
-        }
+ /// <summary>进入区域OCR模式</summary>
+ private void BtnOcrArea_Click(object sender, RoutedEventArgs e)
+ {
+ if (_currentFilePath == null) return;
+ if (_ocr == null)
+ {
+ MessageBox.Show("OCR 引擎未安装。", "OCR 不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
+ return;
+ }
+ _isAreaOcrMode = !_isAreaOcrMode;
+ if (_isAreaOcrMode)
+ {
+ ModeHintText.Text = "🔲 区域OCR模式：在预览区拖拽选择矩形区域";
+ ModeHint.Visibility = Visibility.Visible;
+ PreviewGrid.Cursor = Cursors.Cross;
+ }
+ else
+ {
+ ModeHint.Visibility = Visibility.Collapsed;
+ PreviewGrid.Cursor = null;
+ SelectionRect.Visibility = Visibility.Collapsed;
+ }
+ }
 
-        private void PreviewScroll_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            _isDragging = false;
-            PreviewScroll.ReleaseMouseCapture();
-        }
+ private void PreviewArea_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+ {
+ if (_currentFilePath == null) return;
 
-        private void PreviewScroll_MouseMove(object sender, MouseEventArgs e)
-        {
-            if (!_isDragging) return;
-            var pos = e.GetPosition(PreviewScroll);
-            double dx = pos.X - _dragStartPoint.X;
-            double dy = pos.Y - _dragStartPoint.Y;
-            PreviewScroll.ScrollToHorizontalOffset(_dragStartHOffset - dx);
-            PreviewScroll.ScrollToVerticalOffset(_dragStartVOffset - dy);
-        }
+ if (_isAreaOcrMode)
+ {
+ // 区域选择模式 — 用相对窗口坐标
+ _isSelecting = true;
+ _selectStartScreenPos = e.GetPosition(this);
+ SelectionRect.Visibility = Visibility.Visible;
+ var gridPos = e.GetPosition(PreviewGrid);
+ Canvas.SetLeft(SelectionRect, gridPos.X);
+ Canvas.SetTop(SelectionRect, gridPos.Y);
+ SelectionRect.Width = 0;
+ SelectionRect.Height = 0;
+ PreviewGrid.CaptureMouse();
+ e.Handled = true;
+ }
+ else
+ {
+ // 拖拽模式 — 用相对窗口坐标（不受ScrollViewer滚动影响）
+ _isDragging = true;
+ _dragStartScreenPos = e.GetPosition(this);
+ _dragStartHOffset = PreviewScroll.HorizontalOffset;
+ _dragStartVOffset = PreviewScroll.VerticalOffset;
+ PreviewGrid.CaptureMouse();
+ e.Handled = true;
+ }
+ }
 
-        // ═════════════ 缩放/旋转 ═════════════
-        private void BtnZoomIn_Click(object sender, RoutedEventArgs e)
-        {
-            _zoom = Math.Min(_zoom * 1.25, 5.0);
-            ScaleTransform.ScaleX = _zoom;
-            ScaleTransform.ScaleY = _zoom;
-        }
+ private void PreviewArea_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+ {
+ if (_isSelecting)
+ {
+ _isSelecting = false;
+ PreviewGrid.ReleaseMouseCapture();
 
-        private void BtnZoomOut_Click(object sender, RoutedEventArgs e)
-        {
-            _zoom = Math.Max(_zoom / 1.25, 0.2);
-            ScaleTransform.ScaleX = _zoom;
-            ScaleTransform.ScaleY = _zoom;
-        }
+ var rect = GetSelectionRectangle();
+ if (rect.Width > 10 && rect.Height > 10)
+ DoAreaOcr(rect);
 
-        private void BtnRotate_Click(object sender, RoutedEventArgs e)
-        {
-            _rotation = (_rotation + 90) % 360;
-            RotateTransform.Angle = _rotation;
-        }
+ SelectionRect.Visibility = Visibility.Collapsed;
+ _isAreaOcrMode = false;
+ ModeHint.Visibility = Visibility.Collapsed;
+ PreviewGrid.Cursor = null;
+ }
+ else if (_isDragging)
+ {
+ _isDragging = false;
+ PreviewGrid.ReleaseMouseCapture();
+ }
+ }
 
-        private void OnMouseWheelZoom(object sender, MouseWheelEventArgs e)
-        {
-            if (Keyboard.Modifiers == ModifierKeys.Control)
-            {
-                if (e.Delta > 0) BtnZoomIn_Click(null, null);
-                else BtnZoomOut_Click(null, null);
-            }
-        }
+ private void PreviewArea_MouseMove(object sender, MouseEventArgs e)
+ {
+ if (_isSelecting)
+ {
+ // 选框 — 用相对窗口坐标计算偏移，再转到PreviewGrid坐标
+ var screenPos = e.GetPosition(this);
+ var gridPos = e.GetPosition(PreviewGrid);
+ var startGrid = new Point(
+ _selectStartScreenPos.X - (screenPos.X - gridPos.X),
+ _selectStartScreenPos.Y - (screenPos.Y - gridPos.Y));
+ var x = Math.Min(startGrid.X, gridPos.X);
+ var y = Math.Min(startGrid.Y, gridPos.Y);
+ var w = Math.Abs(gridPos.X - startGrid.X);
+ var h = Math.Abs(gridPos.Y - startGrid.Y);
+ Canvas.SetLeft(SelectionRect, x);
+ Canvas.SetTop(SelectionRect, y);
+ SelectionRect.Width = w;
+ SelectionRect.Height = h;
+ }
+ else if (_isDragging || _isMiddleDragging)
+ {
+ // 拖拽 — 用相对窗口坐标（不随ScrollViewer滚动变化，避免飘移）
+ var screenPos = e.GetPosition(this);
+ double dx = screenPos.X - _dragStartScreenPos.X;
+ double dy = screenPos.Y - _dragStartScreenPos.Y;
+ PreviewScroll.ScrollToHorizontalOffset(_dragStartHOffset - dx);
+ PreviewScroll.ScrollToVerticalOffset(_dragStartVOffset - dy);
+ }
+ }
+
+ // ═══════════════ 中键拖拽 ═══════════════
+ private void PreviewArea_MouseDown(object sender, MouseButtonEventArgs e)
+ {
+ if (_currentFilePath == null) return;
+ if (e.ChangedButton == MouseButton.Middle)
+ {
+ _isMiddleDragging = true;
+ _dragStartScreenPos = e.GetPosition(this);
+ _dragStartHOffset = PreviewScroll.HorizontalOffset;
+ _dragStartVOffset = PreviewScroll.VerticalOffset;
+ PreviewGrid.CaptureMouse();
+ e.Handled = true;
+ }
+ }
+
+ private void PreviewArea_MouseUp(object sender, MouseButtonEventArgs e)
+ {
+ if (_isMiddleDragging && e.ChangedButton == MouseButton.Middle)
+ {
+ _isMiddleDragging = false;
+ PreviewGrid.ReleaseMouseCapture();
+ }
+ }
+
+ /// <summary>滚轮缩放（直接缩放，无需Ctrl）</summary>
+ private void PreviewArea_MouseWheel(object sender, MouseWheelEventArgs e)
+ {
+ if (e.Delta > 0) BtnZoomIn_Click(null, null);
+ else BtnZoomOut_Click(null, null);
+ e.Handled = true;
+ }
+
+ /// <summary>获取选框在 PreviewGrid 坐标系中的矩形</summary>
+ private Rect GetSelectionRectangle()
+ {
+ double x = Canvas.GetLeft(SelectionRect);
+ double y = Canvas.GetTop(SelectionRect);
+ return new Rect(x, y, SelectionRect.Width, SelectionRect.Height);
+ }
+
+ /// <summary>区域OCR：将选框映射到原图坐标，裁剪后OCR</summary>
+ private void DoAreaOcr(Rect screenRect)
+ {
+ ThreadPool.QueueUserWorkItem(_ =>
+ {
+ string tempImg = null;
+ try
+ {
+ Dispatcher.Invoke(() => { StatusText.Text = "正在区域OCR识别..."; Progress.Value = 0; });
+
+ // 渲染高清原图（200 DPI，平衡清晰度和内存）
+ var fullImg = _preview.RenderPage(_currentPage, 0, 200);
+ if (fullImg == null)
+ {
+ Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败");
+ return;
+ }
+
+ // 将屏幕坐标映射到原图坐标
+ // 需要考虑缩放因子和滚动偏移
+ double scale = _zoom * (200.0 / 96.0); // 200DPI渲染，96DPI是WPF默认
+ var imgRect = new Rect(
+ screenRect.X / scale + PreviewScroll.HorizontalOffset / scale,
+ screenRect.Y / scale + PreviewScroll.VerticalOffset / scale,
+ screenRect.Width / scale,
+ screenRect.Height / scale
+ );
+
+ // 裁剪
+ var bmp = System.Windows.Media.Imaging.BitmapFrame.Create(fullImg);
+ int cropX = Math.Max(0, (int)imgRect.X);
+ int cropY = Math.Max(0, (int)imgRect.Y);
+ int cropW = Math.Min((int)imgRect.Width, bmp.PixelWidth - cropX);
+ int cropH = Math.Min((int)imgRect.Height, bmp.PixelHeight - cropY);
+
+ if (cropW <= 0 || cropH <= 0)
+ {
+ Dispatcher.Invoke(() => StatusText.Text = "选区无效");
+ return;
+ }
+
+ var cropped = new System.Windows.Int32Rect(cropX, cropY, cropW, cropH);
+ var croppedBitmap = new System.Windows.Media.Imaging.CroppedBitmap(fullImg, cropped);
+
+ tempImg = Path.GetTempFileName() + ".png";
+ var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+ encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(croppedBitmap));
+ using var fs = File.OpenWrite(tempImg);
+ encoder.Save(fs);
+
+ Dispatcher.Invoke(() => Progress.Value = 50);
+
+ var result = _ocr.Recognize(tempImg);
+
+ Dispatcher.Invoke(() =>
+ {
+ Progress.Value = 100;
+ if (result.Success)
+ {
+ _lastOcrText = TextNormalizer.Normalize(result.FullText);
+ StatusText.Text = $"区域OCR完成 — {result.Items.Count} 行";
+ var preview = _lastOcrText.Length > 2000
+ ? _lastOcrText.Substring(0, 2000) + "\n\n... (文本已截断)"
+ : _lastOcrText;
+ PushToAi("区域OCR识别结果", $"识别到 **{result.Items.Count}** 行文字：\n\n```\n{preview}\n```");
+ }
+ else
+ {
+ StatusText.Text = result.FullText;
+ PushToAi("OCR 失败", result.FullText);
+ }
+ });
+ }
+ catch (Exception ex)
+ {
+ Dispatcher.Invoke(() => StatusText.Text = $"区域OCR错误: {ex.Message}");
+ }
+ finally
+ {
+ if (tempImg != null && File.Exists(tempImg))
+ try { File.Delete(tempImg); } catch { }
+ }
+ });
+ }
+
+ // ═════════════ 缩放/旋转 ═════════════
+ private void BtnZoomIn_Click(object sender, RoutedEventArgs e)
+ {
+ _zoom = Math.Min(_zoom * 1.25, 10.0);
+ ScaleTransform.ScaleX = _zoom;
+ ScaleTransform.ScaleY = _zoom;
+ }
+ 
+ private void BtnZoomOut_Click(object sender, RoutedEventArgs e)
+ {
+ _zoom = Math.Max(_zoom / 1.25, 0.1);
+ ScaleTransform.ScaleX = _zoom;
+ ScaleTransform.ScaleY = _zoom;
+ }
+ 
+ private void BtnRotate_Click(object sender, RoutedEventArgs e)
+ {
+ _rotation = (_rotation + 90) % 360;
+ RotateTransform.Angle = _rotation;
+ }
 
         // ═════════════ OCR — 结果推送到 AI 窗口 ═════════════
         private void BtnOcr_Click(object sender, RoutedEventArgs e)
@@ -369,8 +625,8 @@ namespace LDAssistant.Views
             if (_currentFilePath == null) return;
             if (_ocr == null)
             {
-                MessageBox.Show("OCR 引擎未安装。\n需要 PaddleOCR-json.exe，请安装 UmiOCR 或将 OCR 引擎放入程序目录/ocr/。",
-                    "OCR 不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
+ MessageBox.Show("OCR 引擎未安装。\n请确保 models/v5/ 目录存在且包含模型文件。",
+ "OCR 不可用", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -381,12 +637,12 @@ namespace LDAssistant.Views
                 string tempImg = null;
                 try
                 {
-                    var img = _preview.RenderPage(_currentPage, 2000);
-                    if (img == null)
-                    {
-                        Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败");
-                        return;
-                    }
+ var img = _preview.RenderPage(_currentPage, 0, 200);
+ if (img == null)
+ {
+ Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败");
+ return;
+ }
 
                     tempImg = Path.GetTempFileName() + ".png";
                     var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
@@ -401,17 +657,17 @@ namespace LDAssistant.Views
                     Dispatcher.Invoke(() =>
                     {
                         Progress.Value = 100;
-                        if (result.Success)
-                        {
-                            _lastOcrText = result.FullText;
-                            StatusText.Text = $"OCR 完成 — {result.Items.Count} 行";
+ if (result.Success)
+{
+_lastOcrText = TextNormalizer.Normalize(result.FullText);
+StatusText.Text = $"OCR 完成 — {result.Items.Count} 行";
 
-                            // 推送到 AI 窗口
-                            var preview = result.FullText.Length > 2000
-                                ? result.FullText.Substring(0, 2000) + "\n\n... (文本已截断，完整文本已保存)"
-                                : result.FullText;
-                            PushToAi("OCR 识别结果", $"识别到 **{result.Items.Count}** 行文字：\n\n```\n{preview}\n```");
-                        }
+// 推送到 AI 窗口
+var preview = _lastOcrText.Length > 2000
+? _lastOcrText.Substring(0, 2000) + "\n\n... (文本已截断，完整文本已保存)"
+: _lastOcrText;
+PushToAi("OCR 识别结果", $"识别到 **{result.Items.Count}** 行文字：\n\n```\n{preview}\n```");
+}
                         else
                         {
                             StatusText.Text = result.FullText;
@@ -550,8 +806,8 @@ namespace LDAssistant.Views
                         {
                             if (!_isBatchRunning) break;
 
-                            var img = _preview.RenderPage(pg, 2000);
-                            if (img == null) continue;
+ var img = _preview.RenderPage(pg, 0, 200);
+ if (img == null) continue;
 
                             var tempImg = Path.GetTempFileName() + ".png";
                             try
@@ -561,12 +817,12 @@ namespace LDAssistant.Views
                                 using var fs = File.OpenWrite(tempImg);
                                 encoder.Save(fs);
 
-                                if (_ocr != null)
-                                {
-                                    var result = _ocr.Recognize(tempImg);
-                                    if (result.Success)
-                                        text += result.FullText + "\n";
-                                }
+ if (_ocr != null)
+{
+var result = _ocr.Recognize(tempImg);
+if (result.Success)
+text += TextNormalizer.Normalize(result.FullText) + "\n";
+}
                             }
                             finally { try { File.Delete(tempImg); } catch { } }
 

@@ -7,26 +7,26 @@
         MinWidth="400" MinHeight="500"
         WindowStyle="SingleBorderWindow">
     <DockPanel>
-        <!-- 顶部标题栏 -->
-        <Border DockPanel.Dock="Top" Background="#2196F3" Padding="12,8">
-            <DockPanel>
-                <StackPanel>
-                    <TextBlock Text="🤖 AI 助手" Foreground="White" FontSize="15" FontWeight="Bold"/>
-                    <TextBlock x:Name="ModelLabel" Text="模型: hermesAPI" Foreground="#BBDEFB" FontSize="11"/>
-                </StackPanel>
-                <Button x:Name="BtnClear" DockPanel.Dock="Right" Content="清空" Width="50" Height="28"
-                        Background="#1565C0" Foreground="White" BorderThickness="0"
-                        Click="BtnClear_Click" ToolTip="清空对话" Margin="0,0,0,0"
-                        HorizontalAlignment="Right"/>
-            </DockPanel>
-        </Border>
+ <!-- 顶部标题栏 -->
+ <Border DockPanel.Dock="Top" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="12,8">
+ <DockPanel>
+ <StackPanel>
+ <TextBlock Text="🤖 AI 助手" Foreground="#333" FontSize="15" FontWeight="Bold"/>
+ <TextBlock x:Name="ModelLabel" Text="模型: hermesAPI" Foreground="#999" FontSize="11"/>
+ </StackPanel>
+ <Button x:Name="BtnClear" DockPanel.Dock="Right" Content="清空" Width="50" Height="28"
+ Background="#F0F0F0" Foreground="#333" BorderBrush="#DDD" BorderThickness="1"
+ Click="BtnClear_Click" ToolTip="清空对话" Margin="0,0,0,0"
+ HorizontalAlignment="Right"/>
+ </DockPanel>
+ </Border>
 
         <!-- 底部输入区 -->
         <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="8">
             <DockPanel>
-                <Button x:Name="BtnSend" DockPanel.Dock="Right" Content="发送" Width="60" Margin="8,0,0,0"
-                        Click="BtnSend_Click" Background="#2196F3" Foreground="White" FontWeight="Bold"
-                        BorderThickness="0" Padding="0,4"/>
+ <Button x:Name="BtnSend" DockPanel.Dock="Right" Content="发送" Width="60" Margin="8,0,0,0"
+ Click="BtnSend_Click" Background="#F0F0F0" Foreground="#333" FontWeight="Bold"
+ BorderBrush="#DDD" BorderThickness="1" Padding="0,4"/>
                 <TextBox x:Name="InputBox" FontSize="13" Padding="6,4"
                          KeyDown="InputBox_KeyDown" AcceptsReturn="True" MaxHeight="80" TextWrapping="Wrap"
                          VerticalScrollBarVisibility="Auto" BorderBrush="#E0E0E0"/>

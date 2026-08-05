@@ -61,12 +61,18 @@
 
                     <Rectangle Width="1" Height="24" Fill="#E0E0E0" Margin="6,0"/>
 
-                    <Button x:Name="BtnOcr" Style="{StaticResource ToolBarButton}" Click="BtnOcr_Click" ToolTip="OCR识别">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📝" FontSize="14"/>
-                            <TextBlock Text="OCR" Margin="4,0,0,0"/>
-                        </StackPanel>
-                    </Button>
+<Button x:Name="BtnOcr" Style="{StaticResource ToolBarButton}" Click="BtnOcr_Click" ToolTip="全页OCR识别">
+<StackPanel Orientation="Horizontal">
+<TextBlock Text="📝" FontSize="14"/>
+<TextBlock Text="OCR" Margin="4,0,0,0"/>
+</StackPanel>
+</Button>
+<Button x:Name="BtnOcrArea" Style="{StaticResource ToolBarButton}" Click="BtnOcrArea_Click" ToolTip="框选区域OCR（点击后在预览区拖拽选框）">
+<StackPanel Orientation="Horizontal">
+<TextBlock Text="🔲" FontSize="14"/>
+<TextBlock Text="区域OCR" Margin="4,0,0,0"/>
+</StackPanel>
+</Button>
                     <Button x:Name="BtnCheck" Style="{StaticResource ToolBarButton}" Click="BtnCheck_Click" ToolTip="规范检查">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="✓" FontSize="14"/>
@@ -117,70 +123,137 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- ═══ 左栏：页面缩略图 ═══ -->
-            <Border Grid.Column="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" x:Name="ThumbTitle" Text="页面缩略图" FontSize="13" FontWeight="SemiBold"
-                               Foreground="#333" Margin="10,8" />
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="ThumbList" ItemsSource="{Binding}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border MouseLeftButtonDown="ThumbItem_Click">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="Background" Value="White"/>
-                                                <Setter Property="BorderBrush" Value="#E0E0E0"/>
-                                                <Setter Property="BorderThickness" Value="1"/>
-                                                <Setter Property="CornerRadius" Value="6"/>
-                                                <Setter Property="Margin" Value="4"/>
-                                                <Setter Property="Padding" Value="4"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                        <Setter Property="BorderBrush" Value="#2196F3"/>
-                                                        <Setter Property="BorderThickness" Value="2"/>
-                                                        <Setter Property="Background" Value="#E3F2FD"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <StackPanel>
-                                            <Image Source="{Binding Thumbnail}" Width="148" Height="200"
-                                                   Stretch="Uniform" Margin="0,0,0,4"/>
-                                            <TextBlock Text="{Binding Label}" FontSize="11"
-                                                       Foreground="#555"
-                                                       HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </DockPanel>
-            </Border>
+ <!-- ═══ 左栏：文件列表 + 页面缩略图（上下分栏） ═══ -->
+ <Border Grid.Column="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
+ <Grid>
+ <Grid.RowDefinitions>
+ <RowDefinition Height="*" MinHeight="80"/>
+ <RowDefinition Height="Auto"/>
+ <RowDefinition Height="1.5*" MinHeight="80"/>
+ </Grid.RowDefinitions>
 
-        <!-- ═══ 右栏：预览区（全宽） ═══ -->
-        <Border Grid.Column="1" Background="#FAFAFA">
-            <ScrollViewer x:Name="PreviewScroll"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto"
-                          MouseLeftButtonDown="PreviewScroll_MouseLeftButtonDown"
-                          MouseLeftButtonUp="PreviewScroll_MouseLeftButtonUp"
-                          MouseMove="PreviewScroll_MouseMove"
-                          Cursor="SizeAll">
-                <Canvas x:Name="PreviewCanvas" Background="White">
-                    <Image x:Name="PreviewImage" Stretch="None"
-                           RenderTransformOrigin="0.5,0.5">
-                        <Image.RenderTransform>
-                            <TransformGroup>
-                                <ScaleTransform x:Name="ScaleTransform" ScaleX="1" ScaleY="1"/>
-                                <RotateTransform x:Name="RotateTransform" Angle="0"/>
-                            </TransformGroup>
-                        </Image.RenderTransform>
-                    </Image>
-                </Canvas>
-            </ScrollViewer>
-        </Border>
+ <!-- 上方：文件列表 -->
+ <DockPanel Grid.Row="0">
+ <TextBlock DockPanel.Dock="Top" x:Name="FileListTitle" Text="文件列表" FontSize="13" FontWeight="SemiBold"
+ Foreground="#333" Margin="10,8" />
+ <ScrollViewer VerticalScrollBarVisibility="Auto">
+ <ItemsControl x:Name="FileList" ItemsSource="{Binding}">
+ <ItemsControl.ItemTemplate>
+ <DataTemplate>
+ <Border MouseLeftButtonDown="FileItem_Click" Cursor="Hand">
+ <Border.Style>
+ <Style TargetType="Border">
+ <Setter Property="Background" Value="Transparent"/>
+ <Setter Property="BorderBrush" Value="Transparent"/>
+ <Setter Property="BorderThickness" Value="2,0,0,0"/>
+ <Setter Property="Padding" Value="8,4"/>
+ <Setter Property="Margin" Value="0"/>
+ <Style.Triggers>
+ <DataTrigger Binding="{Binding IsActive}" Value="True">
+ <Setter Property="Background" Value="#E3F2FD"/>
+ <Setter Property="BorderBrush" Value="#2196F3"/>
+ </DataTrigger>
+ <Trigger Property="IsMouseOver" Value="True">
+ <Setter Property="Background" Value="#F5F5F5"/>
+ </Trigger>
+ </Style.Triggers>
+ </Style>
+ </Border.Style>
+ <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+ <TextBlock Text="{Binding Icon}" FontSize="14" VerticalAlignment="Center"/>
+ <TextBlock Text="{Binding FileName}" FontSize="12" Margin="6,0,0,0"
+ Foreground="#333" TextTrimming="CharacterEllipsis" MaxWidth="110"
+ VerticalAlignment="Center"/>
+ </StackPanel>
+ </Border>
+ </DataTemplate>
+ </ItemsControl.ItemTemplate>
+ </ItemsControl>
+ </ScrollViewer>
+ </DockPanel>
+
+ <!-- 可拖拽分割线 -->
+ <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" Background="#E8E8E8"
+ ResizeBehavior="PreviousAndNext" ResizeDirection="Rows"/>
+
+ <!-- 下方：页面缩略图 -->
+ <DockPanel Grid.Row="2">
+ <TextBlock DockPanel.Dock="Top" x:Name="ThumbTitle" Text="页面缩略图" FontSize="13" FontWeight="SemiBold"
+ Foreground="#333" Margin="10,8" />
+ <ScrollViewer VerticalScrollBarVisibility="Auto">
+ <ItemsControl x:Name="ThumbList" ItemsSource="{Binding}">
+ <ItemsControl.ItemTemplate>
+ <DataTemplate>
+ <Border MouseLeftButtonDown="ThumbItem_Click">
+ <Border.Style>
+ <Style TargetType="Border">
+ <Setter Property="Background" Value="White"/>
+ <Setter Property="BorderBrush" Value="#E0E0E0"/>
+ <Setter Property="BorderThickness" Value="1"/>
+ <Setter Property="CornerRadius" Value="6"/>
+ <Setter Property="Margin" Value="4"/>
+ <Setter Property="Padding" Value="4"/>
+ <Style.Triggers>
+ <DataTrigger Binding="{Binding IsActive}" Value="True">
+ <Setter Property="BorderBrush" Value="#2196F3"/>
+ <Setter Property="BorderThickness" Value="2"/>
+ <Setter Property="Background" Value="#E3F2FD"/>
+ </DataTrigger>
+ </Style.Triggers>
+ </Style>
+ </Border.Style>
+ <StackPanel>
+ <Image Source="{Binding Thumbnail}" Width="148" Height="200"
+ Stretch="Uniform" Margin="0,0,0,4"/>
+ <TextBlock Text="{Binding Label}" FontSize="11"
+ Foreground="#555"
+ HorizontalAlignment="Center"/>
+ </StackPanel>
+ </Border>
+ </DataTemplate>
+ </ItemsControl.ItemTemplate>
+ </ItemsControl>
+ </ScrollViewer>
+ </DockPanel>
+ </Grid>
+ </Border>
+
+ <!-- ═══ 右栏：预览区（全宽） ═══ -->
+ <Border Grid.Column="1" Background="#FAFAFA">
+ <Grid x:Name="PreviewGrid"
+ PreviewMouseLeftButtonDown="PreviewArea_MouseLeftButtonDown"
+ PreviewMouseLeftButtonUp="PreviewArea_MouseLeftButtonUp"
+ PreviewMouseDown="PreviewArea_MouseDown"
+ PreviewMouseUp="PreviewArea_MouseUp"
+ PreviewMouseMove="PreviewArea_MouseMove"
+ MouseWheel="PreviewArea_MouseWheel">
+ <ScrollViewer x:Name="PreviewScroll"
+ HorizontalScrollBarVisibility="Auto"
+ VerticalScrollBarVisibility="Auto">
+ <Canvas x:Name="PreviewCanvas" Background="#E0E0E0">
+ <Image x:Name="PreviewImage" Stretch="None"
+ RenderTransformOrigin="0.5,0.5">
+ <Image.RenderTransform>
+ <TransformGroup>
+ <ScaleTransform x:Name="ScaleTransform" ScaleX="1" ScaleY="1"/>
+ <RotateTransform x:Name="RotateTransform" Angle="0"/>
+ </TransformGroup>
+ </Image.RenderTransform>
+ </Image>
+ </Canvas>
+ </ScrollViewer>
+ <!-- 区域选择矩形覆盖层（不随 ScrollViewer 滚动） -->
+ <Canvas x:Name="OverlayCanvas" Background="Transparent">
+ <Rectangle x:Name="SelectionRect" Stroke="#2196F3" StrokeThickness="2" Fill="#2196F3" Opacity="0.2" Visibility="Collapsed"/>
+ </Canvas>
+ <!-- 模式提示 -->
+ <Border x:Name="ModeHint" Background="#E3F2FD" CornerRadius="4" Padding="8,4"
+ VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,8"
+ Visibility="Collapsed">
+ <TextBlock x:Name="ModeHintText" Text="" FontSize="13" FontWeight="Bold" Foreground="#2196F3"/>
+ </Border>
+ </Grid>
+ </Border>
         </Grid>
     </DockPanel>
 </Window>

@@ -34,22 +34,22 @@ namespace LDAssistant.Views
         {
             var isUser = role == "我";
 
-            if (isUser)
-            {
-                // 用户消息 — 蓝色气泡，右对齐
-                var bubble = new Border
-                {
-                    Padding = new Thickness(12, 8, 12, 8),
-                    Margin = new Thickness(40, 4, 4, 4),
-                    CornerRadius = new CornerRadius(12),
-                    HorizontalAlignment = HorizontalAlignment.Right,
-                    Background = new SolidColorBrush(Color.FromRgb(0x21, 0x96, 0xF3)),
-                };
-                var para = new Paragraph { Margin = new Thickness(0) };
-                para.Inlines.Add(new Run(text) { Foreground = Brushes.White, FontSize = 13, FontFamily = new FontFamily("微软雅黑") });
+ if (isUser)
+ {
+ // 用户消息 — 灰色气泡，右对齐
+ var bubble = new Border
+ {
+ Padding = new Thickness(12, 8, 12, 8),
+ Margin = new Thickness(40, 4, 4, 4),
+ CornerRadius = new CornerRadius(12),
+ HorizontalAlignment = HorizontalAlignment.Right,
+ Background = new SolidColorBrush(Color.FromRgb(0xE8, 0xE8, 0xE8)),
+ };
+ var para = new Paragraph { Margin = new Thickness(0) };
+ para.Inlines.Add(new Run(text) { Foreground = Brushes.Black, FontSize = 13, FontFamily = new FontFamily("微软雅黑") });
                 var doc = new FlowDocument { PagePadding = new Thickness(4), TextAlignment = TextAlignment.Left };
                 doc.Blocks.Add(para);
-                var rtb = CreateRichText(doc, Brushes.Transparent, Brushes.White);
+                var rtb = CreateRichText(doc, Brushes.Transparent, Brushes.Black);
 
                 // 用户消息也有操作按钮
                 var userContainer = new StackPanel();
@@ -553,7 +553,7 @@ namespace LDAssistant.Views
                 table.Columns.Add(new TableColumn());
 
             var borderBrush = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC));
-            var headerBg = new SolidColorBrush(Color.FromRgb(0x42, 0xA5, 0xF5));
+            var headerBg = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0));
             var altBg = new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF5));
 
             var rowGroup = new TableRowGroup();
@@ -573,7 +573,7 @@ namespace LDAssistant.Views
                     var cellText = c < rows[r].Count ? rows[r][c] : "";
                     var para = new Paragraph { Margin = new Thickness(2, 1, 2, 1) };
 
-                    var cellTextColor = r == 0 ? Brushes.White : textColor;
+                    var cellTextColor = r == 0 ? Brushes.Black : textColor;
 
                     AddInlineSpans(para, cellText, cellTextColor, codeBg, new SolidColorBrush(Color.FromRgb(0xC7, 0x25, 0x4E)), linkColor);
 

@@ -18,10 +18,14 @@ namespace LDAssistant.Services
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>从文本中提取所有规范编号及名称</summary>
-        public static List<CheckResult> Extract(string text)
-        {
-            var results = new List<CheckResult>();
-            if (string.IsNullOrWhiteSpace(text)) return results;
+ public static List<CheckResult> Extract(string text)
+ {
+ var results = new List<CheckResult>();
+ if (string.IsNullOrWhiteSpace(text)) return results;
+
+ // 全角转半角，确保规范编号能被正确识别
+ text = TextNormalizer.ToHalfWidth(text);
+
 
             var seen = new HashSet<string>();
             var codeMatches = CodePattern.Matches(text);

@@ -25,11 +25,15 @@ namespace LDAssistant.Services
     /// <summary>文件预览服务 - 渲染 PDF/图片/Word 为可显示的图片</summary>
     public class FilePreviewService
     {
-private PdfiumViewer.PdfDocument _pdfDoc;
-private readonly object _pdfLock = new();
-public int TotalPages { get; private set; }
-        public string FileType { get; private set; } = "";
-        private string _currentPath;
+ private PdfiumViewer.PdfDocument _pdfDoc;
+ private readonly object _pdfLock = new();
+ public int TotalPages { get; private set; }
+ public string FileType { get; private set; } = "";
+ private string _currentPath;
+ private ACadSharp.CadDocument _cadDoc;
+ private List<string> _cadSpaceNames = new(); // DWG 空间名称列表（模型 + 布局）
+ /// <summary>DWG 各空间/页面名称（用于缩略图标签）</summary>
+ public IReadOnlyList<string> PageNames => _cadSpaceNames;
 
         public string CurrentPath
         {
@@ -75,9 +79,9 @@ return true;
 case "txt":
 TotalPages = 1;
 return true;
-                    case "cad":
-                        TotalPages = 1;
-                        return true;
+ case "cad":
+ LoadCadDocument(path);
+ return true;
                     default:
                         return false;
                 }
@@ -143,51 +147,296 @@ return ConvertBitmap(bmp);
 }
 
 /// <summary>DWG/DXF CAD 文件 — 提取文本信息显示</summary>
+/// <summary>
+/// 读取 DWG/DXF 文件，解析模型空间和布局空间列表。
+/// </summary>
+private void LoadCadDocument(string path)
+{
+ _cadDoc = null;
+ _cadSpaceNames.Clear();
+
+ try
+ {
+ using var reader = new ACadSharp.IO.DwgReader(path);
+ reader.OnNotification += (s, e) => { System.Diagnostics.Debug.WriteLine($"ACadSharp: {e.Message}"); };
+ _cadDoc = reader.Read();
+
+ // 第一个空间始终是模型空间
+ _cadSpaceNames.Add("模型");
+
+ // 添加所有布局空间（按 TabOrder 排序）
+ if (_cadDoc.Layouts != null)
+ {
+ var layouts = _cadDoc.Layouts
+ .Where(l => !l.IsPaperSpace || l.Name != "Model")
+ .OrderBy(l => l.TabOrder)
+ .Select(l => l.Name)
+ .ToList();
+ _cadSpaceNames.AddRange(layouts);
+ }
+
+ TotalPages = Math.Max(1, _cadSpaceNames.Count);
+ }
+ catch (Exception ex)
+ {
+ System.Diagnostics.Debug.WriteLine($"CAD 加载失败: {ex.Message}");
+ TotalPages = 1;
+ _cadSpaceNames.Add("模型");
+ }
+}
+
 private BitmapSource RenderCadFile(int pageIndex)
 {
-var text = $"📄 CAD 文件: {Path.GetFileName(_currentPath)}\n\n";
+ try
+ {
+ var doc = _cadDoc;
+ if (doc == null)
+ {
+ // 兜底：重新加载
+ LoadCadDocument(_currentPath);
+ doc = _cadDoc;
+ if (doc == null)
+ return RenderTextToImage($"📄 CAD 文件: {Path.GetFileName(_currentPath)}\n\n（文件加载失败）", Path.GetFileName(_currentPath));
+ }
 
-try
-{
-if (Path.GetExtension(_currentPath).ToLower() == ".dxf")
-{
-// DXF 是文本格式，可以提取基本信息
-var lines = File.ReadAllLines(_currentPath, System.Text.Encoding.Default);
-text += $"文件大小: {new FileInfo(_currentPath).Length / 1024} KB\n";
-text += $"行数: {lines.Length}\n\n";
+ // 根据 pageIndex 获取空间名称
+ string spaceName = "模型";
+ if (pageIndex >= 0 && pageIndex < _cadSpaceNames.Count)
+ spaceName = _cadSpaceNames[pageIndex];
+ bool isModelSpace = (pageIndex <= 0);
 
-// 提取图层信息
-var layers = new HashSet<string>();
-var entities = 0;
-for (int i = 0; i < lines.Length - 1; i++)
-{
-if (lines[i] == "LAYER" && i + 1 < lines.Length)
-{
-if (lines[i + 1] == "  2" && i + 2 < lines.Length)
-layers.Add(lines[i + 2].Trim());
-}
-if (lines[i] == "ENTITIES")
-entities++;
-}
-if (layers.Count > 0)
-{
-text += $"图层 ({layers.Count}):\n";
-foreach (var l in layers.Take(20))
-text += $"  • {l}\n";
-}
-}
-else
-{
-text += "DWG 是二进制格式，无法直接提取内容。\n";
-text += $"文件大小: {new FileInfo(_currentPath).Length / 1024} KB\n";
-}
-}
-catch (Exception ex)
-{
-text += $"\n读取失败: {ex.Message}";
+ // 获取对应空间的实体
+ List<ACadSharp.Entities.Entity> entities;
+ if (isModelSpace)
+ {
+ entities = doc.ModelSpace?.Entities?.ToList() ?? new List<ACadSharp.Entities.Entity>();
+ }
+ else
+ {
+ // 布局空间：通过 Layout.AssociatedBlock 获取 BlockRecord
+ var layout = doc.Layouts?.FirstOrDefault(l => l.Name == spaceName);
+ var block = layout?.AssociatedBlock;
+ entities = block?.Entities?.ToList() ?? new List<ACadSharp.Entities.Entity>();
+ }
+
+ if (entities.Count == 0)
+ return RenderTextToImage($"📄 CAD 文件: {Path.GetFileName(_currentPath)}\n\n[{spaceName}] 空间中未找到几何实体", Path.GetFileName(_currentPath));
+
+ // 计算包围盒
+ double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
+
+ if (isModelSpace)
+ {
+ var headerMin = doc.Header.ModelSpaceExtMin;
+ var headerMax = doc.Header.ModelSpaceExtMax;
+ if (!double.IsNaN(headerMin.X) && !double.IsNaN(headerMax.X))
+ {
+ minX = headerMin.X; minY = headerMin.Y; maxX = headerMax.X; maxY = headerMax.Y;
+ }
+ }
+
+ if (minX >= maxX || minY >= maxY)
+ {
+ // Header 无效或布局空间，遍历实体计算
+ foreach (var ent in entities)
+ AccumulateBoundingBox(ent, ref minX, ref minY, ref maxX, ref maxY);
+ }
+
+ if (minX >= maxX || minY >= maxY)
+ return RenderCadInfoText(doc, entities.Count, spaceName);
+
+		double dwgW = maxX - minX;
+		double dwgH = maxY - minY;
+		int canvasW = 1000;
+		int canvasH = 700;
+		int margin = 40;
+		double availW = canvasW - margin * 2;
+		double availH = canvasH - margin * 2;
+		double scale = Math.Min(availW / dwgW, availH / dwgH);
+		if (scale <= 0 || double.IsInfinity(scale) || double.IsNaN(scale))
+			scale = 1.0;
+
+		double offsetX = margin - minX * scale + (availW - dwgW * scale) / 2;
+		double offsetY = margin + maxY * scale + (availH - dwgH * scale) / 2;
+
+var bmp = new SD.Bitmap(canvasW, canvasH, SDI.PixelFormat.Format24bppRgb);
+using var g = SD.Graphics.FromImage(bmp);
+g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+g.Clear(SD.Color.FromArgb(0x1E, 0x1E, 0x1E)); // CAD 黑色背景
+
+using var titleFont = new SD.Font("微软雅黑", 14, SD.FontStyle.Bold);
+using var titleBrush = new SD.SolidBrush(SD.Color.FromArgb(0xBB, 0xBB, 0xBB)); // 浅灰标题
+using var titlePen = new SD.Pen(SD.Color.FromArgb(0x44, 0x44, 0x44), 2);
+g.DrawString($"{Path.GetFileName(_currentPath)}  [{spaceName}]", titleFont, titleBrush, margin, 12);
+g.DrawLine(titlePen, margin, 40, canvasW - margin, 40);
+
+using var borderPen = new SD.Pen(SD.Color.FromArgb(0x55, 0x55, 0x55), 1);
+ g.DrawRectangle(borderPen, margin - 2, margin - 2, (int)(dwgW * scale) + 4, (int)(dwgH * scale) + 4);
+ 
+ foreach (var ent in entities)
+ DrawCadEntity(g, ent, scale, offsetX, offsetY);
+ 
+using var infoFont = new SD.Font("微软雅黑", 9);
+using var infoBrush = new SD.SolidBrush(SD.Color.FromArgb(0x88, 0x88, 0x88));
+var layerCount = doc.Layers?.Count() ?? 0;
+ g.DrawString($"[{spaceName}] 实体: {entities.Count} | 图层: {layerCount} | 范围: {dwgW:F1}x{dwgH:F1}",
+ infoFont, infoBrush, margin, canvasH - 25);
+
+		var result = ConvertBitmap(bmp);
+		bmp.Dispose();
+		return result;
+	}
+	catch (Exception ex)
+	{
+		return RenderTextToImage(
+			$"📄 CAD 文件: {Path.GetFileName(_currentPath)}\n\n解析失败: {ex.Message}",
+			Path.GetFileName(_currentPath));
+	}
 }
 
-return RenderTextToImage(text, Path.GetFileName(_currentPath));
+private static void AccumulateBoundingBox(ACadSharp.Entities.Entity ent,
+	ref double minX, ref double minY, ref double maxX, ref double maxY)
+{
+	switch (ent)
+	{
+		case ACadSharp.Entities.Line line:
+			ExpandBox(line.StartPoint.X, line.StartPoint.Y, ref minX, ref minY, ref maxX, ref maxY);
+			ExpandBox(line.EndPoint.X, line.EndPoint.Y, ref minX, ref minY, ref maxX, ref maxY);
+			break;
+case ACadSharp.Entities.Circle circle: // Arc 继承自 Circle，会匹配此处
+ExpandBox(circle.Center.X - circle.Radius, circle.Center.Y - circle.Radius, ref minX, ref minY, ref maxX, ref maxY);
+ExpandBox(circle.Center.X + circle.Radius, circle.Center.Y + circle.Radius, ref minX, ref minY, ref maxX, ref maxY);
+break;
+		case ACadSharp.Entities.LwPolyline poly:
+			foreach (var v in poly.Vertices)
+				ExpandBox(v.Location.X, v.Location.Y, ref minX, ref minY, ref maxX, ref maxY);
+			break;
+		case ACadSharp.Entities.TextEntity text:
+			ExpandBox(text.InsertPoint.X, text.InsertPoint.Y, ref minX, ref minY, ref maxX, ref maxY);
+			break;
+		case ACadSharp.Entities.MText mtext:
+			ExpandBox(mtext.InsertPoint.X, mtext.InsertPoint.Y, ref minX, ref minY, ref maxX, ref maxY);
+			break;
+	}
+}
+
+private static void ExpandBox(double x, double y, ref double minX, ref double minY, ref double maxX, ref double maxY)
+{
+	if (x < minX) minX = x;
+	if (y < minY) minY = y;
+	if (x > maxX) maxX = x;
+	if (y > maxY) maxY = y;
+}
+
+private static SD.Color GetEntityColor(ACadSharp.Entities.Entity ent)
+{
+	var c = ent.Color;
+	if (c.IsByLayer && ent.Layer != null)
+		c = ent.Layer.Color;
+	if (c.IsByLayer || c.IsByBlock)
+		return SD.Color.White; // 黑色背景上用白色
+	var rgb = c.GetRgb();
+	if (rgb.Length >= 3)
+	{
+		// 纯黑(0,0,0)在黑色背景上不可见，转为白色
+		if (rgb[0] == 0 && rgb[1] == 0 && rgb[2] == 0)
+			return SD.Color.White;
+		return SD.Color.FromArgb(rgb[0], rgb[1], rgb[2]);
+	}
+	return SD.Color.White;
+}
+
+private static void DrawCadEntity(SD.Graphics g, ACadSharp.Entities.Entity ent,
+	double scale, double offsetX, double offsetY)
+{
+	var color = GetEntityColor(ent);
+	using var pen = new SD.Pen(color, 0.5f);
+	using var brush = new SD.SolidBrush(color);
+
+	switch (ent)
+	{
+		case ACadSharp.Entities.Line line:
+		{
+			float x1 = (float)(line.StartPoint.X * scale + offsetX);
+			float y1 = (float)(offsetY - line.StartPoint.Y * scale);
+			float x2 = (float)(line.EndPoint.X * scale + offsetX);
+			float y2 = (float)(offsetY - line.EndPoint.Y * scale);
+			g.DrawLine(pen, x1, y1, x2, y2);
+			break;
+		}
+		case ACadSharp.Entities.Arc arc:
+		{
+			float cx = (float)(arc.Center.X * scale + offsetX);
+			float cy = (float)(offsetY - arc.Center.Y * scale);
+			float r = (float)(arc.Radius * scale);
+			float startDeg = (float)(-arc.StartAngle * 180.0 / Math.PI);
+			float sweepDeg = (float)(-(arc.EndAngle - arc.StartAngle) * 180.0 / Math.PI);
+			if (sweepDeg < 0) sweepDeg += 360;
+			g.DrawArc(pen, cx - r, cy - r, r * 2, r * 2, startDeg, sweepDeg);
+			break;
+		}
+		case ACadSharp.Entities.Circle circle:
+		{
+			float cx = (float)(circle.Center.X * scale + offsetX);
+			float cy = (float)(offsetY - circle.Center.Y * scale);
+			float r = (float)(circle.Radius * scale);
+			g.DrawEllipse(pen, cx - r, cy - r, r * 2, r * 2);
+			break;
+		}
+		case ACadSharp.Entities.LwPolyline poly:
+		{
+			var verts = poly.Vertices;
+			if (verts.Count < 2) break;
+			var points = new SD.PointF[verts.Count];
+			for (int i = 0; i < verts.Count; i++)
+			{
+				points[i] = new SD.PointF(
+					(float)(verts[i].Location.X * scale + offsetX),
+					(float)(offsetY - verts[i].Location.Y * scale));
+			}
+			if (poly.IsClosed)
+				g.DrawPolygon(pen, points);
+			else
+				g.DrawLines(pen, points);
+			break;
+		}
+		case ACadSharp.Entities.TextEntity text:
+		{
+			float tx = (float)(text.InsertPoint.X * scale + offsetX);
+			float ty = (float)(offsetY - text.InsertPoint.Y * scale);
+			float h = Math.Max(8f, (float)(text.Height * scale));
+			using var font = new SD.Font("微软雅黑", h);
+			g.DrawString(text.Value ?? "", font, brush, tx, ty - h);
+			break;
+		}
+		case ACadSharp.Entities.MText mtext:
+		{
+			float tx = (float)(mtext.InsertPoint.X * scale + offsetX);
+			float ty = (float)(offsetY - mtext.InsertPoint.Y * scale);
+			float h = Math.Max(8f, (float)(mtext.Height * scale));
+			using var font = new SD.Font("微软雅黑", h);
+			g.DrawString(mtext.PlainText ?? "", font, brush, tx, ty - h);
+			break;
+		}
+	}
+}
+
+private BitmapSource RenderCadInfoText(ACadSharp.CadDocument doc, int entityCount, string spaceName = "模型")
+{
+	var sb = new System.Text.StringBuilder();
+	sb.Append($"📄 CAD 文件: {Path.GetFileName(_currentPath)}\n\n");
+	sb.Append($"当前空间: {spaceName}\n");
+	sb.Append($"实体数量: {entityCount}\n");
+	sb.Append($"文件大小: {new FileInfo(_currentPath).Length / 1024} KB\n\n");
+
+	var layerNames = doc.Layers?.Select(l => l.Name).Take(20).ToList() ?? new List<string>();
+	if (layerNames.Count > 0)
+	{
+ sb.Append($"图层 ({layerNames.Count}):\n");
+ foreach (var l in layerNames)
+ sb.Append($"  • {l}\n");
+	}
+	return RenderTextToImage(sb.ToString(), Path.GetFileName(_currentPath));
 }
 
 private BitmapSource RenderTextFile(int pageIndex)
@@ -478,8 +727,8 @@ private int CountDocxPages(string path)
 
         var bmp = new SD.Bitmap((int)canvasW, (int)canvasH, SDI.PixelFormat.Format24bppRgb);
         using var g = SD.Graphics.FromImage(bmp);
-        g.SmoothingMode = SD.Drawing2D.SmoothingMode.AntiAlias;
-        g.TextRenderingHint = SD.Text.TextRenderingHint.AntiAliasGridFit;
+g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         g.Clear(SD.Color.White);
 
         float drawY = 20;
@@ -744,11 +993,13 @@ private int CountDocxPages(string path)
             return src;
         }
 
-        public void Close()
-        {
-            try { _pdfDoc?.Dispose(); } catch { }
-            _pdfDoc = null;
-            TotalPages = 0;
-        }
+ public void Close()
+ {
+ try { _pdfDoc?.Dispose(); } catch { }
+ _pdfDoc = null;
+ _cadDoc = null;
+ _cadSpaceNames.Clear();
+ TotalPages = 0;
+ }
     }
 }
