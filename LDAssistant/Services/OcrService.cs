@@ -16,22 +16,30 @@ namespace LDAssistant.Services
 		private RapidOcr _ocr;
 		private string _initError;
 
-		/// 创建并初始化 OCR 引擎。模型文件位于 appDir/models/v5/ 目录。
-		public static OcrService Create()
-		{
-			var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ocr_init.log");
-			void Log(string msg)
-			{
-				try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] {msg}\n"); } catch { }
-			}
+/// 创建并初始化 OCR 引擎。模型文件位于 appDir/models/v5/ 目录。
+public static OcrService Create()
+{
+var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ocr_init.log");
+void Log(string msg)
+{
+try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] {msg}\n"); } catch { }
+}
 
-			try
-			{
-				var appDir = AppDomain.CurrentDomain.BaseDirectory;
-				var modelDir = Path.Combine(appDir, "models", "v5");
+try
+{
+var appDir = AppDomain.CurrentDomain.BaseDirectory;
+var modelDir = Path.Combine(appDir, "models", "v5");
 
-				Log($"appDir={appDir}");
-				Log($"modelDir={modelDir}, exists={Directory.Exists(modelDir)}");
+Log($"appDir={appDir}");
+Log($"modelDir={modelDir}, exists={Directory.Exists(modelDir)}");
+
+// 检查 native DLL 是否存在
+var onnxDll = Path.Combine(appDir, "onnxruntime.dll");
+var onnxShared = Path.Combine(appDir, "onnxruntime_providers_shared.dll");
+var skiaDll = Path.Combine(appDir, "libSkiaSharp.dll");
+Log($"onnxruntime.dll exists={File.Exists(onnxDll)}");
+Log($"onnxruntime_providers_shared.dll exists={File.Exists(onnxShared)}");
+Log($"libSkiaSharp.dll exists={File.Exists(skiaDll)}");
 
 				// 中文模型路径
 				var detPath = Path.Combine(modelDir, "ch_PP-OCRv4_det_mobile.onnx");
