@@ -82,12 +82,6 @@ PreviewKeyDown="Window_PreviewKeyDown">
 <TextBlock Text="区域OCR" Margin="4,0,0,0"/>
 </StackPanel>
 </Button>
-<Button x:Name="BtnUmiOcr" Style="{StaticResource ToolBarButton}" Click="BtnUmiOcr_Click" ToolTip="UmiOCR识别（本地引擎，支持中文+表格，自动启动UmiOCR）">
-<StackPanel Orientation="Horizontal">
-<TextBlock Text="🔤" FontSize="14"/>
-<TextBlock Text="UmiOCR" Margin="4,0,0,0"/>
-</StackPanel>
-</Button>
 <Button x:Name="BtnOnlineOcr" Style="{StaticResource ToolBarButton}" Click="BtnOnlineOcr_Click" ToolTip="在线OCR（OCR.space，支持表格识别，需免费注册API Key）">
 <StackPanel Orientation="Horizontal">
 <TextBlock Text="🌐" FontSize="14"/>

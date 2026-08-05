@@ -212,12 +212,24 @@ return true;
 		};
 		canvas.Children.Add(sep);
 
-		// 绘制实体
-		double offsetX = margin - minX;
-		double offsetY = margin + maxY;
+ // 绘制实体
+ double offsetX = margin - minX;
+ double offsetY = margin + maxY;
 
-		foreach (var ent in entities)
-			AddCadEntityToCanvas(canvas, ent, offsetX, offsetY);
+ // 先绘制非文字实体（线/圆/弧/多段线/块引用），再绘制文字，避免文字被遮挡
+ foreach (var ent in entities)
+ {
+ if (IsLayerOff(ent)) continue; // 跳过关闭/冻结的图层
+ if (ent is ACadSharp.Entities.TextEntity || ent is ACadSharp.Entities.MText) continue;
+ AddCadEntityToCanvas(canvas, ent, offsetX, offsetY, _cadDoc);
+ }
+ // 最后绘制文字
+ foreach (var ent in entities)
+ {
+ if (IsLayerOff(ent)) continue;
+ if (ent is ACadSharp.Entities.TextEntity || ent is ACadSharp.Entities.MText)
+ AddCadEntityToCanvas(canvas, ent, offsetX, offsetY, _cadDoc);
+ }
 
 		// 边界框
 		var border = new Rectangle
@@ -245,124 +257,287 @@ return true;
 		return canvas;
 	}
 
-	private void AddCadEntityToCanvas(Canvas canvas, ACadSharp.Entities.Entity ent,
-		double offsetX, double offsetY)
+	/// 检查图层是否关闭或冻结
+	private static bool IsLayerOff(ACadSharp.Entities.Entity ent)
 	{
-		var color = GetEntityWpfColor(ent);
-		double penWidth = 0.5;
-
-		switch (ent)
+		try
 		{
-			case ACadSharp.Entities.Line line:
-			{
-				var shape = new Line
-				{
-					X1 = line.StartPoint.X + offsetX,
-					Y1 = offsetY - line.StartPoint.Y,
-					X2 = line.EndPoint.X + offsetX,
-					Y2 = offsetY - line.EndPoint.Y,
-					Stroke = color,
-					StrokeThickness = penWidth,
-				};
-				canvas.Children.Add(shape);
-				break;
-			}
-			case ACadSharp.Entities.Arc arc:
-			{
-				double cx = arc.Center.X + offsetX;
-				double cy = offsetY - arc.Center.Y;
-				double r = arc.Radius;
-				double startAngle = arc.StartAngle;
-				double endAngle = arc.EndAngle;
+			if (ent.Layer == null) return false;
+			if (!ent.Layer.IsOn) return true; // 图层关闭
+			if (ent.Layer.Flags.HasFlag(ACadSharp.Tables.LayerFlags.Frozen)) return true; // 图层冻结
+			return ent.IsInvisible; // 实体本身不可见
+		}
+		catch { return false; }
+	}
 
-				var p1 = new Point(cx + r * Math.Cos(startAngle), cy - r * Math.Sin(startAngle));
-				var p2 = new Point(cx + r * Math.Cos(endAngle), cy - r * Math.Sin(endAngle));
-				double sweep = endAngle - startAngle;
-				bool isLargeArc = Math.Abs(sweep) > Math.PI;
-				var sweepDir = sweep > 0 ? SweepDirection.Counterclockwise : SweepDirection.Clockwise;
+	private void AddCadEntityToCanvas(Canvas canvas, ACadSharp.Entities.Entity ent,
+ double offsetX, double offsetY, ACadSharp.CadDocument doc, int depth = 0)
+	{
+ if (depth > 10) return; // 防止无限递归
+ var color = GetEntityWpfColor(ent);
+ double penWidth = 0.5;
 
- var path = new WpfPath
+ switch (ent)
  {
+ case ACadSharp.Entities.Line line:
+ {
+ var shape = new Line
+ {
+ X1 = line.StartPoint.X + offsetX,
+ Y1 = offsetY - line.StartPoint.Y,
+ X2 = line.EndPoint.X + offsetX,
+ Y2 = offsetY - line.EndPoint.Y,
  Stroke = color,
  StrokeThickness = penWidth,
- Data = new PathGeometry
- {
- Figures =
- {
- new PathFigure
- {
- StartPoint = p1,
- Segments = { new ArcSegment(p2, new Size(r, r), 0, isLargeArc, sweepDir, true) }
- }
- }
- }
  };
- canvas.Children.Add(path);
-				break;
-			}
-			case ACadSharp.Entities.Circle circle:
-			{
-				double cx = circle.Center.X + offsetX;
-				double cy = offsetY - circle.Center.Y;
-				double r = circle.Radius;
-				var shape = new Ellipse
-				{
-					Width = r * 2, Height = r * 2,
-					Stroke = color, StrokeThickness = penWidth,
-				};
-				Canvas.SetLeft(shape, cx - r);
-				Canvas.SetTop(shape, cy - r);
-				canvas.Children.Add(shape);
-				break;
-			}
-			case ACadSharp.Entities.LwPolyline poly:
-			{
-				var verts = poly.Vertices;
-				if (verts.Count < 2) break;
-				var pts = new PointCollection(verts.Count);
-				foreach (var v in verts)
- pts.Add(new Point(v.Location.X + offsetX, offsetY - v.Location.Y));
- if (poly.IsClosed)
- {
- canvas.Children.Add(new Polygon
- {
- Points = pts,
- Stroke = color, StrokeThickness = penWidth,
- });
+ canvas.Children.Add(shape);
+ break;
  }
- else
+ case ACadSharp.Entities.Arc arc:
  {
- canvas.Children.Add(new Polyline
+ double cx = arc.Center.X + offsetX;
+ double cy = offsetY - arc.Center.Y;
+ double r = arc.Radius;
+ double startAngle = arc.StartAngle;
+ double endAngle = arc.EndAngle;
+
+ // 处理完整圆
+ if (Math.Abs(endAngle - startAngle) >= Math.PI * 2 - 0.001)
  {
- Points = pts,
+ var shape = new Ellipse
+ {
+ Width = r * 2, Height = r * 2,
  Stroke = color, StrokeThickness = penWidth,
- });
+ };
+ Canvas.SetLeft(shape, cx - r);
+ Canvas.SetTop(shape, cy - r);
+ canvas.Children.Add(shape);
+ break;
  }
-				break;
-			}
+
+ var p1 = new Point(cx + r * Math.Cos(startAngle), cy - r * Math.Sin(startAngle));
+ var p2 = new Point(cx + r * Math.Cos(endAngle), cy - r * Math.Sin(endAngle));
+ double sweep = endAngle - startAngle;
+ bool isLargeArc = Math.Abs(sweep) > Math.PI;
+ var sweepDir = sweep > 0 ? SweepDirection.Counterclockwise : SweepDirection.Clockwise;
+
+	 var path = new WpfPath
+	 {
+	 Stroke = color,
+	 StrokeThickness = penWidth,
+	 Data = new PathGeometry
+	 {
+	 Figures =
+	 {
+	 new PathFigure
+	 {
+	 StartPoint = p1,
+	 Segments = { new ArcSegment(p2, new Size(r, r), 0, isLargeArc, sweepDir, true) }
+	 }
+	 }
+	 }
+	 };
+	 canvas.Children.Add(path);
+ break;
+ }
+ case ACadSharp.Entities.Circle circle:
+ {
+ double cx = circle.Center.X + offsetX;
+ double cy = offsetY - circle.Center.Y;
+ double r = circle.Radius;
+ var shape = new Ellipse
+ {
+ Width = r * 2, Height = r * 2,
+ Stroke = color, StrokeThickness = penWidth,
+ };
+ Canvas.SetLeft(shape, cx - r);
+ Canvas.SetTop(shape, cy - r);
+ canvas.Children.Add(shape);
+ break;
+ }
+ case ACadSharp.Entities.Ellipse ellipse:
+ {
+ double cx = ellipse.Center.X + offsetX;
+ double cy = offsetY - ellipse.Center.Y;
+ double rx = ellipse.MajorAxis;
+ double ry = ellipse.MajorAxis * ellipse.RadiusRatio;
+ double rotation = ellipse.Rotation * 180.0 / Math.PI;
+ var shape = new Ellipse
+ {
+ Width = rx * 2, Height = ry * 2,
+ Stroke = color, StrokeThickness = penWidth,
+ };
+ if (Math.Abs(rotation) > 0.1)
+ {
+ shape.RenderTransform = new System.Windows.Media.RotateTransform(rotation);
+ shape.RenderTransformOrigin = new Point(0.5, 0.5);
+ }
+ Canvas.SetLeft(shape, cx - rx);
+ Canvas.SetTop(shape, cy - ry);
+ canvas.Children.Add(shape);
+ break;
+ }
+ case ACadSharp.Entities.LwPolyline poly:
+ {
+ var verts = poly.Vertices;
+ if (verts.Count < 2) break;
+ var pts = new PointCollection(verts.Count);
+ foreach (var v in verts)
+	 pts.Add(new Point(v.Location.X + offsetX, offsetY - v.Location.Y));
+	 if (poly.IsClosed)
+	 {
+	 canvas.Children.Add(new Polygon
+	 {
+	 Points = pts,
+	 Stroke = color, StrokeThickness = penWidth,
+	 });
+	 }
+	 else
+	 {
+	 canvas.Children.Add(new Polyline
+	 {
+	 Points = pts,
+	 Stroke = color, StrokeThickness = penWidth,
+	 });
+	 }
+ break;
+ }
+ case ACadSharp.Entities.Polyline2D poly2d:
+ {
+ // 2D多段线
+ var verts = poly2d.Vertices;
+ if (verts == null || verts.Count < 2) break;
+ var pts = new PointCollection(verts.Count);
+ foreach (var v in verts)
+	 pts.Add(new Point(v.Location.X + offsetX, offsetY - v.Location.Y));
+	 canvas.Children.Add(new Polyline
+	 {
+	 Points = pts,
+	 Stroke = color, StrokeThickness = penWidth,
+	 });
+ break;
+ }
+ case ACadSharp.Entities.Polyline3D poly3d:
+ {
+ var verts = poly3d.Vertices;
+ if (verts == null || verts.Count < 2) break;
+ var pts = new PointCollection(verts.Count);
+ foreach (var v in verts)
+	 pts.Add(new Point(v.Location.X + offsetX, offsetY - v.Location.Y));
+	 canvas.Children.Add(new Polyline
+	 {
+	 Points = pts,
+	 Stroke = color, StrokeThickness = penWidth,
+	 });
+ break;
+ }
+ case ACadSharp.Entities.Spline spline:
+ {
+ var fitPts = spline.FitPoints;
+ if (fitPts == null || fitPts.Count < 2) break;
+ var pts = new PointCollection(fitPts.Count);
+ foreach (var p in fitPts)
+	 pts.Add(new Point(p.X + offsetX, offsetY - p.Y));
+	 canvas.Children.Add(new Polyline
+	 {
+	 Points = pts,
+	 Stroke = color, StrokeThickness = penWidth,
+	 });
+ break;
+ }
+ case ACadSharp.Entities.Insert insert:
+ {
+ // ★ 块引用递归展开——这是最关键的修复！
+ var block = insert.Block;
+ if (block?.Entities == null) break;
+
+ // 计算变换参数
+ double insX = insert.InsertPoint.X + offsetX;
+ double insY = offsetY - insert.InsertPoint.Y;
+ double scaleX = insert.XScale == 0 ? 1 : insert.XScale;
+ double scaleY = insert.YScale == 0 ? 1 : insert.YScale;
+ double rotation = insert.Rotation * 180.0 / Math.PI;
+
+ // 为块引用内容创建容器
+ var blockCanvas = new Canvas();
+ foreach (var subEnt in block.Entities)
+ {
+ if (IsLayerOff(subEnt)) continue;
+ AddCadEntityToCanvas(blockCanvas, subEnt, offsetX, offsetY, doc, depth + 1);
+ }
+
+ if (blockCanvas.Children.Count == 0) break;
+
+ // 应用变换：缩放+旋转+平移
+ var tg = new System.Windows.Media.TransformGroup();
+ tg.Children.Add(new System.Windows.Media.ScaleTransform(scaleX, scaleY));
+ if (Math.Abs(rotation) > 0.1)
+ tg.Children.Add(new System.Windows.Media.RotateTransform(rotation));
+ tg.Children.Add(new System.Windows.Media.TranslateTransform(
+ insX - offsetX * scaleX, insY - offsetY * scaleY));
+ blockCanvas.RenderTransform = tg;
+ blockCanvas.RenderTransformOrigin = new Point(0, 0);
+
+ canvas.Children.Add(blockCanvas);
+ break;
+ }
+ case ACadSharp.Entities.Hatch hatch:
+ {
+ // 填充——用边界路径中的实体绘制
+ if (hatch.Paths == null) break;
+ foreach (var path in hatch.Paths)
+ {
+	if (path?.Entities == null) continue;
+	foreach (var subEnt in path.Entities)
+	{
+	if (IsLayerOff(subEnt)) continue;
+	AddCadEntityToCanvas(canvas, subEnt, offsetX, offsetY, doc, depth + 1);
+	}
+ }
+ break;
+ }
+ case ACadSharp.Entities.DimensionLinear dim:
+ {
+ // 线性标注——画标注线
+ try
+ {
+ double x1 = dim.FirstPoint.X + offsetX;
+ double y1 = offsetY - dim.FirstPoint.Y;
+ double x2 = dim.SecondPoint.X + offsetX;
+ double y2 = offsetY - dim.SecondPoint.Y;
+ var dimLine = new Line { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Stroke = color, StrokeThickness = penWidth };
+ canvas.Children.Add(dimLine);
+ // 标注文字
+ if (!string.IsNullOrEmpty(dim.Text))
+ {
+ var textPath = CreateTextGeometry(dim.Text, 12, color, (x1+x2)/2, (y1+y2)/2 - 8, 0);
+ if (textPath != null) canvas.Children.Add(textPath);
+ }
+ }
+ catch { }
+ break;
+ }
+ case ACadSharp.Entities.Point point:
+ {
+ double px = point.Location.X + offsetX;
+ double py = offsetY - point.Location.Y;
+ var dot = new Ellipse { Width = 3, Height = 3, Fill = color };
+ Canvas.SetLeft(dot, px - 1.5);
+ Canvas.SetTop(dot, py - 1.5);
+ canvas.Children.Add(dot);
+ break;
+ }
  case ACadSharp.Entities.TextEntity text:
  {
  double tx = text.InsertPoint.X + offsetX;
  double ty = offsetY - text.InsertPoint.Y;
  double h = Math.Max(8, text.Height);
- var rotation = text.Rotation * 180.0 / Math.PI; // 弧度转角度
- var tb = new TextBlock
- {
- Text = text.Value ?? "",
- FontSize = h,
- Foreground = color,
- FontFamily = TryGetCadFontFamily(text.Style?.Name),
- };
- // 应用旋转
- if (Math.Abs(rotation) > 0.1)
- {
- var rt = new System.Windows.Media.RotateTransform(rotation);
- tb.RenderTransform = rt;
- tb.RenderTransformOrigin = new Point(0, 0.5);
- }
- Canvas.SetLeft(tb, tx);
- Canvas.SetTop(tb, ty - h);
- canvas.Children.Add(tb);
+ var rotation = text.Rotation * 180.0 / Math.PI;
+ var textStr = text.Value ?? "";
+ if (string.IsNullOrEmpty(textStr)) break;
+ // 文字转矢量路径
+ var textPath = CreateTextGeometry(textStr, h, color, tx, ty - h, rotation);
+ if (textPath != null) canvas.Children.Add(textPath);
  break;
  }
  case ACadSharp.Entities.MText mtext:
@@ -371,30 +546,46 @@ return true;
  double ty = offsetY - mtext.InsertPoint.Y;
  double h = Math.Max(8, mtext.Height);
  var rotation = mtext.Rotation * 180.0 / Math.PI;
- // 解析MText内容，清理格式化代码
  var mtextText = ParseMTextContent(mtext.PlainText ?? "");
- var tb = new TextBlock
+ if (string.IsNullOrEmpty(mtextText)) break;
+ // 多行文字：按行分割，每行转矢量
+ var lines = mtextText.Split('\n');
+ for (int i = 0; i < lines.Length; i++)
  {
- Text = mtextText,
- FontSize = h,
- Foreground = color,
- FontFamily = TryGetCadFontFamily(mtext.Style?.Name),
- TextWrapping = TextWrapping.Wrap,
- MaxWidth = 2000,
- };
- // 应用旋转
- if (Math.Abs(rotation) > 0.1)
- {
- var rt = new System.Windows.Media.RotateTransform(rotation);
- tb.RenderTransform = rt;
- tb.RenderTransformOrigin = new Point(0, 0.5);
+ var lineText = lines[i].TrimEnd();
+ if (string.IsNullOrEmpty(lineText)) continue;
+ var textPath = CreateTextGeometry(lineText, h, color, tx, ty - h - i * h * 1.2, rotation);
+ if (textPath != null) canvas.Children.Add(textPath);
  }
- Canvas.SetLeft(tb, tx);
- Canvas.SetTop(tb, ty - h);
- canvas.Children.Add(tb);
  break;
  }
-		}
+ }
+	}
+
+	/// 将文字转为矢量路径（不依赖字体渲染，缩放不失真）
+	private System.Windows.Shapes.Path CreateTextGeometry(string text, double fontSize, Brush color,
+ double x, double y, double rotation)
+	{
+ try
+ {
+ var typeface = new Typeface(new System.Windows.Media.FontFamily("宋体, Microsoft YaHei, Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+ var formatted = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture,
+ System.Windows.FlowDirection.LeftToRight, typeface, fontSize, color, 1.0);
+ var geometry = formatted.BuildGeometry(new Point(0, 0));
+ var path = new System.Windows.Shapes.Path
+ {
+ Data = geometry,
+ Fill = color,
+ };
+ // 应用变换：先平移到目标位置，再旋转
+ var tg = new System.Windows.Media.TransformGroup();
+ tg.Children.Add(new System.Windows.Media.TranslateTransform(x, y));
+ if (Math.Abs(rotation) > 0.1)
+ tg.Children.Add(new System.Windows.Media.RotateTransform(rotation, 0, fontSize / 2));
+ path.RenderTransform = tg;
+ return path;
+ }
+ catch { return null; }
 	}
 
  private static SolidColorBrush GetEntityWpfColor(ACadSharp.Entities.Entity ent)
