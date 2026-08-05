@@ -616,7 +616,7 @@ DisplayCurrentPage();
  {
  Dispatcher.Invoke(() => { StatusText.Text = "正在区域OCR识别..."; Progress.Value = 0; });
 
- // 渲染高清原图（200 DPI），矢量/位图文件都支持
+	 // 渲染高清原图（200 DPI），矢量/位图文件都支持
  var fullImg = _preview.RenderPage(_currentPage, 0, 200);
  if (fullImg == null)
  {
@@ -624,43 +624,43 @@ DisplayCurrentPage();
  return;
  }
 
+ // 将 BitmapSource 转为 System.Drawing.Bitmap，在 Bitmap 上裁剪
+ var fullBmp = BitmapSourceToBitmap(fullImg);
+
  // 将屏幕坐标映射到原图坐标
  double scale = _zoom * (200.0 / 96.0);
- var imgRect = new Rect(
- screenRect.X / scale + PreviewScroll.HorizontalOffset / scale,
- screenRect.Y / scale + PreviewScroll.VerticalOffset / scale,
- screenRect.Width / scale,
- screenRect.Height / scale
- );
+ int cropX = Math.Max(0, (int)((screenRect.X + PreviewScroll.HorizontalOffset) / scale));
+ int cropY = Math.Max(0, (int)((screenRect.Y + PreviewScroll.VerticalOffset) / scale));
+ int cropW = Math.Min((int)(screenRect.Width / scale), fullBmp.Width - cropX);
+ int cropH = Math.Min((int)(screenRect.Height / scale), fullBmp.Height - cropY);
 
- // 裁剪
- var bmp = System.Windows.Media.Imaging.BitmapFrame.Create(fullImg);
- int cropX = Math.Max(0, (int)imgRect.X);
- int cropY = Math.Max(0, (int)imgRect.Y);
- int cropW = Math.Min((int)imgRect.Width, bmp.PixelWidth - cropX);
- int cropH = Math.Min((int)imgRect.Height, bmp.PixelHeight - cropY);
-
- if (cropW <= 0 || cropH <= 0)
+ if (cropW <= 10 || cropH <= 10)
  {
+ fullBmp.Dispose();
  Dispatcher.Invoke(() => StatusText.Text = "选区无效");
  return;
  }
 
- var cropped = new System.Windows.Int32Rect(cropX, cropY, cropW, cropH);
- var croppedBitmap = new System.Windows.Media.Imaging.CroppedBitmap(fullImg, cropped);
-
+ // 裁剪并保存
  tempImg = Path.GetTempFileName() + ".png";
  try
  {
-	 var sdBmp = BitmapSourceToBitmap(croppedBitmap);
-	 sdBmp.Save(tempImg, System.Drawing.Imaging.ImageFormat.Png);
-	 sdBmp.Dispose();
+ using var croppedBmp = new System.Drawing.Bitmap(cropW, cropH);
+ using (var g = System.Drawing.Graphics.FromImage(croppedBmp))
+ {
+ g.DrawImage(fullBmp, new System.Drawing.Rectangle(0, 0, cropW, cropH),
+ new System.Drawing.Rectangle(cropX, cropY, cropW, cropH),
+ System.Drawing.GraphicsUnit.Pixel);
+ }
+ croppedBmp.Save(tempImg, System.Drawing.Imaging.ImageFormat.Png);
  }
  catch (Exception ex)
  {
-	 Dispatcher.Invoke(() => StatusText.Text = $"保存图片失败: {ex.Message}");
-	 return;
+ fullBmp.Dispose();
+ Dispatcher.Invoke(() => StatusText.Text = $"保存图片失败: {ex.Message}");
+ return;
  }
+ fullBmp.Dispose();
 
  Dispatcher.Invoke(() => Progress.Value = 50);
 
