@@ -209,8 +209,7 @@ namespace LDAssistant.Views
  bmp = null; // Freeze 过的位图无法 Dispose，但可以解除引用
  }
  PageThumbs.Clear();
-            int pages = _preview.TotalPages;
-            ThumbTitle.Text = pages > 1 ? $"页面缩略图 ({pages} 页)" : "页面缩略图";
+ int pages = _preview.TotalPages;
 
  ThreadPool.QueueUserWorkItem(_ =>
 {
@@ -416,10 +415,18 @@ DisplayCurrentPage();
  {
  if (item.Thumbnail is BitmapSource bmp)
  {
- var rt = new RotateTransform(deltaAngle);
+ // 用 WPF TransformedBitmap + RotateTransform(中心旋转)
+ var rt = new RotateTransform(deltaAngle, bmp.PixelWidth / 2.0, bmp.PixelHeight / 2.0);
  var rb = new TransformedBitmap(bmp, rt);
  rb.Freeze();
  item.Thumbnail = rb;
+ // 同时旋转预览区（如果是当前页）
+ if (item.IsActive)
+ {
+ _rotation = (_rotation + deltaAngle + 360) % 360;
+ RotateTransform.Angle = _rotation;
+ ApplyZoom();
+ }
  }
  }
 
@@ -593,9 +600,13 @@ DisplayCurrentPage();
  /// <summary>滚轮缩放（直接缩放，无需Ctrl）</summary>
  private void PreviewArea_MouseWheel(object sender, MouseWheelEventArgs e)
  {
+ // Ctrl+滚轮缩放，普通滚轮不处理
+ if (Keyboard.Modifiers == ModifierKeys.Control)
+ {
  if (e.Delta > 0) BtnZoomIn_Click(null, null);
  else BtnZoomOut_Click(null, null);
  e.Handled = true;
+ }
  }
 
  /// <summary>获取选框在 PreviewGrid 坐标系中的矩形</summary>
@@ -751,7 +762,20 @@ DisplayCurrentPage();
  ApplyZoom(); // 旋转后宽高可能交换，更新 Canvas 尺寸
  }
 
- // ═════════════ 等宽/等高/适合全部 ═════════════
+ // ═════════════ 等宽/等高 + 居中 ═════════════
+ private void CenterContent()
+ {
+ double availW = PreviewScroll.ActualWidth;
+ double availH = PreviewScroll.ActualHeight;
+ double canvasW = PreviewCanvas.Width;
+ double canvasH = PreviewCanvas.Height;
+ if (canvasW > 0 && canvasH > 0 && availW > 0 && availH > 0)
+ {
+ TranslateTransform.X = (availW - canvasW) / 2.0;
+ TranslateTransform.Y = (availH - canvasH) / 2.0;
+ }
+ }
+
  private void BtnFitWidth_Click(object sender, RoutedEventArgs e)
  {
  if (PreviewCanvas.Children.Count == 0) return;
@@ -764,7 +788,8 @@ DisplayCurrentPage();
  if (availW <= 0) availW = 800;
  _zoom = availW / contentW;
  ApplyZoom();
- StatusText.Text = $"等宽显示 — 缩放 {_zoom:P0}";
+ CenterContent();
+ StatusText.Text = $"等宽显示+居中 — 缩放 {_zoom:P0}";
  }
 
  private void BtnFitHeight_Click(object sender, RoutedEventArgs e)
@@ -779,29 +804,8 @@ DisplayCurrentPage();
  if (availH <= 0) availH = 600;
  _zoom = availH / contentH;
  ApplyZoom();
- StatusText.Text = $"等高显示 — 缩放 {_zoom:P0}";
- }
-
- private void BtnFitAll_Click(object sender, RoutedEventArgs e)
- {
- if (PreviewCanvas.Children.Count == 0) return;
- var child = PreviewCanvas.Children[0] as FrameworkElement;
- double contentW = child?.ActualWidth > 0 ? child.ActualWidth :
- (child?.DesiredSize.Width > 0 ? child.DesiredSize.Width : 0);
- double contentH = child?.ActualHeight > 0 ? child.ActualHeight :
- (child?.DesiredSize.Height > 0 ? child.DesiredSize.Height : 0);
- if (contentW <= 0 || contentH <= 0) return;
-
- double availW = PreviewScroll.ActualWidth - 20;
- double availH = PreviewScroll.ActualHeight - 20;
- if (availW <= 0) availW = 800;
- if (availH <= 0) availH = 600;
-
- double zoomW = availW / contentW;
- double zoomH = availH / contentH;
- _zoom = Math.Min(zoomW, zoomH);
- ApplyZoom();
- StatusText.Text = $"适合全部 — 缩放 {_zoom:P0}";
+ CenterContent();
+ StatusText.Text = $"等高显示+居中 — 缩放 {_zoom:P0}";
  }
 
  // ═════════════ BitmapSource → System.Drawing.Bitmap 转换 ═════════════

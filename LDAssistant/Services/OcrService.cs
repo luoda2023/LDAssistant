@@ -152,10 +152,21 @@ namespace LDAssistant.Services
 			return skBmp;
 		}
 
-		private OcrResult BuildResult(RapidOcrResult rapidResult)
+	private OcrResult BuildResult(RapidOcrResult rapidResult)
+	{
+		var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ocr_init.log");
+		void Log(string msg)
 		{
-			if (rapidResult == null)
-				return new OcrResult { FullText = "OCR_ERROR: OCR 返回空结果" };
+			try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] {msg}\n"); } catch { }
+		}
+
+		if (rapidResult == null)
+			return new OcrResult { FullText = "OCR_ERROR: OCR 返回空结果" };
+
+		try
+		{
+			int tbCount = rapidResult.TextBlocks != null ? rapidResult.TextBlocks.Count() : 0;
+			Log($"TextBlocks count: {tbCount}");
 
 			var texts = new List<string>();
 			var items = new List<OcrItem>();
@@ -186,33 +197,58 @@ namespace LDAssistant.Services
 				}
 			}
 
+			Log($"Result: texts={texts.Count}, items={items.Count}, fullTextLen={string.Join("\n", texts).Length}");
+
 			return new OcrResult
 			{
 				FullText = string.Join("\n", texts),
 				Items = items
 			};
 		}
+		catch (Exception ex)
+		{
+			Log($"BuildResult EXCEPTION: {ex}");
+			return new OcrResult { FullText = $"OCR_ERROR: BuildResult异常: {ex.Message}" };
+		}
+	}
 
 		/// 识别 BitmapSource
-		public OcrResult Recognize(BitmapSource bitmapSource)
-		{
-			if (_ocr == null)
-				return new OcrResult { FullText = "OCR_ERROR: OCR 引擎未初始化" };
+public OcrResult Recognize(BitmapSource bitmapSource)
+{
+ if (_ocr == null)
+ return new OcrResult { FullText = "OCR_ERROR: OCR 引擎未初始化" };
+ if (bitmapSource == null)
+ return new OcrResult { FullText = "OCR_ERROR: bitmapSource 为空" };
 
-			string tempImg = null;
-			try
-			{
-				tempImg = Path.GetTempFileName() + ".png";
-				var encoder = new PngBitmapEncoder();
-				encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
-				using var fs = File.OpenWrite(tempImg);
-				encoder.Save(fs);
-				return Recognize(tempImg);
-			}
-			finally
-			{
-				try { if (tempImg != null) File.Delete(tempImg); } catch { }
-			}
-		}
+ string tempImg = null;
+ try
+ {
+ // 用 System.Drawing.Bitmap 保存，避免 PngBitmapEncoder 跨线程问题
+ tempImg = Path.GetTempFileName() + ".png";
+ int width = bitmapSource.PixelWidth;
+ int height = bitmapSource.PixelHeight;
+ int stride = width * ((bitmapSource.Format.BitsPerPixel + 7) / 8);
+ byte[] pixels = new byte[height * stride];
+ bitmapSource.CopyPixels(pixels, stride, 0);
+
+ using var bmp = new System.Drawing.Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+ var data = bmp.LockBits(new System.Drawing.Rectangle(0, 0, width, height),
+ System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+ try
+ {
+ System.Runtime.InteropServices.Marshal.Copy(pixels, 0, data.Scan0, pixels.Length);
+ }
+ finally
+ {
+ bmp.UnlockBits(data);
+ }
+ bmp.Save(tempImg, System.Drawing.Imaging.ImageFormat.Png);
+ return Recognize(tempImg);
+ }
+ finally
+ {
+ try { if (tempImg != null) File.Delete(tempImg); } catch { }
+ }
+}
 	}
 }
