@@ -811,14 +811,35 @@ DisplayCurrentPage();
  // 延迟到布局更新后执行，确保读到正确的 Canvas 尺寸
  Dispatcher.BeginInvoke(new Action(() =>
  {
- double availW = PreviewScroll.ActualWidth;
- double availH = PreviewScroll.ActualHeight;
+ double availW = PreviewScroll.ViewportWidth;
+ double availH = PreviewScroll.ViewportHeight;
  double canvasW = PreviewCanvas.Width;
  double canvasH = PreviewCanvas.Height;
  if (canvasW > 0 && canvasH > 0 && availW > 0 && availH > 0)
  {
+ // 内容比视口小：用 TranslateTransform 居中
+ // 内容比视口大：滚动到中心
+ if (canvasW <= availW)
+ {
  TranslateTransform.X = (availW - canvasW) / 2.0;
+ PreviewScroll.ScrollToHorizontalOffset(0);
+ }
+ else
+ {
+ TranslateTransform.X = 0;
+ PreviewScroll.ScrollToHorizontalOffset((canvasW - availW) / 2.0);
+ }
+
+ if (canvasH <= availH)
+ {
  TranslateTransform.Y = (availH - canvasH) / 2.0;
+ PreviewScroll.ScrollToVerticalOffset(0);
+ }
+ else
+ {
+ TranslateTransform.Y = 0;
+ PreviewScroll.ScrollToVerticalOffset((canvasH - availH) / 2.0);
+ }
  }
  }), System.Windows.Threading.DispatcherPriority.Render);
  }
@@ -884,6 +905,251 @@ DisplayCurrentPage();
  bmp.UnlockBits(data);
  }
  return bmp;
+ }
+
+ // ═════════════ UmiOCR（本地PaddleOCR引擎） ═════════════
+ private void BtnUmiOcr_Click(object sender, RoutedEventArgs e)
+ {
+ if (_currentFilePath == null && _currentImageForOcr == null)
+ {
+ MessageBox.Show("请先打开文件或图片。");
+ return;
+ }
+
+ // 检查UmiOCR路径
+ var umiPath = Services.UmiOcrService.GetSavedPath();
+ if (string.IsNullOrEmpty(umiPath) || !File.Exists(umiPath))
+ {
+ umiPath = Services.UmiOcrService.AutoDetectUmiOcr();
+ if (umiPath != null)
+ Services.UmiOcrService.SavePath(umiPath);
+ }
+
+ if (umiPath == null)
+ {
+ // 让用户手动选择
+ var dlg = new Microsoft.Win32.OpenFileDialog
+ {
+ Filter = "Umi-OCR.exe|Umi-OCR.exe|可执行文件|*.exe",
+ Title = "请选择 Umi-OCR.exe 路径"
+ };
+ if (dlg.ShowDialog() == true)
+ {
+ umiPath = dlg.FileName;
+ Services.UmiOcrService.SavePath(umiPath);
+ }
+ else return;
+ }
+
+ ThreadPool.QueueUserWorkItem(_ =>
+ {
+ Dispatcher.Invoke(() => { StatusText.Text = "UmiOCR识别中（首次启动较慢，请等待）..."; Progress.Value = 10; });
+
+ string tempImg = null;
+ try
+ {
+ // 获取图片路径
+ string imgPath = null;
+ var ext = _currentFilePath != null ? Path.GetExtension(_currentFilePath).ToLower() : "";
+ if (_currentImageForOcr != null && File.Exists(_currentImageForOcr) &&
+ (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tiff" || ext == ".tif" || ext == ".webp"))
+ {
+ imgPath = _currentImageForOcr;
+ }
+ else
+ {
+ BitmapSource img = null;
+ Dispatcher.Invoke(() => { img = _preview.RenderPage(_currentPage, 0, 200); });
+ if (img == null)
+ {
+ Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败");
+ return;
+ }
+ tempImg = Path.GetTempFileName() + ".png";
+ Dispatcher.Invoke(() =>
+ {
+ var encoder = new PngBitmapEncoder();
+ encoder.Frames.Add(BitmapFrame.Create(img));
+ using var fs = File.OpenWrite(tempImg);
+ encoder.Save(fs);
+ });
+ imgPath = tempImg;
+ }
+
+ Dispatcher.Invoke(() => Progress.Value = 30);
+
+ var umiOcr = new Services.UmiOcrService();
+ var result = umiOcr.RecognizeAsync(imgPath, "text").Result;
+
+ Dispatcher.Invoke(() => Progress.Value = 80);
+
+ Dispatcher.Invoke(() =>
+ {
+ Progress.Value = 100;
+ if (result.Success)
+ {
+ var normalizedText = TextNormalizer.Normalize(result.FullText);
+ _lastOcrText = normalizedText;
+ StatusText.Text = $"UmiOCR完成 — 文本{result.FullText.Length}字";
+
+ var preview = _lastOcrText.Length > 3000
+ ? _lastOcrText.Substring(0, 3000) + "\n\n... (文本已截断)"
+ : _lastOcrText;
+ PushToAi("UmiOCR识别结果", $"Umi-OCR 识别结果（本地PaddleOCR引擎）：\n\n```\n{preview}\n```");
+ }
+ else
+ {
+ StatusText.Text = $"UmiOCR失败: {result.Error}";
+ }
+ });
+ }
+ catch (Exception ex)
+ {
+ Dispatcher.Invoke(() => StatusText.Text = $"UmiOCR错误: {ex.Message}");
+ }
+ finally
+ {
+ if (tempImg != null && File.Exists(tempImg) && tempImg != _currentImageForOcr)
+ try { File.Delete(tempImg); } catch { }
+ }
+ });
+ }
+
+ // ═════════════ 在线OCR（OCR.space） ═════════════
+ private void BtnOnlineOcr_Click(object sender, RoutedEventArgs e)
+ {
+ if (_currentFilePath == null && _currentImageForOcr == null)
+ {
+ MessageBox.Show("请先打开文件或图片。");
+ return;
+ }
+
+ // 检查API Key
+ var apiKey = Services.OnlineOcrService.GetSavedApiKey();
+ if (string.IsNullOrEmpty(apiKey))
+ {
+ var input = InputDialog("在线OCR配置",
+ "首次使用需要免费注册 OCR.space API Key\n" +
+ "（每月免费25,000次，支持表格+中文识别）\n\n" +
+ "注册地址: https://ocr.space/ocrapi\n\n" +
+ "请输入你的 API Key:");
+ if (string.IsNullOrWhiteSpace(input)) return;
+ apiKey = input.Trim();
+ Services.OnlineOcrService.SaveApiKey(apiKey);
+ }
+
+ ThreadPool.QueueUserWorkItem(_ =>
+ {
+ Dispatcher.Invoke(() => { StatusText.Text = "在线OCR识别中..."; Progress.Value = 10; });
+
+ string tempImg = null;
+ try
+ {
+ // 获取图片路径
+ string imgPath = null;
+ var ext = _currentFilePath != null ? Path.GetExtension(_currentFilePath).ToLower() : "";
+ if (_currentImageForOcr != null && File.Exists(_currentImageForOcr) &&
+ (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tiff" || ext == ".tif" || ext == ".webp"))
+ {
+ imgPath = _currentImageForOcr;
+ }
+ else
+ {
+ // 从渲染结果保存
+ BitmapSource img = null;
+ Dispatcher.Invoke(() => { img = _preview.RenderPage(_currentPage, 0, 200); });
+ if (img == null)
+ {
+ Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败");
+ return;
+ }
+ tempImg = Path.GetTempFileName() + ".png";
+ Dispatcher.Invoke(() =>
+ {
+ var encoder = new PngBitmapEncoder();
+ encoder.Frames.Add(BitmapFrame.Create(img));
+ using var fs = File.OpenWrite(tempImg);
+ encoder.Save(fs);
+ });
+ imgPath = tempImg;
+ }
+
+ Dispatcher.Invoke(() => Progress.Value = 30);
+
+ var onlineOcr = new Services.OnlineOcrService(apiKey);
+ var result = onlineOcr.RecognizeAsync(imgPath, isTable: true).Result;
+
+ Dispatcher.Invoke(() => Progress.Value = 80);
+
+ Dispatcher.Invoke(() =>
+ {
+ Progress.Value = 100;
+ if (result.Success)
+ {
+ var normalizedText = TextNormalizer.Normalize(result.FullText);
+ _lastOcrText = normalizedText;
+ StatusText.Text = $"在线OCR完成 — {result.Items.Count} 行";
+
+ var preview = _lastOcrText.Length > 3000
+ ? _lastOcrText.Substring(0, 3000) + "\n\n... (文本已截断)"
+ : _lastOcrText;
+ PushToAi("在线OCR识别结果", $"识别到 **{result.Items.Count}** 行文字（支持表格）：\n\n```\n{preview}\n```");
+ }
+ else
+ {
+ StatusText.Text = $"在线OCR失败: {result.Error}";
+ // 提示用户检查API Key
+ if (result.Error.Contains("401") || result.Error.Contains("apikey") || result.Error.Contains("key"))
+ {
+ var reInput = InputDialog("在线OCR配置", $"API Key可能无效: {result.Error}\n\n请重新输入 API Key:");
+ if (!string.IsNullOrWhiteSpace(reInput))
+ {
+ Services.OnlineOcrService.SaveApiKey(reInput);
+ StatusText.Text = "API Key已更新，请重新点击在线OCR";
+ }
+ }
+ }
+ });
+ }
+ catch (Exception ex)
+ {
+ Dispatcher.Invoke(() => StatusText.Text = $"在线OCR错误: {ex.Message}");
+ }
+ finally
+ {
+ if (tempImg != null && File.Exists(tempImg) && tempImg != _currentImageForOcr)
+ try { File.Delete(tempImg); } catch { }
+ }
+ });
+ }
+
+ // 简单输入对话框
+ private string InputDialog(string title, string message)
+ {
+ var window = new Window
+ {
+ Title = title,
+ Width = 500,
+ Height = 250,
+ WindowStartupLocation = WindowStartupLocation.CenterOwner,
+ Owner = this,
+ Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 245, 245))
+ };
+ var panel = new StackPanel { Margin = new Thickness(16) };
+ panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
+ var textBox = new TextBox { Margin = new Thickness(0, 0, 0, 12) };
+ var btnPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+ var okBtn = new Button { Content = "确定", Padding = new Thickness(16, 4, 16, 4), IsDefault = true };
+ var cancelBtn = new Button { Content = "取消", Padding = new Thickness(16, 4, 16, 4), Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
+ string result = null;
+ okBtn.Click += (s, e) => { result = textBox.Text; window.Close(); };
+ btnPanel.Children.Add(okBtn);
+ btnPanel.Children.Add(cancelBtn);
+ panel.Children.Add(textBox);
+ panel.Children.Add(btnPanel);
+ window.Content = panel;
+ window.ShowDialog();
+ return result;
  }
 
  // ═════════════ OCR — 结果推送到 AI 窗口 ═════════════

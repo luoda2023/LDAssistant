@@ -70,7 +70,7 @@ PreviewKeyDown="Window_PreviewKeyDown">
 
                     <Rectangle Width="1" Height="24" Fill="#E0E0E0" Margin="6,0"/>
 
-<Button x:Name="BtnOcr" Style="{StaticResource ToolBarButton}" Click="BtnOcr_Click" ToolTip="全页OCR识别">
+<Button x:Name="BtnOcr" Style="{StaticResource ToolBarButton}" Click="BtnOcr_Click" ToolTip="全页OCR识别（本地引擎）">
 <StackPanel Orientation="Horizontal">
 <TextBlock Text="📝" FontSize="14"/>
 <TextBlock Text="OCR" Margin="4,0,0,0"/>
@@ -80,6 +80,18 @@ PreviewKeyDown="Window_PreviewKeyDown">
 <StackPanel Orientation="Horizontal">
 <TextBlock Text="🔲" FontSize="14"/>
 <TextBlock Text="区域OCR" Margin="4,0,0,0"/>
+</StackPanel>
+</Button>
+<Button x:Name="BtnUmiOcr" Style="{StaticResource ToolBarButton}" Click="BtnUmiOcr_Click" ToolTip="UmiOCR识别（本地引擎，支持中文+表格，自动启动UmiOCR）">
+<StackPanel Orientation="Horizontal">
+<TextBlock Text="🔤" FontSize="14"/>
+<TextBlock Text="UmiOCR" Margin="4,0,0,0"/>
+</StackPanel>
+</Button>
+<Button x:Name="BtnOnlineOcr" Style="{StaticResource ToolBarButton}" Click="BtnOnlineOcr_Click" ToolTip="在线OCR（OCR.space，支持表格识别，需免费注册API Key）">
+<StackPanel Orientation="Horizontal">
+<TextBlock Text="🌐" FontSize="14"/>
+<TextBlock Text="在线OCR" Margin="4,0,0,0"/>
 </StackPanel>
 </Button>
                     <Button x:Name="BtnCheck" Style="{StaticResource ToolBarButton}" Click="BtnCheck_Click" ToolTip="规范检查">
