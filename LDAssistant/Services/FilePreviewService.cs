@@ -513,7 +513,8 @@ return true;
  // 标注文字
  if (!string.IsNullOrEmpty(dim.Text))
  {
- var textPath = CreateTextGeometry(dim.Text, 12, color, (x1+x2)/2, (y1+y2)/2 - 8, 0);
+ double dimH = Math.Max(0.1, dim.Style?.TextHeight ?? 3.0);
+ var textPath = CreateTextGeometry(dim.Text, dimH, color, (x1+x2)/2, (y1+y2)/2 - dimH, 0);
  if (textPath != null) canvas.Children.Add(textPath);
  }
  }
@@ -534,8 +535,8 @@ return true;
  {
  double tx = text.InsertPoint.X + offsetX;
  double ty = offsetY - text.InsertPoint.Y;
- double h = Math.Max(8, text.Height);
- var rotation = text.Rotation * 180.0 / Math.PI;
+ double h = Math.Max(0.1, text.Height); // 用CAD原始高度，最小0.1
+ var rotation = (text.Rotation * 180.0 / Math.PI) % 360.0;
  var textStr = text.Value ?? "";
  if (string.IsNullOrEmpty(textStr)) break;
  // 文字转矢量路径
@@ -547,8 +548,8 @@ return true;
  {
  double tx = mtext.InsertPoint.X + offsetX;
  double ty = offsetY - mtext.InsertPoint.Y;
- double h = Math.Max(8, mtext.Height);
- var rotation = mtext.Rotation * 180.0 / Math.PI;
+ double h = Math.Max(0.1, mtext.Height);
+ var rotation = (mtext.Rotation * 180.0 / Math.PI) % 360.0;
  var mtextText = ParseMTextContent(mtext.PlainText ?? "");
  if (string.IsNullOrEmpty(mtextText)) break;
  // 多行文字：按行分割，每行转矢量

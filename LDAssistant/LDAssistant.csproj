@@ -28,11 +28,13 @@
  <PackageReference Include="ACadSharp" Version="3.*" />
   </ItemGroup>
 
-<!-- 确保原生 pdfium.dll 被打包进单文件 exe -->
-<Target Name="IncludePdfiumNative" AfterTargets="ComputeFilesToPublish">
+<!-- 确保原生 pdfium.dll 被复制到输出目录根目录（PdfiumViewer查找路径） -->
+<Target Name="CopyPdfiumToRoot" AfterTargets="Publish">
 <ItemGroup>
-<Content Include="$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll" Condition="Exists('$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll')" CopyToOutputDirectory="PreserveNewest" Pack="true" PackagePath="runtimes/win-x64/native/" />
+<Content Include="$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll" Condition="Exists('$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll')" CopyToOutputDirectory="PreserveNewest" />
 </ItemGroup>
+<Copy SourceFiles="$(OutputPath)/x64/pdfium.dll" DestinationFolder="$(PublishDir)" Condition="Exists('$(OutputPath)/x64/pdfium.dll')" SkipUnchangedFiles="true" />
+<Copy SourceFiles="$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll" DestinationFolder="$(PublishDir)" Condition="Exists('$(NuGetPackageRoot)/pdfiumviewer.native.x86_64.v8-xfa/2018.1.9/runtimes/win-x64/native/pdfium.dll')" SkipUnchangedFiles="true" />
 </Target>
 
 	<ItemGroup>
