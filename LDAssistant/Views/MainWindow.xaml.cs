@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using LDAssistant.Models;
 using LDAssistant.Services;
@@ -562,43 +563,40 @@ DisplayCurrentPage();
  {
  Dispatcher.Invoke(() => { StatusText.Text = "正在区域OCR识别..."; Progress.Value = 0; });
 
- // 渲染高清原图（200 DPI，平衡清晰度和内存）
- var fullImg = _preview.RenderPage(_currentPage, 0, 200);
- if (fullImg == null)
+ // 用屏幕截图方式截取预览区（适配矢量/位图所有渲染方式）
+ BitmapSource areaBitmap = null;
+ Dispatcher.Invoke(() =>
  {
- Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败");
+ try
+ {
+ var gridPos = PreviewGrid.PointToScreen(new Point(screenRect.X, screenRect.Y));
+ int x = (int)gridPos.X;
+ int y = (int)gridPos.Y;
+ int w = (int)screenRect.Width;
+ int h = (int)screenRect.Height;
+
+ using var bmp = new System.Drawing.Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+ using var g = System.Drawing.Graphics.FromImage(bmp);
+ g.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(w, h), System.Drawing.CopyPixelOperation.SourceCopy);
+ areaBitmap = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+ bmp.GetHbitmap(), IntPtr.Zero, System.Windows.Int32Rect.Empty, System.Windows.Media.Imaging.BitmapSizeOptions.FromWidthAndHeight(w, h));
+ areaBitmap.Freeze();
+ }
+ catch (Exception ex)
+ {
+ System.Diagnostics.Debug.WriteLine($"屏幕截图失败: {ex.Message}");
+ }
+ });
+
+ if (areaBitmap == null)
+ {
+ Dispatcher.Invoke(() => StatusText.Text = "截图失败");
  return;
  }
-
- // 将屏幕坐标映射到原图坐标
- // 需要考虑缩放因子和滚动偏移
- double scale = _zoom * (200.0 / 96.0); // 200DPI渲染，96DPI是WPF默认
- var imgRect = new Rect(
- screenRect.X / scale + PreviewScroll.HorizontalOffset / scale,
- screenRect.Y / scale + PreviewScroll.VerticalOffset / scale,
- screenRect.Width / scale,
- screenRect.Height / scale
- );
-
- // 裁剪
- var bmp = System.Windows.Media.Imaging.BitmapFrame.Create(fullImg);
- int cropX = Math.Max(0, (int)imgRect.X);
- int cropY = Math.Max(0, (int)imgRect.Y);
- int cropW = Math.Min((int)imgRect.Width, bmp.PixelWidth - cropX);
- int cropH = Math.Min((int)imgRect.Height, bmp.PixelHeight - cropY);
-
- if (cropW <= 0 || cropH <= 0)
- {
- Dispatcher.Invoke(() => StatusText.Text = "选区无效");
- return;
- }
-
- var cropped = new System.Windows.Int32Rect(cropX, cropY, cropW, cropH);
- var croppedBitmap = new System.Windows.Media.Imaging.CroppedBitmap(fullImg, cropped);
 
  tempImg = Path.GetTempFileName() + ".png";
  var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
- encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(croppedBitmap));
+ encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(areaBitmap));
  using var fs = File.OpenWrite(tempImg);
  encoder.Save(fs);
 
@@ -692,21 +690,47 @@ DisplayCurrentPage();
             {
                 Dispatcher.Invoke(() => { StatusText.Text = "正在 OCR 识别..."; Progress.Value = 0; });
 
-                string tempImg = null;
-                try
-                {
- var img = _preview.RenderPage(_currentPage, 0, 200);
- if (img == null)
+ string tempImg = null;
+ try
  {
- Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败");
- return;
- }
+	 // 用屏幕截图截取整个预览区（适配矢量/位图所有渲染方式）
+	 BitmapSource fullBitmap = null;
+	 Dispatcher.Invoke(() =>
+	 {
+	 try
+	 {
+	 var gridPos = PreviewGrid.PointToScreen(new Point(0, 0));
+	 int x = (int)gridPos.X;
+	 int y = (int)gridPos.Y;
+	 int w = (int)PreviewGrid.ActualWidth;
+	 int h = (int)PreviewGrid.ActualHeight;
+	 if (w <= 0) w = 800;
+	 if (h <= 0) h = 600;
 
-                    tempImg = Path.GetTempFileName() + ".png";
-                    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
-                    encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(img));
-                    using var fs = File.OpenWrite(tempImg);
-                    encoder.Save(fs);
+	 using var bmp = new System.Drawing.Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+	 using var g = System.Drawing.Graphics.FromImage(bmp);
+	 g.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(w, h), System.Drawing.CopyPixelOperation.SourceCopy);
+	 fullBitmap = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+	 bmp.GetHbitmap(), IntPtr.Zero, System.Windows.Int32Rect.Empty, System.Windows.Media.Imaging.BitmapSizeOptions.FromWidthAndHeight(w, h));
+	 fullBitmap.Freeze();
+	 }
+	 catch (Exception ex)
+	 {
+	 System.Diagnostics.Debug.WriteLine($"全页截图失败: {ex.Message}");
+	 }
+	 });
+
+	 if (fullBitmap == null)
+	 {
+	 Dispatcher.Invoke(() => StatusText.Text = "截图失败");
+	 return;
+	 }
+
+ tempImg = Path.GetTempFileName() + ".png";
+ var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+ encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(fullBitmap));
+ using var fs = File.OpenWrite(tempImg);
+ encoder.Save(fs);
 
                     Dispatcher.Invoke(() => Progress.Value = 50);
 
