@@ -623,20 +623,32 @@ DisplayCurrentPage();
  ThreadPool.QueueUserWorkItem(_ =>
  {
  string tempImg = null;
+ string tempFull = null;
  try
  {
  Dispatcher.Invoke(() => { StatusText.Text = "正在区域OCR识别..."; Progress.Value = 0; });
 
-	 // 渲染高清原图（200 DPI），矢量/位图文件都支持
- var fullImg = _preview.RenderPage(_currentPage, 0, 200);
+ // 渲染高清原图（200 DPI），矢量/位图文件都支持
+ BitmapSource fullImg = null;
+ Dispatcher.Invoke(() => { fullImg = _preview.RenderPage(_currentPage, 0, 200); });
  if (fullImg == null)
  {
  Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败");
  return;
  }
 
- // 将 BitmapSource 转为 System.Drawing.Bitmap，在 Bitmap 上裁剪
- var fullBmp = BitmapSourceToBitmap(fullImg);
+ // 在 UI 线程用 PngBitmapEncoder 保存全图（避免跨线程像素格式问题）
+ tempFull = Path.GetTempFileName() + ".png";
+ Dispatcher.Invoke(() =>
+ {
+ var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+ encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(fullImg));
+ using var fs = System.IO.File.OpenWrite(tempFull);
+ encoder.Save(fs);
+ });
+
+ // 用 System.Drawing.Bitmap 从文件加载，裁剪
+ using var fullBmp = new System.Drawing.Bitmap(tempFull);
 
  // 将屏幕坐标映射到原图坐标
  double scale = _zoom * (200.0 / 96.0);
@@ -647,15 +659,12 @@ DisplayCurrentPage();
 
  if (cropW <= 10 || cropH <= 10)
  {
- fullBmp.Dispose();
  Dispatcher.Invoke(() => StatusText.Text = "选区无效");
  return;
  }
 
  // 裁剪并保存
  tempImg = Path.GetTempFileName() + ".png";
- try
- {
  using var croppedBmp = new System.Drawing.Bitmap(cropW, cropH);
  using (var g = System.Drawing.Graphics.FromImage(croppedBmp))
  {
@@ -664,14 +673,6 @@ DisplayCurrentPage();
  System.Drawing.GraphicsUnit.Pixel);
  }
  croppedBmp.Save(tempImg, System.Drawing.Imaging.ImageFormat.Png);
- }
- catch (Exception ex)
- {
- fullBmp.Dispose();
- Dispatcher.Invoke(() => StatusText.Text = $"保存图片失败: {ex.Message}");
- return;
- }
- fullBmp.Dispose();
 
  Dispatcher.Invoke(() => Progress.Value = 50);
 
@@ -704,6 +705,8 @@ DisplayCurrentPage();
  {
  if (tempImg != null && File.Exists(tempImg))
  try { File.Delete(tempImg); } catch { }
+ if (tempFull != null && File.Exists(tempFull))
+ try { File.Delete(tempFull); } catch { }
  }
  });
  }
@@ -782,11 +785,15 @@ DisplayCurrentPage();
  var child = PreviewCanvas.Children[0] as FrameworkElement;
  double contentW = child?.ActualWidth > 0 ? child.ActualWidth :
  (child?.DesiredSize.Width > 0 ? child.DesiredSize.Width : 0);
+ double contentH = child?.ActualHeight > 0 ? child.ActualHeight :
+ (child?.DesiredSize.Height > 0 ? child.DesiredSize.Height : 0);
  if (contentW <= 0) return;
 
  double availW = PreviewScroll.ActualWidth - 20;
  if (availW <= 0) availW = 800;
- _zoom = availW / contentW;
+ // 旋转 90/270° 时，显示宽度 = 原始高度
+ double fitW = (_rotation == 90 || _rotation == 270) ? contentH : contentW;
+ _zoom = availW / fitW;
  ApplyZoom();
  CenterContent();
  StatusText.Text = $"等宽显示+居中 — 缩放 {_zoom:P0}";
@@ -796,13 +803,17 @@ DisplayCurrentPage();
  {
  if (PreviewCanvas.Children.Count == 0) return;
  var child = PreviewCanvas.Children[0] as FrameworkElement;
+ double contentW = child?.ActualWidth > 0 ? child.ActualWidth :
+ (child?.DesiredSize.Width > 0 ? child.DesiredSize.Width : 0);
  double contentH = child?.ActualHeight > 0 ? child.ActualHeight :
  (child?.DesiredSize.Height > 0 ? child.DesiredSize.Height : 0);
  if (contentH <= 0) return;
 
  double availH = PreviewScroll.ActualHeight - 20;
  if (availH <= 0) availH = 600;
- _zoom = availH / contentH;
+ // 旋转 90/270° 时，显示高度 = 原始宽度
+ double fitH = (_rotation == 90 || _rotation == 270) ? contentW : contentH;
+ _zoom = availH / fitH;
  ApplyZoom();
  CenterContent();
  StatusText.Text = $"等高显示+居中 — 缩放 {_zoom:P0}";
@@ -849,27 +860,24 @@ DisplayCurrentPage();
 	 string tempImg = null;
 	 try
 	 {
-	 // 用 RenderPage 渲染位图（矢量/位图文件都支持，RenderPage 内部会调用位图渲染）
- var img = _preview.RenderPage(_currentPage, 0, 200);
+ // 用 RenderPage 渲染位图（矢量/位图文件都支持）
+ BitmapSource img = null;
+ Dispatcher.Invoke(() => { img = _preview.RenderPage(_currentPage, 0, 200); });
  if (img == null)
  {
-	 Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败");
-	 return;
-	 }
+ Dispatcher.Invoke(() => StatusText.Text = "渲染页面失败");
+ return;
+ }
 
- // 将 BitmapSource 转为 System.Drawing.Bitmap 再保存为 PNG（避免 PngBitmapEncoder 跨线程问题）
+ // 在 UI 线程用 PngBitmapEncoder 保存（避免跨线程像素格式问题）
  tempImg = Path.GetTempFileName() + ".png";
- try
+ Dispatcher.Invoke(() =>
  {
-	 var sdBmp = BitmapSourceToBitmap(img);
-	 sdBmp.Save(tempImg, System.Drawing.Imaging.ImageFormat.Png);
-	 sdBmp.Dispose();
- }
- catch (Exception ex)
- {
-	 Dispatcher.Invoke(() => StatusText.Text = $"保存图片失败: {ex.Message}");
-	 return;
- }
+ var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+ encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(img));
+ using var fs = System.IO.File.OpenWrite(tempImg);
+ encoder.Save(fs);
+ });
 
  Dispatcher.Invoke(() => Progress.Value = 50);
 
