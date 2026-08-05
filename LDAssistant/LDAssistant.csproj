@@ -54,11 +54,11 @@
 	</None>
 	</ItemGroup>
 
-	<!-- Umi-OCR 引擎（Rapid OCR，打包到输出目录） -->
+	<!-- RapidOCR-json 引擎（精简版，仅简体中文模型，32MB） -->
 	<ItemGroup>
-	<None Include="..\UmiOCR\Umi-OCR_Rapid_v2.1.5\**\*">
+	<None Include="RapidOCR\**\*">
 	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	<Link>Umi-OCR\%(RecursiveDir)%(Filename)%(Extension)</Link>
+	<Link>RapidOCR\%(RecursiveDir)%(Filename)%(Extension)</Link>
 	</None>
 	</ItemGroup>
 
