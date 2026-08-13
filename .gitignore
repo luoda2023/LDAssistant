@@ -63,3 +63,6 @@ test_ocr*
 test_ocr*.ps1
 test_ocr*.bat
 UmiOCR/
+
+# file-viewer 第三方预览组件（183MB，本地构建/安装包时复制，不进 git）
+LDAssistant/file-viewer/

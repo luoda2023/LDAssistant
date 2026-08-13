@@ -55,7 +55,7 @@ namespace LDAssistant.Services
             table.Append(tblPr);
 
             // 表头
-            table.Append(CreateRow(new[] { "序号", "规范编号", "名称", "状态", "替代信息", "发布单位" }, true));
+            table.Append(CreateRow(new[] { "序号", "规范编号", "名称", "状态", "替代信息", "发布单位", "来源" }, true));
 
             foreach (var r in results)
             {
@@ -65,7 +65,8 @@ namespace LDAssistant.Services
                 r.Name,
                 r.Status,
                 r.Replacement,
-                r.Publisher }));
+                r.Publisher,
+                CheckResult.SourceLabel(r.Source) }));
             }
 
             body.Append(table);
@@ -125,7 +126,7 @@ namespace LDAssistant.Services
                 ws.Cell(row, 4).Value = r.Status;
                 ws.Cell(row, 5).Value = r.Replacement;
                 ws.Cell(row, 6).Value = r.Publisher;
-                ws.Cell(row, 7).Value = r.Source;
+                ws.Cell(row, 7).Value = CheckResult.SourceLabel(r.Source);
 
                 // 状态颜色
                 var statusCell = ws.Cell(row, 4);

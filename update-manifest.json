@@ -1,0 +1,14 @@
+{
+  "wpf": {
+    "version": "3.1.0",
+    "url": "https://github.com/luoda2023/LDAssistant/releases/download/v3.1.0/LDAssistant-update.zip",
+    "size": 0,
+ "notes": "WPF 主程序更新 — WebView2 + file-viewer 版"
+ },
+ "standards": {
+    "version": "20250806",
+    "url": "https://github.com/luoda2023/LDAssistant/releases/download/standards-20250806/standards.db",
+    "size": 0,
+    "notes": "标准数据库更新"
+  }
+}

@@ -61,5 +61,34 @@ namespace LDAssistant.Models
             "废止" => "#F44336",
             _ => "#9E9E9E"
         };
+
+        /// <summary>来源代码 → 友好名称（用于分类展示与筛选）</summary>
+        public static string SourceLabel(string source)
+        {
+            if (string.IsNullOrWhiteSpace(source)) return "未知来源";
+            return source.ToLowerInvariant() switch
+            {
+                "csres" or "csres_sort" => "工标网",
+                "openstd" or "openstd_dedup" => "全国标准信息公共服务平台",
+                "samr" => "国家市场监督管理总局",
+                "dbba" => "地方标准信息服务平台",
+                "hbba" => "行业标准信息服务平台",
+                "std_gov" => "国家标准化管理委员会",
+                "std_hangye" => "行业标准",
+                "biaozhun" => "标准网",
+                "ccsn" => "国家工程建设标准化信息网",
+                "zjw" => "住房和城乡建设部",
+                "cecs" => "中国工程建设标准化协会",
+                _ => source
+            };
+        }
+
+        /// <summary>状态归一化：作废/废止→作废；被代替/被替代→被替代（用于筛选分组）</summary>
+        public static string NormStatus(string status) => status switch
+        {
+            "作废" or "废止" => "作废",
+            "被代替" or "被替代" => "被替代",
+            _ => string.IsNullOrEmpty(status) ? "未找到" : status
+        };
     }
 }

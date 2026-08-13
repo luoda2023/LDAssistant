@@ -68,10 +68,18 @@ namespace LDAssistant.Services
                 .Replace("\u2018", "'")   // '
                 .Replace("\u2019", "'");  // '
 
-            // 去所有空格
-            result = Regex.Replace(result, @"\s+", "");
+ // 去所有空格
+ result = Regex.Replace(result, @"\s+", "");
 
-            // OCR纠错
+ // 统一去除规范编号中的分隔符（/ - .），让 GB50001 与 GB/T50001-2017 归一化一致
+ result = Regex.Replace(result, @"[/\-.]", "");
+
+ // 去除 GB/T、GB/Z 等推荐/指导标准中的分类字母，使 GB50001 能匹配 GB/T50001
+ // （用户常省略 /T，归一化时统一去掉斜杠后的单字母分类符）
+ result = Regex.Replace(result, @"^GB[TZJC]", "GB", RegexOptions.IgnoreCase);
+ result = Regex.Replace(result, @"^DB/T", "DB", RegexOptions.IgnoreCase);
+
+ // OCR纠错
             result = Regex.Replace(result, @"CJJJ", "CJJ", RegexOptions.IgnoreCase);
             result = Regex.Replace(result, @"DGJ(?=\d)", "DG/TJ", RegexOptions.IgnoreCase);
             // l/I 误认为 1
@@ -97,12 +105,23 @@ namespace LDAssistant.Services
             var normCode = NormalizeForMatching(code);
             var normName = NormalizeForMatching(name);
 
-            // 1. 精确 norm_code 匹配
-            var record = QuerySingle("SELECT * FROM standards WHERE norm_code = @c LIMIT 1", ("@c", normCode));
+ // 归一化SQL表达式：去分隔符 + GB/T→GB 变体（与 NormalizeForMatching 保持一致）
+ const string normExpr = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE({0},'/',''),'-',''),' ',''),'.',''),'GBT','GB'),'GBZ','GB'),'GBC','GB'),'GBJ','GB')";
 
-            // 2. 精确 code 匹配
-            if (record == null)
-                record = QuerySingle("SELECT * FROM standards WHERE code = @c LIMIT 1", ("@c", code));
+ // 1. 精确 norm_code 匹配（去分隔符+分类字母后比较，GB50001 ↔ GB/T50001-2017）
+ var record = QuerySingle(
+ $"SELECT * FROM standards WHERE {string.Format(normExpr, "norm_code")} = @c LIMIT 1",
+ ("@c", normCode));
+
+ // 2. 精确 code 匹配（同样去分隔符+分类字母）
+ if (record == null)
+ record = QuerySingle(
+ $"SELECT * FROM standards WHERE {string.Format(normExpr, "code")} = @c LIMIT 1",
+ ("@c", normCode));
+
+ // 2b. 原始 code 匹配（兜底，处理库里本身就是无斜杠的情况）
+ if (record == null)
+ record = QuerySingle("SELECT * FROM standards WHERE code = @c LIMIT 1", ("@c", code));
 
             // 3. 名称匹配
             if (record == null && !string.IsNullOrEmpty(normName))
@@ -149,15 +168,20 @@ namespace LDAssistant.Services
             }
             catch { }
 
-            // 补充 LIKE 搜索
-            if (results.Count < limit)
-            {
-                using var cmd = _conn.CreateCommand();
-                cmd.CommandText = @"SELECT * FROM standards WHERE code LIKE @q OR name LIKE @q2 
-                                     LIMIT @limit";
-                cmd.Parameters.AddWithValue("@q", $"%{query}%");
-                cmd.Parameters.AddWithValue("@q2", $"%{query}%");
-                cmd.Parameters.AddWithValue("@limit", limit - results.Count);
+ // 补充 LIKE 搜索（编号字段做分隔符归一化匹配，含 GB/T→GB 变体）
+ if (results.Count < limit)
+ {
+ using var cmd = _conn.CreateCommand();
+ // 归一化SQL：去斜杠/连字符/空格/点，再把 GBT→GB（与 NormalizeForMatching 保持一致）
+ const string normExpr = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE({0},'/',''),'-',''),' ',''),'.',''),'GBT','GB'),'GBZ','GB'),'GBC','GB'),'GBJ','GB')";
+ cmd.CommandText = $@"SELECT * FROM standards WHERE
+ {string.Format(normExpr, "norm_code")} LIKE @q
+ OR {string.Format(normExpr, "code")} LIKE @q
+ OR name LIKE @q2
+ LIMIT @limit";
+ cmd.Parameters.AddWithValue("@q", $"%{norm}%");
+ cmd.Parameters.AddWithValue("@q2", $"%{query}%");
+ cmd.Parameters.AddWithValue("@limit", limit - results.Count);
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())
                     results.Add(MapRecord(reader));
@@ -269,42 +293,52 @@ namespace LDAssistant.Services
         }
         catch { }
 
-        // 补充 LIKE 搜索
-        if (results.Count < limit)
-        {
-            using var cmd = _conn.CreateCommand();
-            var sql = "SELECT * FROM standards WHERE code LIKE @q OR name LIKE @q2";
-            if (!string.IsNullOrEmpty(category))
-                sql += " AND source_type = @cat";
-            sql += " LIMIT @limit";
-            cmd.CommandText = sql;
-            cmd.Parameters.AddWithValue("@q", $"%{keyword}%");
-            cmd.Parameters.AddWithValue("@q2", $"%{keyword}%");
-            if (!string.IsNullOrEmpty(category))
-                cmd.Parameters.AddWithValue("@cat", category);
-            cmd.Parameters.AddWithValue("@limit", limit - results.Count);
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-                results.Add(MapRecord(reader));
-        }
+ // 补充 LIKE 搜索（编号字段做分隔符归一化匹配，含 GB/T→GB 变体）
+ if (results.Count < limit)
+ {
+ var norm = NormalizeForMatching(keyword);
+ using var cmd = _conn.CreateCommand();
+ const string normExpr = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE({0},'/',''),'-',''),' ',''),'.',''),'GBT','GB'),'GBZ','GB'),'GBC','GB'),'GBJ','GB')";
+ var sql = $@"SELECT * FROM standards WHERE
+ {string.Format(normExpr, "norm_code")} LIKE @q
+ OR {string.Format(normExpr, "code")} LIKE @q
+ OR name LIKE @q2";
+ if (!string.IsNullOrEmpty(category))
+ sql += " AND source_type = @cat";
+ sql += " LIMIT @limit";
+ cmd.CommandText = sql;
+ cmd.Parameters.AddWithValue("@q", $"%{norm}%");
+ cmd.Parameters.AddWithValue("@q2", $"%{keyword}%");
+ if (!string.IsNullOrEmpty(category))
+ cmd.Parameters.AddWithValue("@cat", category);
+ cmd.Parameters.AddWithValue("@limit", limit - results.Count);
+ using var reader = cmd.ExecuteReader();
+ while (reader.Read())
+ results.Add(MapRecord(reader));
+ }
 
-        return results;
-    }
+ return results;
+ }
 
-    /// <summary>按状态过滤搜索</summary>
-    public List<StandardRecord> SearchByStatus(string keyword, string status, string category = "", int limit = 200)
+ ///
+ public List<StandardRecord> SearchByStatus(string keyword, string status, string category = "", int limit = 200)
     {
         var results = new List<StandardRecord>();
         if (string.IsNullOrWhiteSpace(keyword)) return results;
 
-        using var cmd = _conn.CreateCommand();
-        var sql = "SELECT * FROM standards WHERE (code LIKE @q OR name LIKE @q2) AND status = @status";
-        if (!string.IsNullOrEmpty(category))
-            sql += " AND source_type = @cat";
-        sql += " LIMIT @limit";
-        cmd.CommandText = sql;
-        cmd.Parameters.AddWithValue("@q", $"%{keyword}%");
-        cmd.Parameters.AddWithValue("@q2", $"%{keyword}%");
+ var norm = NormalizeForMatching(keyword);
+ using var cmd = _conn.CreateCommand();
+ const string normExpr = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE({0},'/',''),'-',''),' ',''),'.',''),'GBT','GB'),'GBZ','GB'),'GBC','GB'),'GBJ','GB')";
+ var sql = $@"SELECT * FROM standards WHERE (
+ {string.Format(normExpr, "norm_code")} LIKE @q
+ OR {string.Format(normExpr, "code")} LIKE @q
+ OR name LIKE @q2) AND status = @status";
+ if (!string.IsNullOrEmpty(category))
+ sql += " AND source_type = @cat";
+ sql += " LIMIT @limit";
+ cmd.CommandText = sql;
+ cmd.Parameters.AddWithValue("@q", $"%{norm}%");
+ cmd.Parameters.AddWithValue("@q2", $"%{keyword}%");
         cmd.Parameters.AddWithValue("@status", status);
         if (!string.IsNullOrEmpty(category))
             cmd.Parameters.AddWithValue("@cat", category);

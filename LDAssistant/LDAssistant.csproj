@@ -1,31 +1,37 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
-    <ApplicationIcon>..\app_icon.ico</ApplicationIcon>
-    <AssemblyName>LDAssistant</AssemblyName>
-    <RootNamespace>LDAssistant</RootNamespace>
-    <Nullable>disable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-<PublishSingleFile>true</PublishSingleFile>
-<SelfContained>true</SelfContained>
-<RuntimeIdentifier>win-x64</RuntimeIdentifier>
-<PublishTrimmed>false</PublishTrimmed>
-<IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
-  </PropertyGroup>
+ <PropertyGroup>
+ <OutputType>WinExe</OutputType>
+ <TargetFramework>net8.0-windows</TargetFramework>
+ <UseWPF>true</UseWPF>
+ <ApplicationIcon>..\app_icon.ico</ApplicationIcon>
+ <AssemblyName>LDAssistant</AssemblyName>
+ <RootNamespace>LDAssistant</RootNamespace>
+ <Nullable>disable</Nullable>
+ <ImplicitUsings>enable</ImplicitUsings>
+ <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	<PublishSingleFile>false</PublishSingleFile>
+	<SelfContained>true</SelfContained>
+	<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+	<PublishTrimmed>false</PublishTrimmed>
+	<IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+	<VersionPrefix>3.1.0</VersionPrefix>
+	<AssemblyVersion>3.1.0.0</AssemblyVersion>
+	<FileVersion>3.1.0.0</FileVersion>
+ </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.*" />
-    <PackageReference Include="PdfiumViewer" Version="2.13.0.0" />
-    <PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.1.9" />
-    <PackageReference Include="DocumentFormat.OpenXml" Version="3.0.*" />
-    <PackageReference Include="ClosedXML" Version="0.102.*" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.30" />
+    <PackageReference Include="PdfiumViewer" Version="2.13.0.0" NoWarn="NU1701" />
+    <PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.1.25.246" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.*" />
+    <PackageReference Include="ClosedXML" Version="0.104.2" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.*" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.*" />
  <PackageReference Include="ACadSharp" Version="3.*" />
+ <PackageReference Include="SkiaSharp" Version="3.119.1" />
+ <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.1" />
+ <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45" />
   </ItemGroup>
 
 <!-- 确保原生 pdfium.dll 被复制到输出目录根目录（PdfiumViewer查找路径） -->
@@ -38,13 +44,17 @@
 </Target>
 
 	<ItemGroup>
-	<None Update="..\standards.db" Condition="Exists('..\standards.db')">
+	<Content Include="..\standards.db" Condition="Exists('..\standards.db')">
 	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	<Link>standards.db</Link>
-	</None>
+	</Content>
 	<None Update="..\app_icon.ico">
 	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	<Link>app_icon.ico</Link>
+	</None>
+	<None Update="version.json">
+	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	<Link>version.json</Link>
 	</None>
 	</ItemGroup>
 
@@ -61,6 +71,18 @@
 	<None Include="RapidOCR\**\*">
 	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	<Link>RapidOCR\%(RecursiveDir)%(Filename)%(Extension)</Link>
+	</None>
+	</ItemGroup>
+
+	<!-- file-viewer 静态资源（file-viewer 组件 + worker/wasm/字体） -->
+	<ItemGroup>
+	<None Include="file-viewer\**\*">
+	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	<Link>file-viewer\%(RecursiveDir)%(Filename)%(Extension)</Link>
+	</None>
+	<None Include="Html\**\*">
+	<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	<Link>Html\%(RecursiveDir)%(Filename)%(Extension)</Link>
 	</None>
 	</ItemGroup>
 

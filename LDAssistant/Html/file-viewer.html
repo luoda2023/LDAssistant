@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文件预览</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #f5f5f5; font-family: -apple-system, "Microsoft YaHei", sans-serif; }
+  #viewer { width: 100vw; height: 100vh; display: block; }
+  #tip { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #888; font-size: 14px; text-align: center; }
+  flyfish-file-viewer { width: 100vw; height: 100vh; display: block; }
+</style>
+</head>
+<body>
+  <div id="tip">等待打开文件…</div>
+  <flyfish-file-viewer id="viewer"></flyfish-file-viewer>
+  <script src="../file-viewer/flyfish-file-viewer-web-full.iife.js"></script>
+  <script>
+ (function () {
+ const viewer = document.getElementById('viewer');
+ const tip = document.getElementById('tip');
+
+ // 资产基路径：file-viewer/ 目录在 Html 的上一级，WebView2 虚拟主机映射后会生效
+ // file-viewer 组件会自动从相对路径 file-viewer/ 加载 worker/wasm/字体
+ // 但因为我们把 html 放在 Html/ 子目录，资产在 ../file-viewer/，需要设置 assetBase
+ // 通过 window.__fileViewerOptions__ 注入选项（C# 端 postMessage 前可修改）
+
+ // C# 端通过 postMessage 传入 { type:'preview', fileData, fileName, fileType }
+ // fileData 是文件内容的 base64（FileViewerMessageReceived 里转换），
+ // 组件元素支持 file / buffer / src 三种输入，这里转成 File 对象喂给它。
+ window.chrome.webview.addEventListener('message', function (event) {
+ const msg = event.data;
+ if (!msg) return;
+ if (msg.type === 'preview') {
+ tip.style.display = 'none';
+ try {
+   if (msg.fileData) {
+     const bin = atob(msg.fileData);
+     const bytes = new Uint8Array(bin.length);
+     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+     const file = new File([bytes], msg.fileName || 'preview.bin');
+     viewer.source = {
+       file: file,
+       filename: msg.fileName || 'preview.bin',
+       type: msg.fileType || undefined
+     };
+   } else if (msg.fileUrl) {
+     viewer.setAttribute('src', msg.fileUrl);
+     if (msg.fileName) viewer.setAttribute('filename', msg.fileName);
+   }
+ } catch (e) {
+   tip.textContent = '预览失败：' + (e && e.message ? e.message : e);
+   tip.style.display = 'block';
+ }
+ } else if (msg.type === 'clear') {
+ tip.style.display = 'block';
+ tip.textContent = '等待打开文件…';
+ viewer.removeAttribute('src');
+ }
+ });
+
+ // 通知 C# 端 HTML 已就绪
+ if (window.chrome && window.chrome.webview) {
+ window.chrome.webview.postMessage({ type: 'ready' });
+ }
+ })();
+  </script>
+</body>
+</html>

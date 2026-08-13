@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>欢迎</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; }
+  body {
+    font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: #F7F8FA;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* 细网格蓝图背景 */
+  .grid-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(37,99,235,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(37,99,235,.05) 1px, transparent 1px);
+    background-size: 28px 28px;
+    -webkit-mask-image: radial-gradient(ellipse 70% 62% at 50% 42%, #000 40%, transparent 100%);
+            mask-image: radial-gradient(ellipse 70% 62% at 50% 42%, #000 40%, transparent 100%);
+  }
+  .wrap { position: relative; text-align: center; user-select: none; }
+  .illus { margin: 0 auto 26px; width: 300px; }
+  h1 { font-size: 26px; font-weight: 700; color: #1E293B; letter-spacing: .5px; }
+  h1 span { color: #2563EB; }
+  .tag { margin-top: 10px; font-size: 14px; color: #64748B; }
+  .chips { margin-top: 26px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .chip {
+    font-size: 12.5px; color: #334155; background: #fff;
+    border: 1px solid #E2E8F0; border-radius: 20px; padding: 6px 14px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.05);
+  }
+  .chip b { color: #2563EB; font-weight: 600; }
+  .hint { margin-top: 30px; font-size: 12px; color: #94A3B8; }
+  .hint kbd {
+    background: #fff; border: 1px solid #CBD5E1; border-bottom-width: 2px;
+    border-radius: 4px; padding: 1px 7px; font-size: 11px; color: #475569;
+  }
+</style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="wrap">
+    <!-- 矢量插画：蓝图图纸 + 放大镜 + 工程元素 -->
+    <svg class="illus" viewBox="0 0 300 190" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- 背景图纸 -->
+      <g>
+        <rect x="46" y="24" width="196" height="142" rx="6" fill="#FFFFFF" stroke="#C7D4EA" stroke-width="1.5"/>
+        <!-- 图纸内网格 -->
+        <path d="M60 64 H228 M60 94 H228 M60 124 H228 M92 38 V152 M126 38 V152 M160 38 V152 M194 38 V152" stroke="#E8EEF8" stroke-width="1"/>
+        <!-- 折角 -->
+        <path d="M200 24 L200 48 L224 48" fill="#EEF3FB" stroke="#C7D4EA" stroke-width="1.5" stroke-linejoin="round"/>
+        <!-- 图纸上的工程图：房子 + 尺寸线 -->
+        <g stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <path d="M118 118 L138 100 L158 118 Z"/>
+          <path d="M126 118 V108 H150 V118"/>
+          <path d="M82 132 H108 V110 H82 Z"/>
+          <path d="M172 118 V96 H196 V118"/>
+          <path d="M178 132 V124 H192 V132"/>
+          <circle cx="212" cy="106" r="6" stroke-width="1.8"/>
+        </g>
+        <!-- 尺寸标注 -->
+        <g stroke="#94A3B8" stroke-width="1" stroke-dasharray="3,3">
+          <line x1="108" y1="38" x2="108" y2="134"/>
+          <line x1="60" y1="132" x2="226" y2="132"/>
+        </g>
+        <circle cx="96" cy="46" r="5" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.2"/>
+        <circle cx="96" cy="46" r="1.6" fill="#2563EB"/>
+        <text x="74" y="52" font-size="9" fill="#94A3B8" font-family="sans-serif">A-01</text>
+        <!-- 文字块示意 -->
+        <g>
+          <rect x="82" y="140" width="46" height="5" rx="2.5" fill="#DBEAFE"/>
+          <rect x="136" y="140" width="36" height="5" rx="2.5" fill="#E2E8F0"/>
+        </g>
+      </g>
+      <!-- 放大镜 -->
+      <g>
+        <circle cx="216" cy="66" r="34" fill="#FFFFFF" stroke="#3B82F6" stroke-width="4"/>
+        <circle cx="216" cy="66" r="25" fill="#DBEAFE"/>
+        <path d="M188 88 L178 98" stroke="#3B82F6" stroke-width="6" stroke-linecap="round"/>
+        <path d="M216 44 v44 M194 66 h44" stroke="#93C5FD" stroke-width="1.2" opacity=".6"/>
+        <!-- 镜内文字检测示意 -->
+        <rect x="201" y="57" width="30" height="5" rx="2.5" fill="#2563EB" opacity=".85"/>
+        <rect x="201" y="68" width="20" height="4" rx="2" fill="#60A5FA" opacity=".7"/>
+      </g>
+      <!-- 浮动的类型徽标 -->
+      <g>
+        <rect x="58" y="12" width="40" height="26" rx="5" fill="#2563EB"/>
+        <text x="78" y="30" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" font-family="Georgia, serif">PDF</text>
+        <rect x="216" y="128" width="44" height="26" rx="5" fill="#FFFFFF" stroke="#C7D4EA" stroke-width="1.2"/>
+        <text x="238" y="146" font-size="12" fill="#2563EB" text-anchor="middle" font-family="Georgia, serif">CAD</text>
+        <circle cx="104" cy="168" r="4" fill="#3B82F6"/>
+        <circle cx="196" cy="14" r="4" fill="#60A5FA"/>
+      </g>
+    </svg>
+
+    <h1>欢迎使用 <span>LUODA 助理</span></h1>
+    <div class="tag">工程文档智能查看 · 全文识别 · 规范检查 · AI 问答</div>
+
+    <div class="chips">
+      <div class="chip"><b>PDF</b> 图纸</div>
+      <div class="chip"><b>Word</b> 文档</div>
+      <div class="chip"><b>Excel</b> 表格</div>
+      <div class="chip"><b>CAD</b> 图纸</div>
+      <div class="chip"><b>图片</b> OCR</div>
+      <div class="chip"><b>文本</b> 代码</div>
+    </div>
+
+    <div class="hint">点击顶部工具栏 <kbd>打开</kbd> 或直接拖拽文件到窗口，开始预览</div>
+  </div>
+</body>
+</html>
